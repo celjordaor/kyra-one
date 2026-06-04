@@ -1,4 +1,5 @@
-import { useSyncExternalStore } from "react";
+import { useSyncExternalStore, useEffect } from "react";
+import { supabase } from "./supabase";
 
 export type CategoryType = "expense" | "income";
 
@@ -9,41 +10,25 @@ export type Category = {
   active: boolean;
 };
 
-const STORAGE_KEY = "finance.categories.v2";
+const DEFAULT_CATEGORIES = [
+  { name: "Alimentação", type: "expense" as CategoryType },
+  { name: "Transporte", type: "expense" as CategoryType },
+  { name: "Moradia", type: "expense" as CategoryType },
+  { name: "Entretenimento", type: "expense" as CategoryType },
+  { name: "Saúde", type: "expense" as CategoryType },
+  { name: "Educação", type: "expense" as CategoryType },
+  { name: "Salário", type: "income" as CategoryType },
+  { name: "Renda extra", type: "income" as CategoryType },
+  { name: "Investimentos", type: "income" as CategoryType },
+  { name: "Outros", type: "expense" as CategoryType },
+];
 
-const DEFAULTS: Category[] = [
-  { name: "Alimentação", type: "expense" },
-  { name: "Transporte", type: "expense" },
-  { name: "Moradia", type: "expense" },
-  { name: "Entretenimento", type: "expense" },
-  { name: "Saúde", type: "expense" },
-  { name: "Educação", type: "expense" },
-  { name: "Salário", type: "income" },
-  { name: "Renda extra", type: "income" },
-  { name: "Investimentos", type: "income" },
-  { name: "Outros", type: "expense" },
-].map((c) => ({ id: crypto.randomUUID(), name: c.name, type: c.type as CategoryType, active: true }));
-
-let cache: Category[] = load();
+let cache: Category[] = [];
+let initialized = false;
+let currentUserId: string | null = null;
 const listeners = new Set<() => void>();
 
-function load(): Category[] {
-  if (typeof window === "undefined") return DEFAULTS;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULTS;
-    const parsed = JSON.parse(raw) as Category[];
-    if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULTS;
-    return parsed;
-  } catch {
-    return DEFAULTS;
-  }
-}
-
-function persist() {
-  if (typeof window !== "undefined") {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(cache));
-  }
+function notify() {
   listeners.forEach((l) => l());
 }
 
@@ -52,35 +37,99 @@ function subscribe(cb: () => void) {
   return () => listeners.delete(cb);
 }
 
-export function useCategories(): Category[] {
-  return useSyncExternalStore(
-    subscribe,
-    () => cache,
-    () => DEFAULTS,
-  );
+async function seedDefaults(userId: string) {
+  const defaults = DEFAULT_CATEGORIES.map((c) => ({
+    id: crypto.randomUUID(),
+    user_id: userId,
+    name: c.name,
+    type: c.type,
+    active: true,
+  }));
+  await supabase.from("categories").insert(defaults);
+  return defaults.map(({ user_id: _uid, ...rest }) => rest) as Category[];
 }
 
-export function addCategory(name: string, type: CategoryType) {
+async function loadFromSupabase() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  if (initialized && currentUserId === user.id) return;
+
+  const { data, error } = await supabase
+    .from("categories")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("name");
+
+  if (!error) {
+    if (!data || data.length === 0) {
+      const seeded = await seedDefaults(user.id);
+      cache = seeded;
+    } else {
+      cache = data.map((r) => ({
+        id: r.id as string,
+        name: r.name as string,
+        type: r.type as CategoryType,
+        active: r.active as boolean,
+      }));
+    }
+    initialized = true;
+    currentUserId = user.id;
+    notify();
+  }
+}
+
+supabase.auth.onAuthStateChange((event) => {
+  if (event === "SIGNED_OUT") {
+    cache = [];
+    initialized = false;
+    currentUserId = null;
+    notify();
+  }
+});
+
+export function useCategories(): Category[] {
+  useEffect(() => { loadFromSupabase(); }, []);
+  return useSyncExternalStore(subscribe, () => cache, () => []);
+}
+
+export async function addCategory(name: string, type: CategoryType) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
   const trimmed = name.trim();
   if (!trimmed) return;
   if (cache.some((c) => c.name.toLowerCase() === trimmed.toLowerCase() && c.type === type)) return;
-  cache = [...cache, { id: crypto.randomUUID(), name: trimmed, type, active: true }];
-  persist();
+
+  const newCat: Category = { id: crypto.randomUUID(), name: trimmed, type, active: true };
+  cache = [...cache, newCat];
+  notify();
+
+  await supabase.from("categories").insert([{ ...newCat, user_id: user.id }]);
 }
 
-export function updateCategory(id: string, name: string, type?: CategoryType) {
+export async function updateCategory(id: string, name: string, type?: CategoryType) {
   const trimmed = name.trim();
   if (!trimmed) return;
+
   cache = cache.map((c) => (c.id === id ? { ...c, name: trimmed, type: type ?? c.type } : c));
-  persist();
+  notify();
+
+  await supabase.from("categories").update({
+    name: trimmed,
+    ...(type ? { type } : {}),
+  }).eq("id", id);
 }
 
-export function toggleCategory(id: string) {
+export async function toggleCategory(id: string) {
   cache = cache.map((c) => (c.id === id ? { ...c, active: !c.active } : c));
-  persist();
+  notify();
+
+  const updated = cache.find((c) => c.id === id);
+  if (updated) await supabase.from("categories").update({ active: updated.active }).eq("id", id);
 }
 
-export function deleteCategory(id: string) {
+export async function deleteCategory(id: string) {
   cache = cache.filter((c) => c.id !== id);
-  persist();
+  notify();
+  await supabase.from("categories").delete().eq("id", id);
 }

@@ -1,8 +1,9 @@
-import { useSyncExternalStore } from "react";
+import { useSyncExternalStore, useEffect } from "react";
+import { supabase } from "./supabase";
 
 export type Budget = {
   id: string;
-  category: string; // expense category name
+  category: string;
   limit: number;
   period: "Mensal";
 };
@@ -24,137 +25,215 @@ export type GoalContribution = {
   note?: string;
 };
 
-const BUDGETS_KEY = "finance.budgets.v1";
-const GOALS_KEY = "finance.goals.v1";
-const CONTRIB_KEY = "finance.goal-contribs.v1";
-
-const SEED_BUDGETS: Budget[] = [
-  { id: "b1", category: "Alimentação", limit: 1200, period: "Mensal" },
-  { id: "b2", category: "Transporte", limit: 400, period: "Mensal" },
-  { id: "b3", category: "Entretenimento", limit: 200, period: "Mensal" },
-  { id: "b4", category: "Moradia", limit: 1800, period: "Mensal" },
-];
-
-const SEED_GOALS: Goal[] = [
-  { id: "g1", name: "Reserva de Emergência", target: 15000, current: 6200, deadline: "2025-12", createdAt: "2025-01-01" },
-  { id: "g2", name: "Viagem para o Nordeste", target: 5000, current: 1800, deadline: "2026-07", createdAt: "2025-03-01" },
-  { id: "g3", name: "Novo Notebook", target: 6000, current: 2400, deadline: "2026-03", createdAt: "2025-02-01" },
-];
-
-let budgets: Budget[] = loadList(BUDGETS_KEY, SEED_BUDGETS);
-let goals: Goal[] = loadList(GOALS_KEY, SEED_GOALS);
-let contributions: GoalContribution[] = loadList(CONTRIB_KEY, []);
+let budgets: Budget[] = [];
+let goals: Goal[] = [];
+let contributions: GoalContribution[] = [];
+let initialized = false;
+let currentUserId: string | null = null;
 
 const bListeners = new Set<() => void>();
 const gListeners = new Set<() => void>();
 const cListeners = new Set<() => void>();
 
-function loadList<T>(key: string, seed: T[]): T[] {
-  if (typeof window === "undefined") return seed;
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return seed;
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return seed;
-    return parsed;
-  } catch {
-    return seed;
+const notifyB = () => bListeners.forEach((l) => l());
+const notifyG = () => gListeners.forEach((l) => l());
+const notifyC = () => cListeners.forEach((l) => l());
+
+const subB = (cb: () => void) => { bListeners.add(cb); return () => bListeners.delete(cb); };
+const subG = (cb: () => void) => { gListeners.add(cb); return () => gListeners.delete(cb); };
+const subC = (cb: () => void) => { cListeners.add(cb); return () => cListeners.delete(cb); };
+
+async function loadFromSupabase() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  if (initialized && currentUserId === user.id) return;
+
+  const [bRes, gRes, cRes] = await Promise.all([
+    supabase.from("budgets").select("*").eq("user_id", user.id),
+    supabase.from("goals").select("*").eq("user_id", user.id),
+    supabase.from("goal_contributions").select("*").eq("user_id", user.id),
+  ]);
+
+  if (!bRes.error) {
+    budgets = (bRes.data ?? []).map((r) => ({
+      id: r.id as string,
+      category: r.category as string,
+      limit: r.limit_amount as number,
+      period: "Mensal" as const,
+    }));
   }
+
+  if (!gRes.error) {
+    goals = (gRes.data ?? []).map((r) => ({
+      id: r.id as string,
+      name: r.name as string,
+      target: r.target as number,
+      current: r.current as number,
+      deadline: r.deadline as string,
+      createdAt: r.created_date as string,
+    }));
+  }
+
+  if (!cRes.error) {
+    contributions = (cRes.data ?? []).map((r) => ({
+      id: r.id as string,
+      goalId: r.goal_id as string,
+      amount: r.amount as number,
+      date: r.date as string,
+      note: (r.note as string | null) ?? undefined,
+    }));
+  }
+
+  initialized = true;
+  currentUserId = user.id;
+  notifyB(); notifyG(); notifyC();
 }
 
-function persist<T>(key: string, val: T[], set: Set<() => void>) {
-  if (typeof window !== "undefined") {
-    try {
-      localStorage.setItem(key, JSON.stringify(val));
-    } catch {
-      /* ignore */
-    }
+supabase.auth.onAuthStateChange((event) => {
+  if (event === "SIGNED_OUT") {
+    budgets = []; goals = []; contributions = [];
+    initialized = false; currentUserId = null;
+    notifyB(); notifyG(); notifyC();
   }
-  set.forEach((l) => l());
-}
+});
+
+// ── Hooks ──────────────────────────────────────────────────────────────────
 
 export function useBudgets(): Budget[] {
-  return useSyncExternalStore(
-    (cb) => {
-      bListeners.add(cb);
-      return () => bListeners.delete(cb);
-    },
-    () => budgets,
-    () => SEED_BUDGETS,
-  );
+  useEffect(() => { loadFromSupabase(); }, []);
+  return useSyncExternalStore(subB, () => budgets, () => []);
 }
 
 export function useGoals(): Goal[] {
-  return useSyncExternalStore(
-    (cb) => {
-      gListeners.add(cb);
-      return () => gListeners.delete(cb);
-    },
-    () => goals,
-    () => SEED_GOALS,
-  );
+  useEffect(() => { loadFromSupabase(); }, []);
+  return useSyncExternalStore(subG, () => goals, () => []);
 }
 
 export function useGoalContributions(): GoalContribution[] {
-  return useSyncExternalStore(
-    (cb) => {
-      cListeners.add(cb);
-      return () => cListeners.delete(cb);
-    },
-    () => contributions,
-    () => [],
-  );
+  useEffect(() => { loadFromSupabase(); }, []);
+  return useSyncExternalStore(subC, () => contributions, () => []);
 }
 
-// Budgets
-export function addBudget(b: Omit<Budget, "id">) {
-  budgets = [...budgets, { ...b, id: crypto.randomUUID() }];
-  persist(BUDGETS_KEY, budgets, bListeners);
+// ── Budget mutations ───────────────────────────────────────────────────────
+
+export async function addBudget(b: Omit<Budget, "id">) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const newBudget: Budget = { id: crypto.randomUUID(), ...b };
+  budgets = [...budgets, newBudget];
+  notifyB();
+
+  await supabase.from("budgets").insert([{
+    id: newBudget.id,
+    user_id: user.id,
+    category: b.category,
+    limit_amount: b.limit,
+    period: b.period,
+  }]);
 }
-export function updateBudget(id: string, patch: Partial<Omit<Budget, "id">>) {
+
+export async function updateBudget(id: string, patch: Partial<Omit<Budget, "id">>) {
   budgets = budgets.map((b) => (b.id === id ? { ...b, ...patch } : b));
-  persist(BUDGETS_KEY, budgets, bListeners);
-}
-export function deleteBudget(id: string) {
-  budgets = budgets.filter((b) => b.id !== id);
-  persist(BUDGETS_KEY, budgets, bListeners);
+  notifyB();
+
+  await supabase.from("budgets").update({
+    ...(patch.category !== undefined && { category: patch.category }),
+    ...(patch.limit !== undefined && { limit_amount: patch.limit }),
+    ...(patch.period !== undefined && { period: patch.period }),
+  }).eq("id", id);
 }
 
-// Goals
-export function addGoal(g: Omit<Goal, "id" | "createdAt" | "current"> & { current?: number }) {
+export async function deleteBudget(id: string) {
+  budgets = budgets.filter((b) => b.id !== id);
+  notifyB();
+  await supabase.from("budgets").delete().eq("id", id);
+}
+
+// ── Goal mutations ─────────────────────────────────────────────────────────
+
+export async function addGoal(g: { name: string; target: number; current: number; deadline: string }) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
   const today = new Date().toISOString().slice(0, 10);
-  goals = [
-    ...goals,
-    { ...g, current: g.current ?? 0, id: crypto.randomUUID(), createdAt: today },
-  ];
-  persist(GOALS_KEY, goals, gListeners);
+  const newGoal: Goal = { id: crypto.randomUUID(), createdAt: today, ...g };
+  goals = [...goals, newGoal];
+  notifyG();
+
+  await supabase.from("goals").insert([{
+    id: newGoal.id,
+    user_id: user.id,
+    name: g.name,
+    target: g.target,
+    current: g.current,
+    deadline: g.deadline,
+    created_date: today,
+  }]);
 }
-export function updateGoal(id: string, patch: Partial<Omit<Goal, "id" | "createdAt">>) {
+
+export async function updateGoal(id: string, patch: Partial<Omit<Goal, "id" | "createdAt">>) {
   goals = goals.map((g) => (g.id === id ? { ...g, ...patch } : g));
-  persist(GOALS_KEY, goals, gListeners);
+  notifyG();
+
+  await supabase.from("goals").update({
+    ...(patch.name !== undefined && { name: patch.name }),
+    ...(patch.target !== undefined && { target: patch.target }),
+    ...(patch.current !== undefined && { current: patch.current }),
+    ...(patch.deadline !== undefined && { deadline: patch.deadline }),
+  }).eq("id", id);
 }
-export function deleteGoal(id: string) {
+
+export async function deleteGoal(id: string) {
   goals = goals.filter((g) => g.id !== id);
   contributions = contributions.filter((c) => c.goalId !== id);
-  persist(GOALS_KEY, goals, gListeners);
-  persist(CONTRIB_KEY, contributions, cListeners);
+  notifyG(); notifyC();
+  await supabase.from("goals").delete().eq("id", id);
 }
 
-// Contributions
-export function addContribution(c: Omit<GoalContribution, "id">) {
-  contributions = [...contributions, { ...c, id: crypto.randomUUID() }];
-  goals = goals.map((g) => (g.id === c.goalId ? { ...g, current: g.current + c.amount } : g));
-  persist(CONTRIB_KEY, contributions, cListeners);
-  persist(GOALS_KEY, goals, gListeners);
+// ── Contribution mutations ─────────────────────────────────────────────────
+
+export async function addContribution(c: Omit<GoalContribution, "id">) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const newContrib: GoalContribution = { ...c, id: crypto.randomUUID() };
+  contributions = [...contributions, newContrib];
+
+  const updatedGoal = goals.find((g) => g.id === c.goalId);
+  const newCurrent = (updatedGoal?.current ?? 0) + c.amount;
+  goals = goals.map((g) =>
+    g.id === c.goalId ? { ...g, current: newCurrent } : g
+  );
+  notifyG(); notifyC();
+
+  await supabase.from("goal_contributions").insert([{
+    id: newContrib.id,
+    user_id: user.id,
+    goal_id: c.goalId,
+    amount: c.amount,
+    date: c.date,
+    note: c.note ?? null,
+  }]);
+  await supabase.from("goals").update({ current: newCurrent }).eq("id", c.goalId);
 }
-export function deleteContribution(id: string) {
-  const c = contributions.find((x) => x.id === id);
-  if (!c) return;
-  contributions = contributions.filter((x) => x.id !== id);
-  goals = goals.map((g) => (g.id === c.goalId ? { ...g, current: Math.max(0, g.current - c.amount) } : g));
-  persist(CONTRIB_KEY, contributions, cListeners);
-  persist(GOALS_KEY, goals, gListeners);
+
+export async function deleteContribution(id: string) {
+  const contrib = contributions.find((c) => c.id === id);
+  if (contrib) {
+    const newCurrent = Math.max(0, (goals.find((g) => g.id === contrib.goalId)?.current ?? 0) - contrib.amount);
+    goals = goals.map((g) =>
+      g.id === contrib.goalId ? { ...g, current: newCurrent } : g
+    );
+    notifyG();
+    await supabase.from("goals").update({ current: newCurrent }).eq("id", contrib.goalId);
+  }
+  contributions = contributions.filter((c) => c.id !== id);
+  notifyC();
+  await supabase.from("goal_contributions").delete().eq("id", id);
 }
+
+// ── Utilitários ────────────────────────────────────────────────────────────
 
 export function formatBRL(value: number): string {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
