@@ -24,7 +24,7 @@ export type UserSubscription = {
 };
 
 async function fetchSubscription(): Promise<UserSubscription | null> {
-  await supabase.rpc("expire_grace_periods").catch(() => null);
+  try { await supabase.rpc("expire_grace_periods"); } catch (_) { /* ignora */ }
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
