@@ -14,7 +14,7 @@ exports.handler = async (event) => {
     avancado:  { name: "Avançado",  monthly: 19.90, annual: 199.00 },
   };
 
-  const plan  = PLANS[planId];
+  const plan = PLANS[planId];
   if (!plan) return { statusCode: 400, body: JSON.stringify({ error: "Plano inválido" }) };
 
   const amount  = billingCycle === "annual" ? plan.annual : plan.monthly;
@@ -25,16 +25,14 @@ exports.handler = async (event) => {
 
   if (!token) return { statusCode: 500, body: JSON.stringify({ error: "MP_ACCESS_TOKEN ausente" }) };
 
-  // Datas
   const startDate = new Date();
-  startDate.setMinutes(startDate.getMinutes() + 5); // 5min no futuro
+  startDate.setMinutes(startDate.getMinutes() + 5);
   const endDate = new Date();
-  endDate.setFullYear(endDate.getFullYear() + 10); // 10 anos
+  endDate.setFullYear(endDate.getFullYear() + 10);
 
   const body = {
     reason: `JadeOne - Plano ${plan.name} ${label}`,
     external_reference: userId,
-    payer_email: userEmail,
     back_url: `${siteUrl}/assinatura-sucesso`,
     auto_recurring: {
       frequency: freq,
@@ -47,7 +45,7 @@ exports.handler = async (event) => {
     status: "pending",
   };
 
-  console.log("Enviando para MP:", JSON.stringify(body));
+  console.log("Enviando para MP:", JSON.stringify({ planId, billingCycle, userEmail, amount }));
 
   try {
     const mpRes = await fetch("https://api.mercadopago.com/preapproval", {
@@ -73,7 +71,7 @@ exports.handler = async (event) => {
       };
     }
 
-    // Salvar ID no Supabase
+    // Salvar ID da assinatura MP no banco
     if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
       await fetch(
         `${process.env.SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${userId}`,
@@ -98,7 +96,7 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ checkout_url: mpData.init_point, mp_id: mpData.id }),
+      body: JSON.stringify({ checkout_url: mpData.init_point }),
     };
   } catch (err) {
     console.error("Erro interno:", err);
