@@ -79,15 +79,18 @@ function DashboardPage() {
   const router = useRouter();
   const [userName, setUserName] = useState("");
 
+  const [isAdmin, setIsAdmin] = useState(false);
+
   useEffect(() => {
     if (!user) return;
     supabase
       .from("profiles")
-      .select("name")
+      .select("name, role")
       .eq("id", user.id)
       .single()
       .then(({ data }) => {
         setUserName(data?.name ?? user.user_metadata?.name ?? "");
+        setIsAdmin(data?.role === "admin");
       });
   }, [user]);
 
@@ -219,6 +222,20 @@ function DashboardPage() {
                 <KeyRound className="h-4 w-4" />
                 Trocar senha
               </DropdownMenuItem>
+              {isAdmin && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => router.navigate({ to: "/admin" })}
+                    className="cursor-pointer gap-2 text-primary"
+                  >
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    </svg>
+                    Painel Admin
+                  </DropdownMenuItem>
+                </>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={handleSignOut}

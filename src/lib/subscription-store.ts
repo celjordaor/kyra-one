@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "./supabase";
 
 export type PlanId = "essencial" | "avancado";
-export type SubscriptionStatus = "trial" | "active" | "inactive" | "cancelled";
+export type SubscriptionStatus = "trial" | "active" | "past_due" | "inactive" | "cancelled";
 
 export type UserSubscription = {
   id: string;
@@ -10,11 +10,17 @@ export type UserSubscription = {
   planName: string;
   price: number;
   status: SubscriptionStatus;
+  effectiveStatus: SubscriptionStatus; // considera trial expirado
   trialEndsAt: Date | null;
+  gracePeriodEndsAt: Date | null;
   periodEnd: Date | null;
   isActive: boolean;
   isAdvancado: boolean;
   daysLeftInTrial: number | null;
+  daysLeftInGrace: number | null;
+  isTrialExpired: boolean;
+  isBlocked: boolean; // inactive ou cancelled ou trial expirado
+  needsAttention: boolean; // past_due
 };
 
 export function useSubscription() {
@@ -22,6 +28,9 @@ export function useSubscription() {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    // Expirar carências vencidas no servidor
+    await supabase.rpc("expire_grace_periods");
+
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
 
@@ -34,10 +43,28 @@ export function useSubscription() {
     if (!error && data) {
       const plan = data.plan as { id: string; name: string; price: number };
       const trialEndsAt = data.trial_ends_at ? new Date(data.trial_ends_at) : null;
-      const isActive = data.status === "active" || data.status === "trial";
-      const daysLeft = trialEndsAt
-        ? Math.max(0, Math.ceil((trialEndsAt.getTime() - Date.now()) / 86_400_000))
+      const gracePeriodEndsAt = data.grace_period_ends_at ? new Date(data.grace_period_ends_at) : null;
+      const now = Date.now();
+
+      const daysLeftInTrial = trialEndsAt
+        ? Math.max(0, Math.ceil((trialEndsAt.getTime() - now) / 86_400_000))
         : null;
+
+      const daysLeftInGrace = gracePeriodEndsAt
+        ? Math.max(0, Math.ceil((gracePeriodEndsAt.getTime() - now) / 86_400_000))
+        : null;
+
+      const isTrialExpired =
+        data.status === "trial" && trialEndsAt !== null && trialEndsAt.getTime() < now;
+
+      // Status efetivo: trial expirado = inactive
+      const effectiveStatus: SubscriptionStatus = isTrialExpired
+        ? "inactive"
+        : (data.status as SubscriptionStatus);
+
+      const isActive = effectiveStatus === "active" || effectiveStatus === "trial";
+      const isBlocked = effectiveStatus === "inactive" || effectiveStatus === "cancelled";
+      const needsAttention = effectiveStatus === "past_due";
 
       setSubscription({
         id: data.id,
@@ -45,11 +72,17 @@ export function useSubscription() {
         planName: plan.name,
         price: plan.price,
         status: data.status as SubscriptionStatus,
+        effectiveStatus,
         trialEndsAt,
+        gracePeriodEndsAt,
         periodEnd: data.current_period_end ? new Date(data.current_period_end) : null,
         isActive,
         isAdvancado: plan.id === "avancado" && isActive,
-        daysLeftInTrial: data.status === "trial" ? daysLeft : null,
+        daysLeftInTrial: data.status === "trial" ? daysLeftInTrial : null,
+        daysLeftInGrace: data.status === "past_due" ? daysLeftInGrace : null,
+        isTrialExpired,
+        isBlocked,
+        needsAttention,
       });
     }
     setLoading(false);
@@ -57,7 +90,6 @@ export function useSubscription() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Simula seleção de plano (será substituído pelo gateway de pagamento)
   const selectPlan = async (planId: PlanId) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;

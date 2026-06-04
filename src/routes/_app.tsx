@@ -2,6 +2,9 @@ import { createFileRoute, Outlet, Link, useLocation, Navigate } from "@tanstack/
 import { Home, Receipt, Target, User, PlusCircle } from "lucide-react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/lib/auth";
+import { useSubscription } from "@/lib/subscription-store";
+import { GracePeriodBanner } from "@/components/grace-period-banner";
+import { PaymentRequired } from "@/components/payment-required";
 
 export const Route = createFileRoute("/_app")({
   component: AppLayout,
@@ -17,10 +20,10 @@ const navItems = [
 
 function AppLayout() {
   const { pathname } = useLocation();
-  const { session, loading } = useAuth();
+  const { session, loading: authLoading } = useAuth();
+  const { subscription, loading: subLoading } = useSubscription();
 
-  // Enquanto verifica a sessão, mostra tela em branco
-  if (loading) {
+  if (authLoading || subLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
@@ -28,14 +31,21 @@ function AppLayout() {
     );
   }
 
-  // Se não há sessão, redireciona para o login
-  if (!session) {
-    return <Navigate to="/login" />;
+  if (!session) return <Navigate to="/login" />;
+
+  // Usuário bloqueado: tela de pagamento obrigatório
+  if (subscription?.isBlocked) {
+    return <PaymentRequired subscription={subscription} />;
   }
 
   return (
     <TooltipProvider>
       <div className="flex min-h-screen flex-col bg-background">
+        {/* Banner de carência para usuários inadimplentes */}
+        {subscription?.needsAttention && (
+          <GracePeriodBanner subscription={subscription} />
+        )}
+
         <main className="flex-1 pb-20 overflow-y-auto">
           <Outlet />
         </main>
