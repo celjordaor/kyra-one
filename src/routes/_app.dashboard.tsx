@@ -1,8 +1,17 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { TrendingUp, TrendingDown, Wallet, PiggyBank, ChevronLeft, ChevronRight, CalendarDays, Eye, EyeOff, AlertCircle, Check } from "lucide-react";
+import { TrendingUp, TrendingDown, PiggyBank, ChevronLeft, ChevronRight, CalendarDays, Eye, EyeOff, AlertCircle, Check, User, LogOut, KeyRound } from "lucide-react";
 import { useTransactions, parseBrDate, toggleSettled } from "@/lib/transactions-store";
 import { toast } from "sonner";
+import { useAuth } from "@/lib/auth";
+import { supabase } from "@/lib/supabase";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export const Route = createFileRoute("/_app/dashboard")({
   head: () => ({
@@ -57,7 +66,36 @@ function loadNotifs(): Notifs {
   }
 }
 
+
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return "Bom dia";
+  if (h < 18) return "Boa tarde";
+  return "Boa noite";
+}
+
 function DashboardPage() {
+  const { user, signOut } = useAuth();
+  const router = useRouter();
+  const [userName, setUserName] = useState("");
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("profiles")
+      .select("name")
+      .eq("id", user.id)
+      .single()
+      .then(({ data }) => {
+        setUserName(data?.name ?? user.user_metadata?.name ?? "");
+      });
+  }, [user]);
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.navigate({ to: "/login" });
+  };
+
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
@@ -133,10 +171,12 @@ function DashboardPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-muted-foreground">Bom dia,</p>
-          <h1 className="text-lg font-bold text-foreground">João Silva</h1>
+          <p className="text-sm text-muted-foreground">{getGreeting()},</p>
+          <h1 className="text-lg font-bold text-foreground">
+            {userName || "..."}
+          </h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setShowValues((s) => !s)}
             className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary text-foreground transition-colors hover:bg-secondary/80"
@@ -144,9 +184,51 @@ function DashboardPage() {
           >
             {showValues ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
           </button>
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary">
-            <Wallet className="h-5 w-5 text-primary" />
-          </div>
+
+          {/* Avatar com menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-xl shadow-sm ring-2 ring-primary/30 transition-all hover:ring-primary/50 focus:outline-none"
+                aria-label="Menu do usuário"
+              >
+                🐶
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <div className="px-3 py-2">
+                <p className="text-xs font-medium text-foreground truncate">
+                  {userName || "Usuário"}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {user?.email ?? ""}
+                </p>
+              </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => router.navigate({ to: "/perfil" })}
+                className="cursor-pointer gap-2"
+              >
+                <User className="h-4 w-4" />
+                Dados pessoais
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => router.navigate({ to: "/recuperar-senha" })}
+                className="cursor-pointer gap-2"
+              >
+                <KeyRound className="h-4 w-4" />
+                Trocar senha
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={handleSignOut}
+                className="cursor-pointer gap-2 text-destructive focus:text-destructive"
+              >
+                <LogOut className="h-4 w-4" />
+                Sair da conta
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

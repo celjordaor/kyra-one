@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as RecuperarSenhaRouteImport } from './routes/recuperar-senha'
+import { Route as PlanosRouteImport } from './routes/planos'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as CadastroRouteImport } from './routes/cadastro'
 import { Route as AppRouteImport } from './routes/_app'
@@ -24,6 +25,11 @@ import { Route as AppCategoriasRouteImport } from './routes/_app.categorias'
 const RecuperarSenhaRoute = RecuperarSenhaRouteImport.update({
   id: '/recuperar-senha',
   path: '/recuperar-senha',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlanosRoute = PlanosRouteImport.update({
+  id: '/planos',
+  path: '/planos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -80,6 +86,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
+  '/planos': typeof PlanosRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/categorias': typeof AppCategoriasRoute
   '/dashboard': typeof AppDashboardRoute
@@ -92,6 +99,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
+  '/planos': typeof PlanosRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/categorias': typeof AppCategoriasRoute
   '/dashboard': typeof AppDashboardRoute
@@ -106,6 +114,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
+  '/planos': typeof PlanosRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/_app/categorias': typeof AppCategoriasRoute
   '/_app/dashboard': typeof AppDashboardRoute
@@ -120,6 +129,7 @@ export interface FileRouteTypes {
     | '/'
     | '/cadastro'
     | '/login'
+    | '/planos'
     | '/recuperar-senha'
     | '/categorias'
     | '/dashboard'
@@ -132,6 +142,7 @@ export interface FileRouteTypes {
     | '/'
     | '/cadastro'
     | '/login'
+    | '/planos'
     | '/recuperar-senha'
     | '/categorias'
     | '/dashboard'
@@ -145,6 +156,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/cadastro'
     | '/login'
+    | '/planos'
     | '/recuperar-senha'
     | '/_app/categorias'
     | '/_app/dashboard'
@@ -159,6 +171,7 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   CadastroRoute: typeof CadastroRoute
   LoginRoute: typeof LoginRoute
+  PlanosRoute: typeof PlanosRoute
   RecuperarSenhaRoute: typeof RecuperarSenhaRoute
 }
 
@@ -169,6 +182,13 @@ declare module '@tanstack/react-router' {
       path: '/recuperar-senha'
       fullPath: '/recuperar-senha'
       preLoaderRoute: typeof RecuperarSenhaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/planos': {
+      id: '/planos'
+      path: '/planos'
+      fullPath: '/planos'
+      preLoaderRoute: typeof PlanosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -269,6 +289,7 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   CadastroRoute: CadastroRoute,
   LoginRoute: LoginRoute,
+  PlanosRoute: PlanosRoute,
   RecuperarSenhaRoute: RecuperarSenhaRoute,
 }
 export const routeTree = rootRouteImport

@@ -1,4 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useSubscription } from "@/lib/subscription-store";
+import { UpgradeGate } from "@/components/upgrade-gate";
 import { useMemo, useState } from "react";
 import { Target, Plus, TrendingDown, Pencil, Trash2, PiggyBank, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -102,10 +104,33 @@ function AmountInput({
 
 export const Route = createFileRoute("/_app/metas")({
   head: () => ({ meta: [{ title: "Metas — Finanças Pessoais" }] }),
-  component: MetasPage,
+  component: MetasWrapper,
 });
 
 type Tab = "budgets" | "goals";
+
+function MetasWrapper() {
+  const { subscription, loading: subLoading } = useSubscription();
+
+  if (subLoading) {
+    return (
+      <div className="flex min-h-[calc(100vh-5rem)] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!subscription?.isAdvancado) {
+    return (
+      <UpgradeGate
+        featureName="Metas e Orçamentos"
+        description="Defina metas de economia, crie orçamentos por categoria e acompanhe seu progresso financeiro."
+      />
+    );
+  }
+
+  return <MetasPage />;
+}
 
 function MetasPage() {
   const [tab, setTab] = useState<Tab>("budgets");

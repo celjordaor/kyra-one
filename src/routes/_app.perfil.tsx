@@ -1,5 +1,4 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { useAuth } from "@/lib/auth";
 import { useEffect, useState } from "react";
 import { User, Bell, Shield, HelpCircle, ChevronRight, LogOut, Tag } from "lucide-react";
 import {
@@ -15,15 +14,14 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useAuth } from "@/lib/auth";
+import { useSubscription } from "@/lib/subscription-store";
+import { supabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/_app/perfil")({
-  head: () => ({
-    meta: [{ title: "Perfil — Finanças Pessoais" }],
-  }),
   component: PerfilPage,
 });
 
-type Profile = { name: string; email: string };
 type Notifs = {
   expenseAlerts: boolean;
   monthlySummary: boolean;
@@ -31,9 +29,7 @@ type Notifs = {
   billReminders: boolean;
 };
 
-const PROFILE_KEY = "fp:profile";
 const NOTIFS_KEY = "fp:notifs";
-const DEFAULT_PROFILE: Profile = { name: "João Silva", email: "joao.silva@email.com" };
 const DEFAULT_NOTIFS: Notifs = {
   expenseAlerts: true,
   monthlySummary: true,
@@ -57,31 +53,49 @@ function getInitials(name: string) {
 }
 
 function PerfilPage() {
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
   const router = useRouter();
-  const [profile, setProfile] = useState<Profile>(DEFAULT_PROFILE);
+  const { subscription } = useSubscription();
+
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [notifs, setNotifs] = useState<Notifs>(DEFAULT_NOTIFS);
   const [openProfile, setOpenProfile] = useState(false);
   const [openNotifs, setOpenNotifs] = useState(false);
-  const [draftProfile, setDraftProfile] = useState<Profile>(DEFAULT_PROFILE);
+  const [draftName, setDraftName] = useState("");
 
   useEffect(() => {
-    setProfile(loadJSON(PROFILE_KEY, DEFAULT_PROFILE));
+    if (!user) return;
+
+    // Carregar nome da tabela profiles
+    supabase
+      .from("profiles")
+      .select("name")
+      .eq("id", user.id)
+      .single()
+      .then(({ data }) => {
+        setName(data?.name ?? user.user_metadata?.name ?? "");
+      });
+
+    setEmail(user.email ?? "");
     setNotifs(loadJSON(NOTIFS_KEY, DEFAULT_NOTIFS));
-  }, []);
+  }, [user]);
 
   const openProfileDialog = () => {
-    setDraftProfile(profile);
+    setDraftName(name);
     setOpenProfile(true);
   };
 
-  const saveProfile = () => {
-    if (!draftProfile.name.trim() || !draftProfile.email.trim()) {
-      toast.error("Preencha nome e e-mail");
+  const saveProfile = async () => {
+    if (!draftName.trim()) {
+      toast.error("Preencha o nome");
       return;
     }
-    setProfile(draftProfile);
-    localStorage.setItem(PROFILE_KEY, JSON.stringify(draftProfile));
+    await supabase
+      .from("profiles")
+      .update({ name: draftName.trim() })
+      .eq("id", user?.id);
+    setName(draftName.trim());
     setOpenProfile(false);
     toast.success("Dados pessoais atualizados");
   };
@@ -90,6 +104,11 @@ function PerfilPage() {
     const next = { ...notifs, [key]: value };
     setNotifs(next);
     localStorage.setItem(NOTIFS_KEY, JSON.stringify(next));
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.navigate({ to: "/login" });
   };
 
   return (
@@ -102,28 +121,42 @@ function PerfilPage() {
         className="flex w-full items-center gap-4 rounded-xl border bg-card p-4 text-left shadow-sm transition-colors hover:bg-accent/50"
       >
         <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground">
-          {getInitials(profile.name)}
+          {getInitials(name || email)}
         </div>
         <div className="flex-1">
-          <p className="text-base font-semibold text-foreground">{profile.name}</p>
-          <p className="text-sm text-muted-foreground">{profile.email}</p>
+          <p className="text-base font-semibold text-foreground">
+            {name || "Sem nome"}
+          </p>
+          <p className="text-sm text-muted-foreground">{email}</p>
         </div>
         <ChevronRight className="h-4 w-4 text-muted-foreground" />
       </button>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="rounded-xl border bg-card p-3 text-center shadow-sm">
-          <p className="text-lg font-bold text-foreground">47</p>
-          <p className="text-[10px] text-muted-foreground">Transações</p>
-        </div>
-        <div className="rounded-xl border bg-card p-3 text-center shadow-sm">
-          <p className="text-lg font-bold text-primary">3</p>
-          <p className="text-[10px] text-muted-foreground">Metas</p>
-        </div>
-        <div className="rounded-xl border bg-card p-3 text-center shadow-sm">
-          <p className="text-lg font-bold text-emerald-600">R$3.6k</p>
-          <p className="text-[10px] text-muted-foreground">Economizado</p>
+      {/* Plano atual */}
+      <div className="rounded-2xl border bg-card p-4 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Plano atual
+            </p>
+            <p className="mt-0.5 text-base font-bold text-foreground">
+              {subscription?.planName ?? "Carregando..."}
+            </p>
+            {subscription?.status === "trial" && subscription.daysLeftInTrial !== null && (
+              <p className="text-xs text-yellow-600 dark:text-yellow-400">
+                Período de teste — {subscription.daysLeftInTrial} dias restantes
+              </p>
+            )}
+            {subscription?.status === "active" && (
+              <p className="text-xs text-primary">Assinatura ativa</p>
+            )}
+          </div>
+          <Link
+            to="/planos"
+            className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+          >
+            {subscription?.planId === "avancado" ? "Gerenciar" : "Upgrade"}
+          </Link>
         </div>
       </div>
 
@@ -138,10 +171,7 @@ function PerfilPage() {
 
       {/* Logout */}
       <button
-        onClick={async () => {
-          await signOut();
-          router.navigate({ to: "/login" });
-        }}
+        onClick={handleSignOut}
         className="flex w-full items-center justify-center gap-2 rounded-xl border border-destructive/20 bg-destructive/5 py-3.5 text-sm font-semibold text-destructive transition-colors hover:bg-destructive/10"
       >
         <LogOut className="h-4 w-4" />
@@ -155,15 +185,15 @@ function PerfilPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Dados pessoais</DialogTitle>
-            <DialogDescription>Atualize seu nome e e-mail de contato.</DialogDescription>
+            <DialogDescription>Atualize seu nome de exibição.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label htmlFor="profile-name">Nome</Label>
               <Input
                 id="profile-name"
-                value={draftProfile.name}
-                onChange={(e) => setDraftProfile((p) => ({ ...p, name: e.target.value }))}
+                value={draftName}
+                onChange={(e) => setDraftName(e.target.value)}
               />
             </div>
             <div className="space-y-1.5">
@@ -171,9 +201,13 @@ function PerfilPage() {
               <Input
                 id="profile-email"
                 type="email"
-                value={draftProfile.email}
-                onChange={(e) => setDraftProfile((p) => ({ ...p, email: e.target.value }))}
+                value={email}
+                disabled
+                className="opacity-60"
               />
+              <p className="text-xs text-muted-foreground">
+                O e-mail não pode ser alterado por aqui.
+              </p>
             </div>
           </div>
           <DialogFooter>
