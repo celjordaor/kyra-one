@@ -15,21 +15,31 @@ exports.handler = async (event) => {
   };
 
   const plan   = PLANS[planId];
-  const amount = billingCycle === "annual" ? plan.annual : plan.monthly;
-  const freq   = billingCycle === "annual" ? 12 : 1; // meses
-  const label  = billingCycle === "annual" ? "Anual" : "Mensal";
-  const siteUrl = process.env.URL || "https://jadeone.com.br";
+  if (!plan) {
+    return { statusCode: 400, body: JSON.stringify({ error: "Plano inválido" }) };
+  }
+
+  const amount   = billingCycle === "annual" ? plan.annual : plan.monthly;
+  const freq     = billingCycle === "annual" ? 12 : 1;
+  const label    = billingCycle === "annual" ? "Anual" : "Mensal";
+  const siteUrl  = process.env.URL || "https://jadeone.com.br";
+  const mpToken  = process.env.MP_ACCESS_TOKEN;
+
+  if (!mpToken) {
+    return { statusCode: 500, body: JSON.stringify({ error: "MP_ACCESS_TOKEN não configurado" }) };
+  }
+
+  console.log("Criando assinatura MP para:", userEmail, planId, billingCycle, amount);
 
   try {
-    // 1. Criar assinatura no Mercado Pago
     const mpRes = await fetch("https://api.mercadopago.com/preapproval", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${process.env.MP_ACCESS_TOKEN}`,
+        "Authorization": `Bearer ${mpToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        reason: `JadeOne – Plano ${plan.name} ${label}`,
+        reason: `JadeOne - Plano ${plan.name} ${label}`,
         external_reference: userId,
         payer_email: userEmail,
         back_url: `${siteUrl}/assinatura-sucesso`,
@@ -39,21 +49,26 @@ exports.handler = async (event) => {
           transaction_amount: amount,
           currency_id: "BRL",
         },
+        status: "pending",
       }),
     });
 
     const mpData = await mpRes.json();
+    console.log("Resposta MP (status:", mpRes.status, "):", JSON.stringify(mpData));
 
     if (!mpData.id || !mpData.init_point) {
-      console.error("Erro MP:", mpData);
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: "Erro ao criar assinatura no Mercado Pago", detail: mpData }),
+        body: JSON.stringify({
+          error: "Erro ao criar assinatura no Mercado Pago",
+          mp_status: mpRes.status,
+          mp_error: mpData,
+        }),
       };
     }
 
-    // 2. Salvar o ID do Mercado Pago no banco
-    await fetch(
+    // Salvar MP ID no Supabase
+    const supRes = await fetch(
       `${process.env.SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${userId}`,
       {
         method: "PATCH",
@@ -73,12 +88,16 @@ exports.handler = async (event) => {
       }
     );
 
+    if (!supRes.ok) {
+      console.error("Erro Supabase:", await supRes.text());
+    }
+
     return {
       statusCode: 200,
       body: JSON.stringify({ checkout_url: mpData.init_point, mp_id: mpData.id }),
     };
   } catch (err) {
-    console.error("Erro create-checkout:", err);
-    return { statusCode: 500, body: JSON.stringify({ error: "Erro interno" }) };
+    console.error("Erro interno create-checkout:", err);
+    return { statusCode: 500, body: JSON.stringify({ error: "Erro interno", detail: String(err) }) };
   }
 };
