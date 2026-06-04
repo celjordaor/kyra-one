@@ -60,25 +60,11 @@ function LoginPage() {
     <div className="flex min-h-screen">
 
       {/* ── Painel esquerdo (oculto no mobile) ──────────────────── */}
-      <div
-        className="hidden lg:flex w-[52%] flex-col justify-between p-12 relative overflow-hidden"
-        style={{
-          background: "linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.7) 100%)",
-        }}
-      >
+      <div className="hidden lg:flex w-[52%] flex-col justify-between p-12 relative overflow-hidden bg-gradient-to-br from-primary to-primary/75">
         {/* Círculos decorativos */}
-        <div
-          className="absolute -top-32 -right-32 w-96 h-96 rounded-full opacity-10"
-          style={{ background: "white" }}
-        />
-        <div
-          className="absolute -bottom-24 -left-24 w-80 h-80 rounded-full opacity-10"
-          style={{ background: "white" }}
-        />
-        <div
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full opacity-5"
-          style={{ background: "white" }}
-        />
+        <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-white opacity-10" />
+        <div className="absolute -bottom-24 -left-24 w-80 h-80 rounded-full bg-white opacity-10" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full bg-white opacity-5" />
 
         {/* Logo */}
         <div className="relative z-10 flex items-center gap-3">
