@@ -33,6 +33,7 @@ exports.handler = async (event) => {
   const body = {
     reason: `JadeOne - Plano ${plan.name} ${label}`,
     external_reference: userId,
+    payer_email: userEmail,
     back_url: `${siteUrl}/assinatura-sucesso`,
     auto_recurring: {
       frequency: freq,
