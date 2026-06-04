@@ -11,11 +11,11 @@ export const Route = createFileRoute("/_app")({
 });
 
 const navItems = [
-  { to: "/dashboard", label: "Início", icon: Home },
-  { to: "/transacoes", label: "Transações", icon: Receipt },
-  { to: "/nova-transacao", label: "Adicionar", icon: PlusCircle, isAction: true },
-  { to: "/metas", label: "Metas", icon: Target },
-  { to: "/perfil", label: "Perfil", icon: User },
+  { to: "/dashboard",      label: "Início",      icon: Home },
+  { to: "/transacoes",     label: "Transações",  icon: Receipt },
+  { to: "/nova-transacao", label: "Adicionar",   icon: PlusCircle, isAction: true },
+  { to: "/metas",          label: "Metas",       icon: Target },
+  { to: "/perfil",         label: "Perfil",      icon: User },
 ];
 
 function AppLayout() {
@@ -33,16 +33,20 @@ function AppLayout() {
 
   if (!session) return <Navigate to="/login" />;
 
-  // Usuário bloqueado: tela de pagamento obrigatório
+  // Bloqueado: tela de pagamento/reativação
   if (subscription?.isBlocked) {
     return <PaymentRequired subscription={subscription} />;
   }
 
+  // Determina qual banner mostrar
+  const showBanner =
+    subscription?.needsAttention ||
+    (subscription?.isNewAccount && (subscription.daysLeft ?? 999) <= 10);
+
   return (
     <TooltipProvider>
       <div className="flex min-h-screen flex-col bg-background">
-        {/* Banner de carência para usuários inadimplentes */}
-        {subscription?.needsAttention && (
+        {showBanner && subscription && (
           <GracePeriodBanner subscription={subscription} />
         )}
 
@@ -62,29 +66,15 @@ function AppLayout() {
                     <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary shadow-lg shadow-primary/25">
                       <Icon className="h-6 w-6 text-primary-foreground" />
                     </div>
-                    <span className="text-[10px] font-medium text-muted-foreground">
-                      {item.label}
-                    </span>
+                    <span className="text-[10px] font-medium text-muted-foreground">{item.label}</span>
                   </Link>
                 );
               }
 
               return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  className="flex flex-col items-center gap-0.5 px-3 py-1"
-                >
-                  <Icon
-                    className={`h-5 w-5 transition-colors ${
-                      isActive ? "text-primary" : "text-muted-foreground"
-                    }`}
-                  />
-                  <span
-                    className={`text-[10px] font-medium transition-colors ${
-                      isActive ? "text-primary" : "text-muted-foreground"
-                    }`}
-                  >
+                <Link key={item.to} to={item.to} className="flex flex-col items-center gap-0.5 px-3 py-1">
+                  <Icon className={`h-5 w-5 transition-colors ${isActive ? "text-primary" : "text-muted-foreground"}`} />
+                  <span className={`text-[10px] font-medium transition-colors ${isActive ? "text-primary" : "text-muted-foreground"}`}>
                     {item.label}
                   </span>
                 </Link>
