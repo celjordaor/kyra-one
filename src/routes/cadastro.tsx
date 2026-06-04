@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { User, Mail, Lock, Eye, EyeOff } from "lucide-react";
@@ -40,7 +40,6 @@ function CadastroPage() {
   const {
     register,
     handleSubmit,
-    control,
     formState: { errors, isSubmitting },
   } = useForm<SignupForm>({
     resolver: zodResolver(signupSchema),
@@ -67,7 +66,7 @@ function CadastroPage() {
       return;
     }
 
-    router.navigate({ to: "/dashboard" });
+    router.navigate({ to: "/boas-vindas" });
   };
 
   return (
@@ -109,33 +108,18 @@ function CadastroPage() {
             <Label htmlFor="name" className="text-sm font-medium">Nome</Label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                id="name"
-                placeholder="Seu nome completo"
-                className="h-11 pl-10"
-                {...register("name")}
-              />
+              <Input id="name" placeholder="Seu nome completo" className="h-11 pl-10" {...register("name")} />
             </div>
-            {errors.name && (
-              <p className="text-xs text-destructive">{errors.name.message}</p>
-            )}
+            {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
           </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="email" className="text-sm font-medium">E-mail</Label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                id="email"
-                type="email"
-                placeholder="seu@email.com"
-                className="h-11 pl-10"
-                {...register("email")}
-              />
+              <Input id="email" type="email" placeholder="seu@email.com" className="h-11 pl-10" {...register("email")} />
             </div>
-            {errors.email && (
-              <p className="text-xs text-destructive">{errors.email.message}</p>
-            )}
+            {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
           </div>
 
           <div className="space-y-1.5">
@@ -149,23 +133,15 @@ function CadastroPage() {
                 className="h-11 pl-10 pr-10"
                 {...register("password")}
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-              >
+              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
-            {errors.password && (
-              <p className="text-xs text-destructive">{errors.password.message}</p>
-            )}
+            {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="confirmPassword" className="text-sm font-medium">
-              Confirmar senha
-            </Label>
+            <Label htmlFor="confirmPassword" className="text-sm font-medium">Confirmar senha</Label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -175,44 +151,21 @@ function CadastroPage() {
                 className="h-11 pl-10 pr-10"
                 {...register("confirmPassword")}
               />
-              <button
-                type="button"
-                onClick={() => setShowConfirm(!showConfirm)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-              >
+              <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                 {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
-            {errors.confirmPassword && (
-              <p className="text-xs text-destructive">{errors.confirmPassword.message}</p>
-            )}
+            {errors.confirmPassword && <p className="text-xs text-destructive">{errors.confirmPassword.message}</p>}
           </div>
 
           <div className="flex items-start gap-2">
-            <Controller
-              name="terms"
-              control={control}
-              render={({ field }) => (
-                <Checkbox
-                  id="terms"
-                  className="mt-0.5"
-                  checked={!!field.value}
-                  onCheckedChange={field.onChange}
-                />
-              )}
-            />
-            <Label
-              htmlFor="terms"
-              className="text-sm font-normal text-muted-foreground leading-snug"
-            >
-              Concordo com os{" "}
-              <span className="text-primary">Termos de Uso</span> e{" "}
+            <Checkbox id="terms" className="mt-0.5" {...register("terms")} />
+            <Label htmlFor="terms" className="text-sm font-normal text-muted-foreground leading-snug">
+              Concordo com os <span className="text-primary">Termos de Uso</span> e{" "}
               <span className="text-primary">Política de Privacidade</span>
             </Label>
           </div>
-          {errors.terms && (
-            <p className="text-xs text-destructive">{errors.terms.message}</p>
-          )}
+          {errors.terms && <p className="text-xs text-destructive">{errors.terms.message}</p>}
 
           <Button
             type="submit"
