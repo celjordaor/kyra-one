@@ -25,8 +25,10 @@ function CartoesPage() {
   const { subscription } = useSubscription();
 
   // Bloqueia acesso se não for plano avançado
-  // DEPOIS:
+
      const hasAccess = subscription?.plan_id === "avancado";
+     console.log("DEBUG subscription:", subscription);
+     console.log("DEBUG hasAccess:", hasAccess);
 
   useEffect(() => {
     if (hasAccess) fetchCards();
