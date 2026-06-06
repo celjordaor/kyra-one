@@ -25,7 +25,7 @@ export interface Invoice {
   id: string;
   user_id: string;
   card_id: string;
-  competence: string;
+  competence: string; // "MM/yyyy" ex: "06/2026"
   closing_date: string;
   due_date: string;
   total_amount: number;
@@ -62,6 +62,17 @@ export interface CardInstallment {
   installments_total: number;
   purchase_date: string;
   created_at: string;
+}
+
+// ─── Utilitário de ordenação ──────────────────────────────────────────────────
+// Converte "MM/yyyy" → "yyyy-MM" para ordenação cronológica correta
+function competenceToSortKey(competence: string): string {
+  const [mm, yyyy] = competence.split("/");
+  return `${yyyy}-${mm}`;
+}
+
+function sortByCompetence(a: Invoice, b: Invoice): number {
+  return competenceToSortKey(a.competence).localeCompare(competenceToSortKey(b.competence));
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -104,7 +115,7 @@ interface CardStore {
   recalcInvoiceTotal: (invoiceId: string) => Promise<void>;
 }
 
-// ─── Utilitários ──────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function buildInvoiceDates(card: CreditCard, referenceDate: Date) {
   const competence = format(referenceDate, "MM/yyyy");
@@ -133,13 +144,14 @@ export function resolveInvoiceForDate(
       isAfter(parseISO(inv.closing_date), date)
   );
   if (current) return current;
-  const next = invoices
-    .filter((inv) => inv.card_id === card.id && inv.status === "open")
-    .sort((a, b) => a.competence.localeCompare(b.competence))[0];
-  return next ?? null;
+  // Fallback: próxima fatura aberta em ordem cronológica
+  return (
+    invoices
+      .filter((inv) => inv.card_id === card.id && inv.status === "open")
+      .sort(sortByCompetence)[0] ?? null
+  );
 }
 
-// Converte yyyy-MM-dd para dd/mm/yyyy (formato usado em transactions)
 function toTransactionDate(isoDate: string): string {
   const [y, m, d] = isoDate.split("-");
   return `${d}/${m}/${y}`;
@@ -191,11 +203,12 @@ export const useCardStore = create<CardStore>((set, get) => ({
   // ── Faturas ────────────────────────────────────────────────────────────────
 
   fetchInvoices: async (cardId) => {
+    // Busca ordenando por closing_date (campo DATE real) — ordenação correta no banco
     const { data } = await supabase
       .from("invoices")
       .select("*")
       .eq("card_id", cardId)
-      .order("competence", { ascending: true });
+      .order("closing_date", { ascending: true });
     set((s) => ({
       invoices: [
         ...s.invoices.filter((i) => i.card_id !== cardId),
@@ -234,12 +247,11 @@ export const useCardStore = create<CardStore>((set, get) => ({
     }
 
     if (toInsert.length > 0) {
-      const { data: inserted } = await supabase.from("invoices").insert(toInsert).select();
-      set((s) => ({ invoices: [...s.invoices, ...(inserted ?? [])] }));
-    } else {
-      await get().fetchInvoices(card.id);
+      await supabase.from("invoices").insert(toInsert);
     }
 
+    // Sempre recarrega do banco para garantir estado atualizado
+    await get().fetchInvoices(card.id);
     return get().invoices.filter((i) => i.card_id === card.id);
   },
 
@@ -252,7 +264,6 @@ export const useCardStore = create<CardStore>((set, get) => ({
 
     await supabase.from("invoices").update({ status: "paid" }).eq("id", invoiceId);
 
-    // Insere em transactions com o formato dd/mm/yyyy que o sistema usa
     await supabase.from("transactions").insert({
       user_id: user.id,
       title: `Fatura ${card.name} – ${invoice.competence}`,
@@ -303,11 +314,12 @@ export const useCardStore = create<CardStore>((set, get) => ({
   },
 
   recalcInvoiceTotal: async (invoiceId) => {
-    // Soma card_expenses + card_installments desta fatura
+    // Soma direto no banco (fonte da verdade)
     const { data: expData } = await supabase
       .from("card_expenses")
       .select("amount")
       .eq("invoice_id", invoiceId);
+
     const { data: instData } = await supabase
       .from("card_installments")
       .select("amount")
@@ -317,10 +329,13 @@ export const useCardStore = create<CardStore>((set, get) => ({
       (expData ?? []).reduce((s, e) => s + e.amount, 0) +
       (instData ?? []).reduce((s, i) => s + i.amount, 0);
 
+    // Atualiza no banco
     await supabase.from("invoices").update({ total_amount: total }).eq("id", invoiceId);
+
+    // Sincroniza estado local imediatamente
     set((s) => ({
-      invoices: s.invoices.map((i) =>
-        i.id === invoiceId ? { ...i, total_amount: total } : i
+      invoices: s.invoices.map((inv) =>
+        inv.id === invoiceId ? { ...inv, total_amount: total } : inv
       ),
     }));
   },
@@ -332,12 +347,12 @@ export const useCardStore = create<CardStore>((set, get) => ({
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
+    // Faturas abertas deste cartão em ordem cronológica correta
     const allInvoices = get()
       .invoices.filter((i) => i.card_id === card.id && i.status === "open")
-      .sort((a, b) => a.competence.localeCompare(b.competence));
+      .sort(sortByCompetence);
 
     if (isRecurring) {
-      // Replica nas próximas 12 faturas abertas
       const rows = allInvoices.slice(0, 12).map((inv, idx) => ({
         user_id: user.id,
         card_id: card.id,
@@ -355,13 +370,12 @@ export const useCardStore = create<CardStore>((set, get) => ({
       const { data } = await supabase.from("card_expenses").insert(rows).select();
       if (data) set((s) => ({ expenses: [...s.expenses, ...data] }));
 
-      // Recalcula total de todas as faturas afetadas
+      // Recalcula todas as faturas afetadas
       for (const inv of allInvoices.slice(0, 12)) {
         await get().recalcInvoiceTotal(inv.id);
       }
 
     } else if (installments > 1) {
-      // Compra parcelada
       const installmentAmount = Math.round((amount / installments) * 100) / 100;
       const startIndex = allInvoices.findIndex((i) => i.id === invoiceId);
 
@@ -388,7 +402,7 @@ export const useCardStore = create<CardStore>((set, get) => ({
       set((s) => ({ expenses: [...s.expenses, parent] }));
       await get().recalcInvoiceTotal(invoiceId);
 
-      // Parcelas 2..N → card_installments nas faturas seguintes
+      // Parcelas 2..N → card_installments nas faturas seguintes em ordem correta
       const remainingRows = [];
       for (let i = 1; i < installments; i++) {
         const targetInvoice = allInvoices[startIndex + i];
@@ -414,9 +428,9 @@ export const useCardStore = create<CardStore>((set, get) => ({
           .select();
         if (instData) {
           set((s) => ({ installments: [...s.installments, ...instData] }));
-          // Recalcula total de cada fatura afetada pelas parcelas
-          const affectedInvoiceIds = [...new Set(remainingRows.map((r) => r.invoice_id))];
-          for (const id of affectedInvoiceIds) {
+          // Recalcula o total de cada fatura afetada pelas novas parcelas
+          const affectedIds = [...new Set(remainingRows.map((r) => r.invoice_id))];
+          for (const id of affectedIds) {
             await get().recalcInvoiceTotal(id);
           }
         }
@@ -462,7 +476,7 @@ export const useCardStore = create<CardStore>((set, get) => ({
   getCardInvoices: (cardId) =>
     get()
       .invoices.filter((i) => i.card_id === cardId)
-      .sort((a, b) => a.competence.localeCompare(b.competence)),
+      .sort(sortByCompetence), // ← usa a função correta
 
   getInvoiceExpenses: (invoiceId) =>
     get().expenses.filter((e) => e.invoice_id === invoiceId),
