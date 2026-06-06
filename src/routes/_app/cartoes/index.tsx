@@ -1,40 +1,41 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { CreditCard, Plus, ChevronRight, Wallet } from "lucide-react";
+import { CreditCard, Plus, ChevronRight, Wallet, Star, MoreVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useCardStore } from "@/lib/card-store";
 import { useSubscription } from "@/lib/subscription-store";
 import { LimitBar } from "@/components/cartoes/limit-bar";
 import { useLimitUsed } from "@/hooks/use-limit-used";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/cartoes/")({
   component: CartoesPage,
 });
 
 const FLAG_COLORS: Record<string, string> = {
-  Visa: "bg-blue-600",
-  Mastercard: "bg-red-600",
-  Elo: "bg-yellow-500",
-  Amex: "bg-green-600",
-  Hipercard: "bg-red-700",
-  Outro: "bg-muted-foreground",
+  Visa: "bg-blue-600", Mastercard: "bg-red-600", Elo: "bg-yellow-500",
+  Amex: "bg-green-600", Hipercard: "bg-red-700", Outro: "bg-muted-foreground",
 };
 
-// Card individual com hook próprio para o limite
 function CardItem({ card }: { card: ReturnType<typeof useCardStore.getState>["cards"][number] }) {
+  const { setDefaultCard } = useCardStore();
   const { limitUsed } = useLimitUsed(card.id);
   const available = Math.max(card.limit_total - limitUsed, 0);
   const pct = card.limit_total > 0 ? (limitUsed / card.limit_total) * 100 : 0;
 
   return (
-    <Link
-      to="/cartoes/$cardId"
-      params={{ cardId: card.id }}
-      className="block rounded-2xl border border-border bg-card p-5 transition-shadow hover:shadow-md"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
+    <div className="rounded-2xl border border-border bg-card transition-shadow hover:shadow-md">
+      {/* Header do cartão */}
+      <div className="flex items-start justify-between gap-3 p-5 pb-0">
+        <Link
+          to="/cartoes/$cardId"
+          params={{ cardId: card.id }}
+          className="flex flex-1 items-center gap-3"
+        >
           <div className={cn(
             "flex h-10 w-10 items-center justify-center rounded-xl text-white",
             FLAG_COLORS[card.flag] ?? "bg-muted-foreground"
@@ -42,50 +43,91 @@ function CardItem({ card }: { card: ReturnType<typeof useCardStore.getState>["ca
             <CreditCard className="h-5 w-5" />
           </div>
           <div>
-            <p className="font-semibold text-foreground">{card.name}</p>
+            <div className="flex items-center gap-1.5">
+              <p className="font-semibold text-foreground">{card.name}</p>
+              {card.is_default && (
+                <span className="flex items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">
+                  <Star className="h-2.5 w-2.5 fill-primary" /> Padrão
+                </span>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">{card.bank} · {card.flag}</p>
           </div>
+        </Link>
+
+        {/* Menu de ações */}
+        <div className="flex items-center gap-1">
+          <Link to="/cartoes/$cardId" params={{ cardId: card.id }}>
+            <ChevronRight className="mt-1 h-4 w-4 flex-shrink-0 text-muted-foreground" />
+          </Link>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted">
+                <MoreVertical className="h-4 w-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              {!card.is_default && (
+                <DropdownMenuItem
+                  onClick={async () => {
+                    await setDefaultCard(card.id);
+                    toast.success(`${card.name} definido como padrão`);
+                  }}
+                  className="cursor-pointer gap-2 text-primary"
+                >
+                  <Star className="h-4 w-4" /> Definir como padrão
+                </DropdownMenuItem>
+              )}
+              {card.is_default && (
+                <DropdownMenuItem disabled className="gap-2 opacity-50">
+                  <Star className="h-4 w-4 fill-primary text-primary" /> Cartão padrão
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild className="cursor-pointer gap-2">
+                <Link to="/cartoes/$cardId" params={{ cardId: card.id }}>
+                  <ChevronRight className="h-4 w-4" /> Ver detalhes
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-        <ChevronRight className="mt-1 h-4 w-4 flex-shrink-0 text-muted-foreground" />
       </div>
 
-      <div className="mt-4">
+      {/* Barra de limite */}
+      <Link to="/cartoes/$cardId" params={{ cardId: card.id }} className="block px-5 pt-4">
         <LimitBar used={limitUsed} total={card.limit_total} />
-      </div>
-
-      <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-        <div>
-          <p className="text-[11px] text-muted-foreground">Total</p>
-          <p className="text-sm font-semibold text-foreground">
-            {card.limit_total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-          </p>
+        <div className="mt-3 grid grid-cols-3 gap-2 pb-5 text-center">
+          <div>
+            <p className="text-[11px] text-muted-foreground">Total</p>
+            <p className="text-sm font-semibold text-foreground">
+              {card.limit_total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+            </p>
+          </div>
+          <div>
+            <p className="text-[11px] text-muted-foreground">Utilizado</p>
+            <p className={cn("text-sm font-semibold", pct > 80 ? "text-destructive" : "text-foreground")}>
+              {limitUsed.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+            </p>
+          </div>
+          <div>
+            <p className="text-[11px] text-muted-foreground">Disponível</p>
+            <p className="text-sm font-semibold text-green-600 dark:text-green-400">
+              {available.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+            </p>
+          </div>
         </div>
-        <div>
-          <p className="text-[11px] text-muted-foreground">Utilizado</p>
-          <p className={cn("text-sm font-semibold", pct > 80 ? "text-destructive" : "text-foreground")}>
-            {limitUsed.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-          </p>
-        </div>
-        <div>
-          <p className="text-[11px] text-muted-foreground">Disponível</p>
-          <p className="text-sm font-semibold text-green-600 dark:text-green-400">
-            {available.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-          </p>
-        </div>
-      </div>
-    </Link>
+      </Link>
+    </div>
   );
 }
 
 function CartoesPage() {
   const { cards, fetchCards, loading } = useCardStore();
   const { subscription } = useSubscription();
-
   const hasAccess = subscription?.isAdvancado === true;
 
-  useEffect(() => {
-    if (hasAccess) fetchCards();
-  }, [hasAccess]);
+  useEffect(() => { if (hasAccess) fetchCards(); }, [hasAccess]);
 
   if (!hasAccess) {
     return (
@@ -122,10 +164,7 @@ function CartoesPage() {
           </p>
         </div>
         <Button asChild size="sm" className="h-9 gap-1.5 bg-primary font-semibold">
-          <Link to="/cartoes/novo">
-            <Plus className="h-4 w-4" />
-            Novo cartão
-          </Link>
+          <Link to="/cartoes/novo"><Plus className="h-4 w-4" /> Novo cartão</Link>
         </Button>
       </div>
 
@@ -137,17 +176,12 @@ function CartoesPage() {
             <p className="mt-1 text-sm text-muted-foreground">Adicione seu primeiro cartão para começar o controle.</p>
           </div>
           <Button asChild className="mt-2 h-10 bg-primary font-semibold">
-            <Link to="/cartoes/novo">
-              <Plus className="mr-1.5 h-4 w-4" />
-              Adicionar cartão
-            </Link>
+            <Link to="/cartoes/novo"><Plus className="mr-1.5 h-4 w-4" /> Adicionar cartão</Link>
           </Button>
         </div>
       ) : (
         <div className="space-y-3">
-          {cards.map((card) => (
-            <CardItem key={card.id} card={card} />
-          ))}
+          {cards.map((card) => <CardItem key={card.id} card={card} />)}
         </div>
       )}
     </div>

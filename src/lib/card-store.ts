@@ -8,7 +8,8 @@ export type ExpenseType = "single" | "installment" | "recurring";
 
 export interface CreditCard {
   id: string; user_id: string; name: string; bank: string; flag: CardFlag;
-  limit_total: number; closing_day: number; due_day: number; active: boolean; created_at: string;
+  limit_total: number; closing_day: number; due_day: number; active: boolean;
+  is_default?: boolean; created_at: string;
 }
 export interface Invoice {
   id: string; user_id: string; card_id: string; competence: string;
@@ -59,6 +60,7 @@ interface CardStore {
   addCard: (c: Omit<CreditCard, "id"|"user_id"|"created_at">) => Promise<void>;
   updateCard: (id: string, d: Partial<CreditCard>) => Promise<void>;
   deleteCard: (id: string) => Promise<void>;
+  setDefaultCard: (id: string) => Promise<void>;
   fetchInvoices: (cardId: string) => Promise<void>;
   ensureInvoices: (card: CreditCard) => Promise<Invoice[]>;
   payInvoice: (invoiceId: string, card: CreditCard) => Promise<void>;
@@ -82,13 +84,23 @@ export const useCardStore = create<CardStore>((set, get) => ({
     const { data } = await supabase.from("credit_cards").select("*").order("created_at", { ascending: true });
     set({ cards: data ?? [], loading: false });
   },
+
+  setDefaultCard: async (id) => {
+    const { data: { user } } = await supabase.auth.getUser(); if (!user) return;
+    await supabase.from("credit_cards").update({ is_default: false }).eq("user_id", user.id);
+    await supabase.from("credit_cards").update({ is_default: true }).eq("id", id);
+    set(s => ({ cards: s.cards.map(c => ({ ...c, is_default: c.id === id })) }));
+  },
+
   addCard: async (card) => {
     const { data: { user } } = await supabase.auth.getUser(); if (!user) return;
-    const { data, error } = await supabase.from("credit_cards").insert({ ...card, user_id: user.id }).select().single();
+    const isFirst = get().cards.filter(c => c.active).length === 0;
+    const { data, error } = await supabase.from("credit_cards").insert({ ...card, user_id: user.id, is_default: isFirst }).select().single();
     if (error || !data) return;
     set(s => ({ cards: [...s.cards, data] }));
     await get().ensureInvoices(data);
   },
+
   updateCard: async (id, data) => {
     await supabase.from("credit_cards").update(data).eq("id", id);
     set(s => ({ cards: s.cards.map(c => c.id === id ? { ...c, ...data } : c) }));
@@ -120,29 +132,9 @@ export const useCardStore = create<CardStore>((set, get) => ({
   payInvoice: async (invoiceId, card) => {
     const { data: { user } } = await supabase.auth.getUser(); if (!user) return;
     const invoice = get().invoices.find(i => i.id === invoiceId); if (!invoice) return;
-    const transactionId = crypto.randomUUID();
-    // Insere direto no banco E no cache do transactions-store via import dinâmico
     const { addTransaction } = await import("./transactions-store");
-    await addTransaction({
-      title: `Fatura ${card.name} – ${invoice.competence}`,
-      amount: invoice.total_amount,
-      type: "expense",
-      date: toTransactionDate(invoice.due_date),
-      category: "Cartão de Crédito",
-      settled: true,
-      paidAt: toTransactionDate(format(new Date(), "yyyy-MM-dd")),
-      recurring: false,
-    });
-    // Busca o ID da transação recém-criada (última inserida desta categoria e título)
-    const { data: txRow } = await supabase
-      .from("transactions")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("category", "Cartão de Crédito")
-      .eq("title", `Fatura ${card.name} – ${invoice.competence}`)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .single();
+    await addTransaction({ title: `Fatura ${card.name} – ${invoice.competence}`, amount: invoice.total_amount, type: "expense", date: toTransactionDate(invoice.due_date), category: "Cartão de Crédito", settled: true, paidAt: toTransactionDate(format(new Date(), "yyyy-MM-dd")), recurring: false });
+    const { data: txRow } = await supabase.from("transactions").select("id").eq("user_id", user.id).eq("category", "Cartão de Crédito").eq("title", `Fatura ${card.name} – ${invoice.competence}`).order("created_at", { ascending: false }).limit(1).single();
     const txId = txRow?.id ?? null;
     await supabase.from("invoices").update({ status: "paid", transaction_id: txId }).eq("id", invoiceId);
     set(s => ({ invoices: s.invoices.map(i => i.id === invoiceId ? { ...i, status: "paid", transaction_id: txId } : i) }));
@@ -151,11 +143,7 @@ export const useCardStore = create<CardStore>((set, get) => ({
   reverseInvoice: async (invoiceId) => {
     const invoice = get().invoices.find(i => i.id === invoiceId);
     if (!invoice || invoice.status !== "paid") return;
-    // Remove a transação do banco e do cache
-    if (invoice.transaction_id) {
-      const { deleteTransaction } = await import("./transactions-store");
-      await deleteTransaction(invoice.transaction_id);
-    }
+    if (invoice.transaction_id) { const { deleteTransaction } = await import("./transactions-store"); await deleteTransaction(invoice.transaction_id); }
     await supabase.from("invoices").update({ status: "open", transaction_id: null }).eq("id", invoiceId);
     set(s => ({ invoices: s.invoices.map(i => i.id === invoiceId ? { ...i, status: "open", transaction_id: null } : i) }));
   },
@@ -179,7 +167,6 @@ export const useCardStore = create<CardStore>((set, get) => ({
   addExpense: async ({ card, invoiceId, category, description, amount, purchaseDate, installments, isRecurring, observations }) => {
     const { data: { user } } = await supabase.auth.getUser(); if (!user) return;
     const allInvoices = get().invoices.filter(i => i.card_id === card.id && i.status === "open").sort(sortByCompetence);
-
     if (isRecurring) {
       const rows = allInvoices.slice(0, 12).map((inv, idx) => ({ user_id: user.id, card_id: card.id, invoice_id: inv.id, category, description, amount, purchase_date: purchaseDate, installments_total: 1, installment_number: idx + 1, expense_type: "recurring" as ExpenseType, observations }));
       const { data } = await supabase.from("card_expenses").insert(rows).select();
@@ -226,11 +213,8 @@ export const useCardStore = create<CardStore>((set, get) => ({
     let total = 0;
     for (const inv of invoices) {
       const closing = startOfDay(parseISO(inv.closing_date));
-      if (isAfter(closing, today)) {
-        // Fatura atual — soma tudo (incluindo recorrente do mês corrente)
-        total += inv.total_amount;
-      } else {
-        // Fatura futura — só parcelas parceladas, sem recorrentes
+      if (isAfter(closing, today)) { total += inv.total_amount; }
+      else {
         const { data: inst } = await supabase.from("card_installments").select("amount").eq("invoice_id", inv.id);
         total += (inst ?? []).reduce((s, i) => s + i.amount, 0);
         const { data: exp } = await supabase.from("card_expenses").select("amount, expense_type").eq("invoice_id", inv.id).neq("expense_type", "recurring");
