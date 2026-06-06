@@ -4,7 +4,7 @@ import {
   TrendingUp, TrendingDown, Search, SlidersHorizontal,
   ChevronLeft, ChevronRight, CalendarDays, CheckCircle2, Circle,
   Pencil, Repeat, Trash2, CreditCard, Lock, Plus, Receipt,
-  ChevronDown,
+  ChevronDown, LayoutList,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,7 +41,14 @@ function brDateToIso(br: string): string {
 const fmt = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
-const filters = ["Todas", "Receitas", "Despesas"];
+const FILTER_OPTIONS = [
+  { key: "Todas",    label: "Todas",    Icon: LayoutList,  activeClass: "bg-primary text-primary-foreground",  iconClass: "" },
+  { key: "Receitas", label: "Receitas", Icon: TrendingUp,  activeClass: "bg-emerald-500 text-white",           iconClass: "text-emerald-500" },
+  { key: "Despesas", label: "Despesas", Icon: TrendingDown,activeClass: "bg-red-500 text-white",               iconClass: "text-red-500" },
+  { key: "Faturas",  label: "Faturas",  Icon: CreditCard,  activeClass: "bg-blue-500 text-white",              iconClass: "text-blue-500" },
+] as const;
+type ActiveFilter = (typeof FILTER_OPTIONS)[number]["key"];
+
 const statusFilters = ["Todas", "Pagas/Recebidas", "Pendentes"] as const;
 type StatusFilter = (typeof statusFilters)[number];
 const MONTHS = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -99,7 +106,7 @@ function TransacoesPage() {
   const { cards, invoices, expenses, installments, fetchCards, fetchInvoices, fetchExpenses, fetchInstallments } = useCardStore();
 
   const [search, setSearch]               = useState("");
-  const [activeFilter, setActiveFilter]   = useState("Todas");
+  const [activeFilter, setActiveFilter]   = useState<ActiveFilter>("Todas");
   const [statusFilter, setStatusFilter]   = useState<StatusFilter>("Todas");
   const [selectedMonth, setSelectedMonth] = useState<number>(initial.month);
   const [selectedYear, setSelectedYear]   = useState<number>(initial.year);
@@ -131,7 +138,8 @@ function TransacoesPage() {
   // ── Transações regulares (excluir faturas) ────────────────────────────
   const filteredRegular = useMemo(() => allTransactions
     .filter(t => {
-      if (isFaturaTransaction(t)) return false; // excluir pagamentos de fatura
+      if (isFaturaTransaction(t)) return false;
+      if (activeFilter === "Faturas") return false; // faturas ficam só na seção própria
       const date = parseBrDate(t.date);
       return date.getMonth() === selectedMonth && date.getFullYear() === selectedYear
         && t.title.toLowerCase().includes(search.toLowerCase())
@@ -220,8 +228,8 @@ function TransacoesPage() {
         </DropdownMenu>
       </div>
 
-      {/* Filtros de status */}
-      <div className="flex items-center gap-2">
+      {/* Filtros de status — oculto no filtro Faturas */}
+      {activeFilter !== "Faturas" && <div className="flex items-center gap-2">
         {statusFilters.map(f => (
           <button key={f} onClick={() => setStatusFilter(f)}
             className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${statusFilter === f ? "bg-foreground text-background" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
@@ -235,14 +243,26 @@ function TransacoesPage() {
       {/* Resumo */}
       <div className="flex items-center justify-between rounded-xl border bg-card p-4 shadow-sm">
         <div>
-          <p className="text-xs text-muted-foreground">Total do período</p>
-          <p className="text-lg font-bold text-foreground">{fmt(totalBalance)}</p>
+          <p className="text-xs text-muted-foreground">
+            {activeFilter === "Faturas" ? "Total em faturas" : "Total do período"}
+          </p>
+          <p className={cn("text-lg font-bold", activeFilter === "Faturas" ? "text-blue-500" : "text-foreground")}>
+            {activeFilter === "Faturas"
+              ? `-${fmt(cardInvoices.reduce((s, i) => s + i.invoice.total_amount, 0))}`
+              : fmt(totalBalance)
+            }
+          </p>
         </div>
-        <p className="text-xs text-muted-foreground">{filteredRegular.length} transações</p>
+        <p className="text-xs text-muted-foreground">
+          {activeFilter === "Faturas"
+            ? `${cardInvoices.length} fatura(s)`
+            : `${filteredRegular.length} transações`
+          }
+        </p>
       </div>
 
       {/* ══ SEÇÃO 1: Transações regulares ══ */}
-      <SectionHeader
+      {activeFilter !== "Faturas" && <SectionHeader
         title="Receitas e Despesas"
         count={filteredRegular.length}
         countColor="bg-primary/10 text-primary"
@@ -347,8 +367,10 @@ function TransacoesPage() {
         </div>
       )}
 
+      }
+
       {/* ══ SEÇÃO 2: Cartões de Crédito ══ */}
-      {cardInvoices.length > 0 && (
+      {cardInvoices.length > 0 && (activeFilter === "Todas" || activeFilter === "Faturas") && (
         <>
           <SectionHeader
             title="Cartões de Crédito"
