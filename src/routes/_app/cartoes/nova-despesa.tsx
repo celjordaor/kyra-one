@@ -15,10 +15,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useCardStore, resolveInvoiceForDate } from "@/lib/card-store";
+import { useCardStore, type Invoice } from "@/lib/card-store";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
-import { format, parseISO, isAfter } from "date-fns";
+import { format, parseISO, isAfter, startOfDay } from "date-fns";
 import { DatePicker } from "@/components/cartoes/date-picker";
 import { InstallmentPicker } from "@/components/cartoes/installment-picker";
 
@@ -41,6 +41,7 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
+// Formata dígitos em valor BRL enquanto digita
 function formatCurrencyInput(digits: string): string {
   const nums = digits.replace(/\D/g, "");
   if (!nums) return "";
@@ -55,21 +56,40 @@ function parseCurrencyInput(value: string): number {
   return parseFloat(value.replace(/\./g, "").replace(",", ".")) || 0;
 }
 
-// Retorna a fatura aberta mais próxima cuja data de fechamento ainda não passou
-function resolveDefaultInvoice(invoices: ReturnType<typeof useCardStore.getState>["invoices"], cardId: string, purchaseDate: string) {
-  const today = new Date();
-  const open = invoices
-    .filter((i) => i.card_id === cardId && i.status === "open")
-    .sort((a, b) => a.competence.localeCompare(b.competence));
+// Converte "MM/yyyy" → "yyyy-MM" para ordenação cronológica correta
+function competenceToSortKey(competence: string): string {
+  const [mm, yyyy] = competence.split("/");
+  return `${yyyy}-${mm}`;
+}
 
-  // Prefere a fatura cujo fechamento é após hoje E após a data da compra
-  const purchase = parseISO(purchaseDate);
-  const best = open.find(
+function sortInvoicesByCompetence(invoices: Invoice[]): Invoice[] {
+  return [...invoices].sort((a, b) =>
+    competenceToSortKey(a.competence).localeCompare(competenceToSortKey(b.competence))
+  );
+}
+
+// Retorna a fatura aberta mais próxima (menor closing_date que ainda não passou)
+// Se todas já passaram, retorna a próxima em ordem cronológica
+function resolveDefaultInvoice(invoices: Invoice[], cardId: string, purchaseDate: string): Invoice | null {
+  const today = startOfDay(new Date());
+  const purchase = startOfDay(parseISO(purchaseDate));
+
+  const openInvoices = sortInvoicesByCompetence(
+    invoices.filter((i) => i.card_id === cardId && i.status === "open")
+  );
+
+  if (openInvoices.length === 0) return null;
+
+  // Procura a fatura cuja data de fechamento é após a data da compra E após hoje
+  const best = openInvoices.find(
     (inv) =>
       isAfter(parseISO(inv.closing_date), today) &&
       isAfter(parseISO(inv.closing_date), purchase)
   );
-  return best ?? open[0] ?? null;
+
+  // Se encontrou, retorna ela (é a mais próxima já que a lista está ordenada)
+  // Se não encontrou, retorna a primeira da lista (mais próxima em ordem)
+  return best ?? openInvoices[0];
 }
 
 function NovaDespesaPage() {
@@ -104,30 +124,32 @@ function NovaDespesaPage() {
   const isRecurring = watch("is_recurring");
   const purchaseDate = watch("purchase_date");
   const amountRaw = watch("amount_raw");
+  const parsedAmount = parseCurrencyInput(amountRaw);
 
   const selectedCard = cards.find((c) => c.id === selectedCardId);
 
-  // Faturas ordenadas da mais próxima para a mais futura
-  const cardInvoices = invoices
-    .filter((i) => i.card_id === selectedCardId && i.status === "open")
-    .sort((a, b) => a.competence.localeCompare(b.competence))
-    .slice(0, 7);
-
-  const parsedAmount = parseCurrencyInput(amountRaw);
+  // Faturas abertas deste cartão — ordenadas cronologicamente, limitadas às próximas 6
+  const cardInvoices = sortInvoicesByCompetence(
+    invoices.filter((i) => i.card_id === selectedCardId && i.status === "open")
+  ).slice(0, 6);
 
   useEffect(() => {
     if (cards.length === 0) fetchCards();
     loadCategories();
   }, []);
 
-  // Auto-seleciona fatura correta quando cartão ou data mudam
+  // Auto-seleciona a fatura mais próxima quando cartão ou data mudam
   useEffect(() => {
-    if (!selectedCard || !purchaseDate || cardInvoices.length === 0) return;
+    if (!selectedCard || !purchaseDate) return;
+    const allOpen = invoices.filter(
+      (i) => i.card_id === selectedCard.id && i.status === "open"
+    );
+    if (allOpen.length === 0) return;
     const resolved = resolveDefaultInvoice(invoices, selectedCard.id, purchaseDate);
     if (resolved) setValue("invoice_id", resolved.id);
   }, [selectedCardId, purchaseDate, invoices.length]);
 
-  // Carrega faturas ao trocar cartão
+  // Carrega/garante faturas ao trocar de cartão
   useEffect(() => {
     if (!selectedCard) return;
     setLoadingInvoices(true);
@@ -232,7 +254,7 @@ function NovaDespesaPage() {
                     <SelectItem key={cat.name} value={cat.name}>
                       <span className="flex items-center gap-2">
                         <span
-                          className="inline-block h-3 w-3 rounded-full flex-shrink-0"
+                          className="inline-block h-3 w-3 flex-shrink-0 rounded-full"
                           style={{ backgroundColor: cat.color ?? "#6b7280" }}
                         />
                         {cat.name}
@@ -277,7 +299,7 @@ function NovaDespesaPage() {
           onChange={(v) => setValue("purchase_date", v)}
         />
 
-        {/* InstallmentPicker — só aparece se não for recorrente e tiver valor */}
+        {/* InstallmentPicker — só aparece quando há valor e não é recorrente */}
         {!isRecurring && parsedAmount > 0 && (
           <InstallmentPicker
             amount={parsedAmount}
@@ -313,7 +335,7 @@ function NovaDespesaPage() {
           </div>
         </div>
 
-        {/* Fatura destino — ordenada da mais próxima para a mais futura */}
+        {/* Fatura destino — ordenada cronologicamente, próximas 6 meses */}
         {selectedCard && (
           <div className="space-y-1.5">
             <Label>Fatura destino</Label>
