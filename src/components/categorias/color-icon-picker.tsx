@@ -6,54 +6,52 @@ import {
   Music, Film, Gift, Dumbbell, Pill, PiggyBank, Tag,
   Briefcase, Bus, Fuel, Baby, Dog, Wrench, CreditCard,
 } from "lucide-react";
-import * as LucideIcons from "lucide-react";
 
 export const CATEGORY_COLORS = [
-  "#ef4444", // red
-  "#f97316", // orange
-  "#eab308", // yellow
-  "#22c55e", // green
-  "#10b981", // emerald
-  "#14b8a6", // teal
-  "#06b6d4", // cyan
-  "#3b82f6", // blue
-  "#6366f1", // indigo
-  "#8b5cf6", // violet
-  "#ec4899", // pink
-  "#6b7280", // gray
+  "#ef4444",
+  "#f97316",
+  "#eab308",
+  "#22c55e",
+  "#10b981",
+  "#14b8a6",
+  "#06b6d4",
+  "#3b82f6",
+  "#6366f1",
+  "#8b5cf6",
+  "#ec4899",
+  "#6b7280",
 ];
 
 export const CATEGORY_ICONS = [
-  { name: "tag", icon: Tag, label: "Geral" },
-  { name: "shopping-cart", icon: ShoppingCart, label: "Compras" },
-  { name: "utensils", icon: Utensils, label: "Alimentação" },
-  { name: "car", icon: Car, label: "Carro" },
-  { name: "home", icon: Home, label: "Casa" },
-  { name: "heart", icon: Heart, label: "Saúde" },
-  { name: "graduation-cap", icon: GraduationCap, label: "Educação" },
-  { name: "plane", icon: Plane, label: "Viagem" },
-  { name: "gamepad-2", icon: Gamepad2, label: "Lazer" },
-  { name: "shirt", icon: Shirt, label: "Roupas" },
-  { name: "zap", icon: Zap, label: "Energia" },
-  { name: "wifi", icon: Wifi, label: "Internet" },
-  { name: "phone", icon: Phone, label: "Telefone" },
-  { name: "coffee", icon: Coffee, label: "Café" },
-  { name: "music", icon: Music, label: "Música" },
-  { name: "film", icon: Film, label: "Cinema" },
-  { name: "gift", icon: Gift, label: "Presente" },
-  { name: "dumbbell", icon: Dumbbell, label: "Academia" },
-  { name: "pill", icon: Pill, label: "Remédio" },
-  { name: "piggy-bank", icon: PiggyBank, label: "Poupança" },
-  { name: "briefcase", icon: Briefcase, label: "Trabalho" },
-  { name: "bus", icon: Bus, label: "Transporte" },
-  { name: "fuel", icon: Fuel, label: "Combustível" },
-  { name: "baby", icon: Baby, label: "Bebê" },
-  { name: "dog", icon: Dog, label: "Pet" },
-  { name: "wrench", icon: Wrench, label: "Manutenção" },
-  { name: "credit-card", icon: CreditCard, label: "Cartão" },
+  { name: "tag",             icon: Tag,          label: "Geral" },
+  { name: "shopping-cart",   icon: ShoppingCart, label: "Compras" },
+  { name: "utensils",        icon: Utensils,     label: "Alimentação" },
+  { name: "car",             icon: Car,          label: "Carro" },
+  { name: "home",            icon: Home,         label: "Casa" },
+  { name: "heart",           icon: Heart,        label: "Saúde" },
+  { name: "graduation-cap",  icon: GraduationCap,label: "Educação" },
+  { name: "plane",           icon: Plane,        label: "Viagem" },
+  { name: "gamepad-2",       icon: Gamepad2,     label: "Lazer" },
+  { name: "shirt",           icon: Shirt,        label: "Roupas" },
+  { name: "zap",             icon: Zap,          label: "Energia" },
+  { name: "wifi",            icon: Wifi,         label: "Internet" },
+  { name: "phone",           icon: Phone,        label: "Telefone" },
+  { name: "coffee",          icon: Coffee,       label: "Café" },
+  { name: "music",           icon: Music,        label: "Música" },
+  { name: "film",            icon: Film,         label: "Cinema" },
+  { name: "gift",            icon: Gift,         label: "Presente" },
+  { name: "dumbbell",        icon: Dumbbell,     label: "Academia" },
+  { name: "pill",            icon: Pill,         label: "Remédio" },
+  { name: "piggy-bank",      icon: PiggyBank,    label: "Poupança" },
+  { name: "briefcase",       icon: Briefcase,    label: "Trabalho" },
+  { name: "bus",             icon: Bus,          label: "Transporte" },
+  { name: "fuel",            icon: Fuel,         label: "Combustível" },
+  { name: "baby",            icon: Baby,         label: "Bebê" },
+  { name: "dog",             icon: Dog,          label: "Pet" },
+  { name: "wrench",          icon: Wrench,       label: "Manutenção" },
+  { name: "credit-card",     icon: CreditCard,   label: "Cartão" },
 ];
 
-// Helper para renderizar ícone pelo nome
 export function CategoryIcon({
   iconName,
   color,
@@ -101,7 +99,7 @@ export function ColorIconPicker({
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs Cor / Ícone */}
       <div className="flex gap-1 rounded-xl bg-muted p-1">
         {(["color", "icon"] as const).map((t) => (
           <button
