@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useCategories } from "@/lib/categories-store";
+import { getAndClearPreselectedTransactionType } from "@/lib/transaction-type-preset";
 import {
   addTransactions,
   formatBrDate,
@@ -35,7 +36,8 @@ type TransactionForm = z.infer<typeof transactionSchema>;
 
 function NovaTransacaoPage() {
   const navigate = useNavigate();
-  const [transactionType, setTransactionType] = useState<"income" | "expense">("expense");
+  const [transactionType, setTransactionType] = useState<"income" | "expense">(() => {
+  return getAndClearPreselectedTransactionType() ?? "expense";
   const [recurring, setRecurring] = useState(false);
   const [settled, setSettled] = useState(true);
   const [success, setSuccess] = useState<string | null>(null);
