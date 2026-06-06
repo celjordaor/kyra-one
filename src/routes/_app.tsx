@@ -1,10 +1,11 @@
 import { createFileRoute, Outlet, Link, useLocation, Navigate } from "@tanstack/react-router";
-import { Home, Receipt, Target, User, PlusCircle } from "lucide-react";
+import { Home, Receipt, Target, User, PlusCircle, CreditCard } from "lucide-react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/lib/auth";
 import { useSubscription } from "@/lib/subscription-store";
 import { GracePeriodBanner } from "@/components/grace-period-banner";
 import { PaymentRequired } from "@/components/payment-required";
+
 
 export const Route = createFileRoute("/_app")({
   component: AppLayout,
@@ -14,7 +15,7 @@ const navItems = [
   { to: "/dashboard",      label: "Início",      icon: Home },
   { to: "/transacoes",     label: "Transações",  icon: Receipt },
   { to: "/nova-transacao", label: "Adicionar",   icon: PlusCircle, isAction: true },
-  { to: "/metas",          label: "Metas",       icon: Target },
+  { to: "/cartoes",        label: "Cartões",   icon: CreditCard },
   { to: "/perfil",         label: "Perfil",      icon: User },
 ];
 
