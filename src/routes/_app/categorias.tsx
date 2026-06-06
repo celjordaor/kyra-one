@@ -45,11 +45,16 @@ function CategoriasPage() {
     setShowForm(true);
   };
 
-  const openEdit = (cat: Category) => {
-    setEditingId(cat.id);
-    setForm({ name: cat.name, color: cat.color ?? "#6b7280", icon: cat.icon ?? "tag" });
-    setShowForm(true);
-  };
+
+const openEdit = (cat: Category) => {
+  setEditingId(cat.id);
+  setForm({
+    name: cat.name,
+    color: cat.color ?? "#6b7280",
+    icon: cat.icon ?? "tag",
+  });
+  setShowForm(true);
+};
 
   const closeForm = () => {
     setShowForm(false);
