@@ -36,15 +36,14 @@ type TransactionForm = z.infer<typeof transactionSchema>;
 
 function NovaTransacaoPage() {
   const navigate = useNavigate();
-  const [type, setType] = useState<"income" | "expense">(() => {
-     return getAndClearPreselectedTransactionType() ?? "expense";
-   });
+  const presetType = sessionStorage.getItem("jadeone:new-transaction-type") as "income" | "expense" | null;
+  if (presetType) sessionStorage.removeItem("jadeone:new-transaction-type");
+  const [transactionType, setTransactionType] = useState<"income" | "expense">(presetType ?? "expense");
   const [recurring, setRecurring] = useState(false);
   const [settled, setSettled] = useState(true);
   const [success, setSuccess] = useState<string | null>(null);
   const [amountDisplay, setAmountDisplay] = useState("");
   const categories = useCategories().filter((c) => c.active && c.type === transactionType);
-
 
   const {
     register,
