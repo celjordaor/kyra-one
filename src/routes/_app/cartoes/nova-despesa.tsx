@@ -16,6 +16,34 @@ import { format, parseISO, isAfter, startOfDay } from "date-fns";
 import { DatePicker } from "@/components/cartoes/date-picker";
 import { InstallmentPicker } from "@/components/cartoes/installment-picker";
 
+// Detecta se o valor é um emoji real ou um identificador de texto
+function isEmoji(s: string): boolean {
+  if (!s) return false;
+  return /\p{Emoji_Presentation}|\p{Extended_Pictographic}/u.test(s) && !/^[a-zA-Z0-9_\-\s]+$/.test(s);
+}
+
+// Renderiza o ícone: emoji puro ou primeira letra em círculo colorido
+function CatIcon({ icon, name, color, size = "md" }: {
+  icon: string; name: string; color: string; size?: "sm" | "md";
+}) {
+  const bg = color || "#6b7280";
+  const cls = size === "sm" ? "h-7 w-7 text-sm" : "h-10 w-10 text-xl";
+  if (isEmoji(icon)) {
+    return (
+      <div className={`flex ${cls} shrink-0 items-center justify-center rounded-full`}
+        style={{ background: bg + "20", border: `1.5px solid ${bg}44` }}>
+        <span>{icon}</span>
+      </div>
+    );
+  }
+  return (
+    <div className={`flex ${cls} shrink-0 items-center justify-center rounded-full font-bold text-white`}
+      style={{ background: bg }}>
+      {(name[0] ?? "?").toUpperCase()}
+    </div>
+  );
+}
+
 export const Route = createFileRoute("/_app/cartoes/nova-despesa")({
   validateSearch: z.object({ cardId: z.string().optional() }),
   component: NovaDespesaPage,
