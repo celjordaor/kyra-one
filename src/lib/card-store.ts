@@ -25,7 +25,7 @@ export interface Invoice {
   id: string;
   user_id: string;
   card_id: string;
-  competence: string; // "07/2026"
+  competence: string;
   closing_date: string;
   due_date: string;
   total_amount: number;
@@ -73,19 +73,17 @@ interface CardStore {
   installments: CardInstallment[];
   loading: boolean;
 
-  // Cartões
   fetchCards: () => Promise<void>;
   addCard: (card: Omit<CreditCard, "id" | "user_id" | "created_at">) => Promise<void>;
   updateCard: (id: string, data: Partial<CreditCard>) => Promise<void>;
   deleteCard: (id: string) => Promise<void>;
 
-  // Faturas
   fetchInvoices: (cardId: string) => Promise<void>;
   ensureInvoices: (card: CreditCard) => Promise<Invoice[]>;
   payInvoice: (invoiceId: string, card: CreditCard) => Promise<void>;
 
-  // Despesas
   fetchExpenses: (invoiceId: string) => Promise<void>;
+  fetchInstallments: (invoiceId: string) => Promise<void>;
   addExpense: (expense: {
     card: CreditCard;
     invoiceId: string;
@@ -99,27 +97,22 @@ interface CardStore {
   }) => Promise<void>;
   deleteExpense: (expenseId: string) => Promise<void>;
 
-  // Helpers
   getCardInvoices: (cardId: string) => Invoice[];
   getInvoiceExpenses: (invoiceId: string) => CardExpense[];
+  getInvoiceInstallments: (invoiceId: string) => CardInstallment[];
   getCardLimitUsed: (cardId: string) => number;
+  recalcInvoiceTotal: (invoiceId: string) => Promise<void>;
 }
 
 // ─── Utilitários ──────────────────────────────────────────────────────────────
 
 function buildInvoiceDates(card: CreditCard, referenceDate: Date) {
-  // Competência: mês/ano da fatura
   const competence = format(referenceDate, "MM/yyyy");
-
-  // Data de fechamento: dia de fechamento no mês referência
   const closingDate = setDate(referenceDate, card.closing_day);
-
-  // Data de vencimento: dia de vencimento — pode ser no mês seguinte
   let dueDate = setDate(referenceDate, card.due_day);
   if (card.due_day <= card.closing_day) {
     dueDate = setDate(addMonths(referenceDate, 1), card.due_day);
   }
-
   return {
     competence,
     closing_date: format(closingDate, "yyyy-MM-dd"),
@@ -133,23 +126,23 @@ export function resolveInvoiceForDate(
   card: CreditCard
 ): Invoice | null {
   const date = parseISO(purchaseDate);
-
-  // Encontra fatura aberta cuja data de fechamento seja após a compra
   const current = invoices.find(
     (inv) =>
       inv.card_id === card.id &&
       inv.status === "open" &&
       isAfter(parseISO(inv.closing_date), date)
   );
-
   if (current) return current;
-
-  // Caso contrário, próxima fatura futura
   const next = invoices
     .filter((inv) => inv.card_id === card.id && inv.status === "open")
     .sort((a, b) => a.competence.localeCompare(b.competence))[0];
-
   return next ?? null;
+}
+
+// Converte yyyy-MM-dd para dd/mm/yyyy (formato usado em transactions)
+function toTransactionDate(isoDate: string): string {
+  const [y, m, d] = isoDate.split("-");
+  return `${d}/${m}/${y}`;
 }
 
 // ─── Implementação ────────────────────────────────────────────────────────────
@@ -175,26 +168,19 @@ export const useCardStore = create<CardStore>((set, get) => ({
   addCard: async (card) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-
     const { data, error } = await supabase
       .from("credit_cards")
       .insert({ ...card, user_id: user.id })
       .select()
       .single();
-
     if (error || !data) return;
-
     set((s) => ({ cards: [...s.cards, data] }));
-
-    // Gera as próximas 12 faturas automaticamente
     await get().ensureInvoices(data);
   },
 
   updateCard: async (id, data) => {
     await supabase.from("credit_cards").update(data).eq("id", id);
-    set((s) => ({
-      cards: s.cards.map((c) => (c.id === id ? { ...c, ...data } : c)),
-    }));
+    set((s) => ({ cards: s.cards.map((c) => (c.id === id ? { ...c, ...data } : c)) }));
   },
 
   deleteCard: async (id) => {
@@ -222,21 +208,18 @@ export const useCardStore = create<CardStore>((set, get) => ({
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return [];
 
-    // Verifica faturas já existentes
     const { data: existing } = await supabase
       .from("invoices")
       .select("competence")
       .eq("card_id", card.id);
 
     const existingCompetences = new Set((existing ?? []).map((i) => i.competence));
-
     const now = new Date();
     const toInsert: Omit<Invoice, "id" | "created_at">[] = [];
 
     for (let i = 0; i < 12; i++) {
       const ref = addMonths(now, i);
       const { competence, closing_date, due_date } = buildInvoiceDates(card, ref);
-
       if (!existingCompetences.has(competence)) {
         toInsert.push({
           user_id: user.id,
@@ -250,19 +233,12 @@ export const useCardStore = create<CardStore>((set, get) => ({
       }
     }
 
-    if (toInsert.length === 0) {
+    if (toInsert.length > 0) {
+      const { data: inserted } = await supabase.from("invoices").insert(toInsert).select();
+      set((s) => ({ invoices: [...s.invoices, ...(inserted ?? [])] }));
+    } else {
       await get().fetchInvoices(card.id);
-      return get().invoices.filter((i) => i.card_id === card.id);
     }
-
-    const { data: inserted } = await supabase
-      .from("invoices")
-      .insert(toInsert)
-      .select();
-
-    set((s) => ({
-      invoices: [...s.invoices, ...(inserted ?? [])],
-    }));
 
     return get().invoices.filter((i) => i.card_id === card.id);
   },
@@ -274,22 +250,19 @@ export const useCardStore = create<CardStore>((set, get) => ({
     const invoice = get().invoices.find((i) => i.id === invoiceId);
     if (!invoice) return;
 
-    // Atualiza status da fatura
-    await supabase
-      .from("invoices")
-      .update({ status: "paid" })
-      .eq("id", invoiceId);
+    await supabase.from("invoices").update({ status: "paid" }).eq("id", invoiceId);
 
-    // Registra movimentação na tabela transactions existente
+    // Insere em transactions com o formato dd/mm/yyyy que o sistema usa
     await supabase.from("transactions").insert({
       user_id: user.id,
       title: `Fatura ${card.name} – ${invoice.competence}`,
       amount: invoice.total_amount,
       type: "expense",
-      date: invoice.due_date,
+      date: toTransactionDate(invoice.due_date),
       category: "Cartão de Crédito",
       settled: true,
-      paid_at: format(new Date(), "yyyy-MM-dd"),
+      paid_at: toTransactionDate(format(new Date(), "yyyy-MM-dd")),
+      recurring: false,
     });
 
     set((s) => ({
@@ -315,20 +288,57 @@ export const useCardStore = create<CardStore>((set, get) => ({
     }));
   },
 
-  addExpense: async ({ card, invoiceId, category, description, amount, purchaseDate, installments, isRecurring, observations }) => {
+  fetchInstallments: async (invoiceId) => {
+    const { data } = await supabase
+      .from("card_installments")
+      .select("*")
+      .eq("invoice_id", invoiceId)
+      .order("installment_number", { ascending: true });
+    set((s) => ({
+      installments: [
+        ...s.installments.filter((i) => i.invoice_id !== invoiceId),
+        ...(data ?? []),
+      ],
+    }));
+  },
+
+  recalcInvoiceTotal: async (invoiceId) => {
+    // Soma card_expenses + card_installments desta fatura
+    const { data: expData } = await supabase
+      .from("card_expenses")
+      .select("amount")
+      .eq("invoice_id", invoiceId);
+    const { data: instData } = await supabase
+      .from("card_installments")
+      .select("amount")
+      .eq("invoice_id", invoiceId);
+
+    const total =
+      (expData ?? []).reduce((s, e) => s + e.amount, 0) +
+      (instData ?? []).reduce((s, i) => s + i.amount, 0);
+
+    await supabase.from("invoices").update({ total_amount: total }).eq("id", invoiceId);
+    set((s) => ({
+      invoices: s.invoices.map((i) =>
+        i.id === invoiceId ? { ...i, total_amount: total } : i
+      ),
+    }));
+  },
+
+  addExpense: async ({
+    card, invoiceId, category, description, amount,
+    purchaseDate, installments, isRecurring, observations,
+  }) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const allInvoices = get().invoices.filter((i) => i.card_id === card.id);
+    const allInvoices = get()
+      .invoices.filter((i) => i.card_id === card.id && i.status === "open")
+      .sort((a, b) => a.competence.localeCompare(b.competence));
 
     if (isRecurring) {
       // Replica nas próximas 12 faturas abertas
-      const openInvoices = allInvoices
-        .filter((i) => i.status === "open")
-        .sort((a, b) => a.competence.localeCompare(b.competence))
-        .slice(0, 12);
-
-      const rows = openInvoices.map((inv, idx) => ({
+      const rows = allInvoices.slice(0, 12).map((inv, idx) => ({
         user_id: user.id,
         card_id: card.id,
         invoice_id: inv.id,
@@ -345,12 +355,17 @@ export const useCardStore = create<CardStore>((set, get) => ({
       const { data } = await supabase.from("card_expenses").insert(rows).select();
       if (data) set((s) => ({ expenses: [...s.expenses, ...data] }));
 
+      // Recalcula total de todas as faturas afetadas
+      for (const inv of allInvoices.slice(0, 12)) {
+        await get().recalcInvoiceTotal(inv.id);
+      }
+
     } else if (installments > 1) {
-      // Compra parcelada: primeira parcela na fatura escolhida, demais nas seguintes
+      // Compra parcelada
       const installmentAmount = Math.round((amount / installments) * 100) / 100;
       const startIndex = allInvoices.findIndex((i) => i.id === invoiceId);
 
-      // Cria a despesa mãe (parcela 1)
+      // Parcela 1 → card_expenses
       const { data: parent } = await supabase
         .from("card_expenses")
         .insert({
@@ -370,16 +385,15 @@ export const useCardStore = create<CardStore>((set, get) => ({
         .single();
 
       if (!parent) return;
-
       set((s) => ({ expenses: [...s.expenses, parent] }));
+      await get().recalcInvoiceTotal(invoiceId);
 
-      // Cria as demais parcelas em card_installments
-      const remainingInstallments = [];
+      // Parcelas 2..N → card_installments nas faturas seguintes
+      const remainingRows = [];
       for (let i = 1; i < installments; i++) {
         const targetInvoice = allInvoices[startIndex + i];
         if (!targetInvoice) break;
-
-        remainingInstallments.push({
+        remainingRows.push({
           user_id: user.id,
           card_id: card.id,
           invoice_id: targetInvoice.id,
@@ -393,16 +407,23 @@ export const useCardStore = create<CardStore>((set, get) => ({
         });
       }
 
-      if (remainingInstallments.length > 0) {
+      if (remainingRows.length > 0) {
         const { data: instData } = await supabase
           .from("card_installments")
-          .insert(remainingInstallments)
+          .insert(remainingRows)
           .select();
-        if (instData) set((s) => ({ installments: [...s.installments, ...instData] }));
+        if (instData) {
+          set((s) => ({ installments: [...s.installments, ...instData] }));
+          // Recalcula total de cada fatura afetada pelas parcelas
+          const affectedInvoiceIds = [...new Set(remainingRows.map((r) => r.invoice_id))];
+          for (const id of affectedInvoiceIds) {
+            await get().recalcInvoiceTotal(id);
+          }
+        }
       }
 
     } else {
-      // Despesa simples (avulsa)
+      // Despesa simples
       const { data } = await supabase
         .from("card_expenses")
         .insert({
@@ -422,54 +443,37 @@ export const useCardStore = create<CardStore>((set, get) => ({
         .single();
 
       if (data) set((s) => ({ expenses: [...s.expenses, data] }));
+      await get().recalcInvoiceTotal(invoiceId);
     }
-
-    // Recalcula total da fatura
-    const { data: allExpenses } = await supabase
-      .from("card_expenses")
-      .select("amount")
-      .eq("invoice_id", invoiceId);
-
-    const total = (allExpenses ?? []).reduce((sum, e) => sum + e.amount, 0);
-    await supabase.from("invoices").update({ total_amount: total }).eq("id", invoiceId);
-    set((s) => ({
-      invoices: s.invoices.map((i) =>
-        i.id === invoiceId ? { ...i, total_amount: total } : i
-      ),
-    }));
   },
 
   deleteExpense: async (expenseId) => {
     const expense = get().expenses.find((e) => e.id === expenseId);
     await supabase.from("card_expenses").delete().eq("id", expenseId);
-    // Se parcelada, exclui as demais parcelas
     if (expense?.expense_type === "installment") {
       await supabase.from("card_installments").delete().eq("parent_expense_id", expenseId);
     }
     set((s) => ({ expenses: s.expenses.filter((e) => e.id !== expenseId) }));
+    if (expense) await get().recalcInvoiceTotal(expense.invoice_id);
   },
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   getCardInvoices: (cardId) =>
-    get().invoices
-      .filter((i) => i.card_id === cardId)
+    get()
+      .invoices.filter((i) => i.card_id === cardId)
       .sort((a, b) => a.competence.localeCompare(b.competence)),
 
   getInvoiceExpenses: (invoiceId) =>
     get().expenses.filter((e) => e.invoice_id === invoiceId),
 
+  getInvoiceInstallments: (invoiceId) =>
+    get().installments.filter((i) => i.invoice_id === invoiceId),
+
   getCardLimitUsed: (cardId) => {
     const openInvoices = get().invoices.filter(
       (i) => i.card_id === cardId && i.status !== "paid"
     );
-    const invoiceIds = new Set(openInvoices.map((i) => i.id));
-    const expenseTotal = get()
-      .expenses.filter((e) => invoiceIds.has(e.invoice_id))
-      .reduce((sum, e) => sum + e.amount, 0);
-    const installmentTotal = get()
-      .installments.filter((i) => invoiceIds.has(i.invoice_id))
-      .reduce((sum, i) => sum + i.amount, 0);
-    return expenseTotal + installmentTotal;
+    return openInvoices.reduce((sum, inv) => sum + inv.total_amount, 0);
   },
 }));

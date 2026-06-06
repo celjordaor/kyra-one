@@ -8,11 +8,11 @@ import {
   Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useCardStore, type CardExpense, type ExpenseType } from "@/lib/card-store";
+import { useCardStore, type CardExpense, type CardInstallment, type ExpenseType } from "@/lib/card-store";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_app/cartoes/$cardId_/fatura/$invoiceId")({
+export const Route = createFileRoute("/_app/cartoes/$cardId/fatura/$invoiceId")({
   component: FaturaDetailPage,
 });
 
@@ -28,8 +28,23 @@ const TYPE_LABEL: Record<ExpenseType, string> = {
   recurring: "Recorrente",
 };
 
-function groupByCategory(expenses: CardExpense[]) {
-  return expenses.reduce<Record<string, number>>((acc, e) => {
+const TYPE_CLASS: Record<ExpenseType, string> = {
+  single: "bg-muted text-muted-foreground",
+  installment: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  recurring: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+};
+
+type UnifiedItem = {
+  id: string;
+  description: string;
+  category: string;
+  amount: number;
+  purchase_date: string;
+  expense_type: ExpenseType;
+};
+
+function groupByCategory(items: UnifiedItem[]) {
+  return items.reduce<Record<string, number>>((acc, e) => {
     acc[e.category] = (acc[e.category] ?? 0) + e.amount;
     return acc;
   }, {});
@@ -38,13 +53,16 @@ function groupByCategory(expenses: CardExpense[]) {
 function FaturaDetailPage() {
   const { cardId, invoiceId } = Route.useParams();
   const router = useRouter();
-  const { cards, invoices, expenses, fetchInvoices, fetchExpenses, payInvoice, ensureInvoices } =
-    useCardStore();
+  const {
+    cards, invoices, expenses, installments,
+    fetchInvoices, fetchExpenses, fetchInstallments,
+    payInvoice, ensureInvoices,
+    getInvoiceExpenses, getInvoiceInstallments,
+  } = useCardStore();
   const [paying, setPaying] = useState(false);
 
   const card = cards.find((c) => c.id === cardId);
   const invoice = invoices.find((i) => i.id === invoiceId);
-  const invoiceExpenses = expenses.filter((e) => e.invoice_id === invoiceId);
 
   useEffect(() => {
     const init = async () => {
@@ -52,16 +70,40 @@ function FaturaDetailPage() {
       await ensureInvoices(card);
       await fetchInvoices(cardId);
       await fetchExpenses(invoiceId);
+      await fetchInstallments(invoiceId);
     };
     init();
   }, [invoiceId, cardId]);
+
+  const invoiceExpenses = getInvoiceExpenses(invoiceId);
+  const invoiceInstallments = getInvoiceInstallments(invoiceId);
+
+  // Unifica despesas e parcelas em uma lista única para exibição
+  const allItems: UnifiedItem[] = [
+    ...invoiceExpenses.map((e) => ({
+      id: e.id,
+      description: e.description,
+      category: e.category,
+      amount: e.amount,
+      purchase_date: e.purchase_date,
+      expense_type: e.expense_type,
+    })),
+    ...invoiceInstallments.map((i) => ({
+      id: i.id,
+      description: i.description,
+      category: i.category,
+      amount: i.amount,
+      purchase_date: i.purchase_date,
+      expense_type: "installment" as ExpenseType,
+    })),
+  ].sort((a, b) => a.purchase_date.localeCompare(b.purchase_date));
 
   const handlePayInvoice = async () => {
     if (!card || !invoice) return;
     setPaying(true);
     try {
       await payInvoice(invoiceId, card);
-      toast.success("Fatura marcada como paga!");
+      toast.success("Fatura marcada como paga! Transação registrada.");
     } catch {
       toast.error("Erro ao pagar fatura.");
     } finally {
@@ -77,7 +119,7 @@ function FaturaDetailPage() {
     );
   }
 
-  const categoryTotals = groupByCategory(invoiceExpenses);
+  const categoryTotals = groupByCategory(allItems);
   const isPaid = invoice.status === "paid";
 
   return (
@@ -94,7 +136,7 @@ function FaturaDetailPage() {
           <h1 className="text-xl font-bold text-foreground">
             {card.name} · {invoice.competence}
           </h1>
-          <p className="text-sm text-muted-foreground capitalize">
+          <p className="text-sm text-muted-foreground">
             {invoice.status === "open"
               ? "Fatura aberta"
               : invoice.status === "closed"
@@ -148,7 +190,7 @@ function FaturaDetailPage() {
         {isPaid && (
           <div className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-green-50 py-3 text-sm font-medium text-green-700 dark:bg-green-900/20 dark:text-green-400">
             <CheckCircle2 className="h-4 w-4" />
-            Fatura paga
+            Fatura paga · Transação registrada
           </div>
         )}
       </div>
@@ -175,50 +217,46 @@ function FaturaDetailPage() {
         </div>
       )}
 
-      {/* Lista de despesas */}
+      {/* Lista unificada de despesas + parcelas */}
       <div>
         <h2 className="mb-3 text-sm font-semibold text-foreground">
-          Despesas ({invoiceExpenses.length})
+          Lançamentos ({allItems.length})
         </h2>
 
-        {invoiceExpenses.length === 0 ? (
+        {allItems.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border py-10 text-center text-sm text-muted-foreground">
             Nenhuma despesa nesta fatura.
           </div>
         ) : (
           <div className="space-y-2">
-            {invoiceExpenses.map((expense) => (
+            {allItems.map((item) => (
               <div
-                key={expense.id}
+                key={item.id}
                 className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3.5"
               >
                 <div className="flex items-start gap-3">
                   <div className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary">
-                    {TYPE_ICON[expense.expense_type]}
+                    {TYPE_ICON[item.expense_type]}
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-foreground">{expense.description}</p>
-                    <div className="mt-0.5 flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">{expense.category}</span>
+                    <p className="text-sm font-medium text-foreground">{item.description}</p>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                      <span className="text-xs text-muted-foreground">{item.category}</span>
                       <span className="text-xs text-muted-foreground">·</span>
                       <span className="text-xs text-muted-foreground">
-                        {new Date(expense.purchase_date + "T12:00:00").toLocaleDateString("pt-BR")}
+                        {new Date(item.purchase_date + "T12:00:00").toLocaleDateString("pt-BR")}
                       </span>
                       <span className={cn(
                         "rounded-full px-1.5 py-0.5 text-[10px] font-medium",
-                        expense.expense_type === "recurring"
-                          ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
-                          : expense.expense_type === "installment"
-                          ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                          : "bg-muted text-muted-foreground"
+                        TYPE_CLASS[item.expense_type]
                       )}>
-                        {TYPE_LABEL[expense.expense_type]}
+                        {TYPE_LABEL[item.expense_type]}
                       </span>
                     </div>
                   </div>
                 </div>
-                <p className="text-sm font-semibold text-foreground">
-                  {expense.amount.toLocaleString("pt-BR", {
+                <p className="ml-2 flex-shrink-0 text-sm font-semibold text-foreground">
+                  {item.amount.toLocaleString("pt-BR", {
                     style: "currency",
                     currency: "BRL",
                   })}

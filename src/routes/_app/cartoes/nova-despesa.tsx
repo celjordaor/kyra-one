@@ -1,4 +1,4 @@
-import { createFileRoute, useRouter, useSearch } from "@tanstack/react-router";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { z } from "zod";
 import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
@@ -29,7 +29,7 @@ const schema = z.object({
   card_id: z.string().min(1, "Selecione o cartão"),
   category: z.string().min(1, "Selecione a categoria"),
   description: z.string().min(1, "Informe a descrição"),
-  amount: z.coerce.number().positive("Valor deve ser maior que zero"),
+  amount_raw: z.string().min(1, "Informe o valor"),
   purchase_date: z.string().min(1, "Informe a data"),
   installments: z.coerce.number().int().min(1).max(48),
   is_recurring: z.boolean().default(false),
@@ -39,12 +39,29 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
+// Formata dígitos em valor monetário BRL enquanto digita
+function formatCurrencyInput(digits: string): string {
+  const nums = digits.replace(/\D/g, "");
+  if (!nums) return "";
+  const cents = parseInt(nums, 10);
+  return (cents / 100).toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+// Converte string formatada "1.234,56" → número 1234.56
+function parseCurrencyInput(value: string): number {
+  return parseFloat(value.replace(/\./g, "").replace(",", ".")) || 0;
+}
+
 function NovaDespesaPage() {
   const router = useRouter();
-  const { cardId: preselectedCardId } = useSearch({ from: "/_app/cartoes/nova-despesa" });
+  const { cardId: preselectedCardId } = Route.useSearch();
   const { cards, invoices, fetchCards, ensureInvoices, fetchInvoices, addExpense } = useCardStore();
   const [categories, setCategories] = useState<string[]>([]);
   const [loadingInvoices, setLoadingInvoices] = useState(false);
+  const [displayValue, setDisplayValue] = useState("");
 
   const {
     register,
@@ -61,6 +78,7 @@ function NovaDespesaPage() {
       is_recurring: false,
       purchase_date: format(new Date(), "yyyy-MM-dd"),
       invoice_id: "",
+      amount_raw: "",
     },
   });
 
@@ -68,28 +86,31 @@ function NovaDespesaPage() {
   const installments = watch("installments");
   const isRecurring = watch("is_recurring");
   const purchaseDate = watch("purchase_date");
-  const amount = watch("amount");
+  const amountRaw = watch("amount_raw");
 
   const selectedCard = cards.find((c) => c.id === selectedCardId);
   const cardInvoices = invoices
     .filter((i) => i.card_id === selectedCardId && i.status === "open")
     .sort((a, b) => a.competence.localeCompare(b.competence))
-    .slice(0, 7); // atual + próximas 6
+    .slice(0, 7);
 
-  // Carrega cartões e categorias
+  const parsedAmount = parseCurrencyInput(amountRaw);
+  const installmentAmount =
+    parsedAmount > 0 && installments > 1
+      ? Math.round((parsedAmount / installments) * 100) / 100
+      : null;
+
   useEffect(() => {
     if (cards.length === 0) fetchCards();
     loadCategories();
   }, []);
 
-  // Auto-seleciona a fatura correta quando cartão ou data mudam
   useEffect(() => {
     if (!selectedCard || !purchaseDate || cardInvoices.length === 0) return;
     const resolved = resolveInvoiceForDate(purchaseDate, invoices, selectedCard);
     if (resolved) setValue("invoice_id", resolved.id);
   }, [selectedCardId, purchaseDate, invoices.length]);
 
-  // Carrega faturas quando troca de cartão
   useEffect(() => {
     if (!selectedCard) return;
     setLoadingInvoices(true);
@@ -110,19 +131,26 @@ function NovaDespesaPage() {
     setCategories((data ?? []).map((c) => c.name));
   };
 
-  const installmentAmount = amount > 0 && installments > 1
-    ? Math.round((amount / installments) * 100) / 100
-    : null;
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatCurrencyInput(e.target.value);
+    setDisplayValue(formatted);
+    setValue("amount_raw", formatted, { shouldValidate: true });
+  };
 
   const onSubmit = async (data: FormData) => {
     if (!selectedCard) return;
+    const amount = parseCurrencyInput(data.amount_raw);
+    if (amount <= 0) {
+      toast.error("Informe um valor válido.");
+      return;
+    }
     try {
       await addExpense({
         card: selectedCard,
         invoiceId: data.invoice_id,
         category: data.category,
         description: data.description,
-        amount: data.amount,
+        amount,
         purchaseDate: data.purchase_date,
         installments: data.installments,
         isRecurring: data.is_recurring,
@@ -137,7 +165,6 @@ function NovaDespesaPage() {
 
   return (
     <div className="mx-auto max-w-lg px-4 py-6">
-      {/* Header */}
       <div className="mb-6 flex items-center gap-3">
         <button
           onClick={() => router.history.back()}
@@ -202,29 +229,44 @@ function NovaDespesaPage() {
         {/* Descrição */}
         <div className="space-y-1.5">
           <Label htmlFor="description">Descrição</Label>
-          <Input id="description" placeholder="Ex: Netflix, Supermercado Extra" {...register("description")} />
-          {errors.description && <p className="text-xs text-destructive">{errors.description.message}</p>}
+          <Input
+            id="description"
+            placeholder="Ex: Netflix, Supermercado Extra"
+            {...register("description")}
+          />
+          {errors.description && (
+            <p className="text-xs text-destructive">{errors.description.message}</p>
+          )}
         </div>
 
-        {/* Valor */}
+        {/* Valor — máscara BRL */}
         <div className="space-y-1.5">
-          <Label htmlFor="amount">Valor total (R$)</Label>
-          <Input
-            id="amount"
-            type="number"
-            step="0.01"
-            min="0"
-            placeholder="0,00"
-            {...register("amount")}
-          />
-          {errors.amount && <p className="text-xs text-destructive">{errors.amount.message}</p>}
+          <Label htmlFor="amount_display">Valor (R$)</Label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+              R$
+            </span>
+            <Input
+              id="amount_display"
+              inputMode="numeric"
+              placeholder="0,00"
+              className="pl-9"
+              value={displayValue}
+              onChange={handleAmountChange}
+            />
+          </div>
+          {errors.amount_raw && (
+            <p className="text-xs text-destructive">{errors.amount_raw.message}</p>
+          )}
         </div>
 
         {/* Data */}
         <div className="space-y-1.5">
           <Label htmlFor="purchase_date">Data da compra</Label>
           <Input id="purchase_date" type="date" {...register("purchase_date")} />
-          {errors.purchase_date && <p className="text-xs text-destructive">{errors.purchase_date.message}</p>}
+          {errors.purchase_date && (
+            <p className="text-xs text-destructive">{errors.purchase_date.message}</p>
+          )}
         </div>
 
         {/* Parcelas */}
@@ -241,7 +283,12 @@ function NovaDespesaPage() {
             {installmentAmount && (
               <div className="flex items-center gap-1.5 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700 dark:bg-blue-900/20 dark:text-blue-400">
                 <Info className="h-3.5 w-3.5 flex-shrink-0" />
-                {installments}x de {installmentAmount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} nas próximas faturas
+                {installments}x de{" "}
+                {installmentAmount.toLocaleString("pt-BR", {
+                  style: "currency",
+                  currency: "BRL",
+                })}{" "}
+                nas próximas faturas
               </div>
             )}
           </div>
@@ -266,7 +313,7 @@ function NovaDespesaPage() {
               Despesa recorrente
             </Label>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Será lançada automaticamente nas próximas 12 faturas com o mesmo valor.
+              Será lançada nas próximas 12 faturas com o mesmo valor.
             </p>
           </div>
         </div>
@@ -298,14 +345,20 @@ function NovaDespesaPage() {
                 )}
               />
             )}
-            {errors.invoice_id && <p className="text-xs text-destructive">{errors.invoice_id.message}</p>}
+            {errors.invoice_id && (
+              <p className="text-xs text-destructive">{errors.invoice_id.message}</p>
+            )}
           </div>
         )}
 
         {/* Observações */}
         <div className="space-y-1.5">
           <Label htmlFor="observations">Observações (opcional)</Label>
-          <Input id="observations" placeholder="Alguma nota sobre esta despesa" {...register("observations")} />
+          <Input
+            id="observations"
+            placeholder="Alguma nota sobre esta despesa"
+            {...register("observations")}
+          />
         </div>
 
         <Button
