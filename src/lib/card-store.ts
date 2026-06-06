@@ -69,6 +69,9 @@ interface CardStore {
   fetchInstallments: (invoiceId: string) => Promise<void>;
   addExpense: (e: { card: CreditCard; invoiceId: string; category: string; description: string; amount: number; purchaseDate: string; installments: number; isRecurring: boolean; observations?: string }) => Promise<void>;
   deleteExpense: (id: string) => Promise<void>;
+  updateExpense: (id: string, patch: Partial<Pick<CardExpense, "description"|"category"|"amount"|"purchase_date">>) => Promise<void>;
+  updateInstallment: (id: string, invoiceId: string, patch: Partial<Pick<CardInstallment, "description"|"category"|"amount"|"purchase_date">>) => Promise<void>;
+  deleteInstallment: (id: string, invoiceId: string) => Promise<void>;
   getCardInvoices: (cardId: string) => Invoice[];
   getInvoiceExpenses: (invoiceId: string) => CardExpense[];
   getInvoiceInstallments: (invoiceId: string) => CardInstallment[];
@@ -133,7 +136,7 @@ export const useCardStore = create<CardStore>((set, get) => ({
     const { data: { user } } = await supabase.auth.getUser(); if (!user) return;
     const invoice = get().invoices.find(i => i.id === invoiceId); if (!invoice) return;
     const { addTransaction } = await import("./transactions-store");
-    await addTransaction({ title: `Fatura ${card.name} – ${invoice.competence}`, amount: invoice.total_amount, type: "expense", date: toTransactionDate(invoice.due_date), category: "Cartão de Crédito", settled: true, paidAt: toTransactionDate(format(new Date(), "yyyy-MM-dd")), recurring: false, source: "invoice" });
+    await addTransaction({ title: `Fatura ${card.name} – ${invoice.competence}`, amount: invoice.total_amount, type: "expense", date: toTransactionDate(invoice.due_date), category: "Cartão de Crédito", settled: true, paidAt: toTransactionDate(format(new Date(), "yyyy-MM-dd")), recurring: false });
     const { data: txRow } = await supabase.from("transactions").select("id").eq("user_id", user.id).eq("category", "Cartão de Crédito").eq("title", `Fatura ${card.name} – ${invoice.competence}`).order("created_at", { ascending: false }).limit(1).single();
     const txId = txRow?.id ?? null;
     await supabase.from("invoices").update({ status: "paid", transaction_id: txId }).eq("id", invoiceId);
@@ -195,6 +198,23 @@ export const useCardStore = create<CardStore>((set, get) => ({
     }
   },
 
+  updateExpense: async (id, patch) => {
+    const expense = get().expenses.find(e => e.id === id);
+    if (!expense) return;
+    await supabase.from("card_expenses").update(patch).eq("id", id);
+    set(s => ({ expenses: s.expenses.map(e => e.id === id ? { ...e, ...patch } : e) }));
+    await get().recalcInvoiceTotal(expense.invoice_id);
+  },
+  updateInstallment: async (id, invoiceId, patch) => {
+    await supabase.from("card_installments").update(patch).eq("id", id);
+    set(s => ({ installments: s.installments.map(i => i.id === id ? { ...i, ...patch } : i) }));
+    await get().recalcInvoiceTotal(invoiceId);
+  },
+  deleteInstallment: async (id, invoiceId) => {
+    await supabase.from("card_installments").delete().eq("id", id);
+    set(s => ({ installments: s.installments.filter(i => i.id !== id) }));
+    await get().recalcInvoiceTotal(invoiceId);
+  },
   deleteExpense: async (expenseId) => {
     const expense = get().expenses.find(e => e.id === expenseId);
     await supabase.from("card_expenses").delete().eq("id", expenseId);

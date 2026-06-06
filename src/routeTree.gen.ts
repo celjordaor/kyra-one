@@ -28,6 +28,7 @@ import { Route as AppCartoesIndexRouteImport } from './routes/_app/cartoes/index
 import { Route as AppCartoesNovoRouteImport } from './routes/_app/cartoes/novo'
 import { Route as AppCartoesNovaDespesaRouteImport } from './routes/_app/cartoes/nova-despesa'
 import { Route as AppCartoesCardIdRouteImport } from './routes/_app/cartoes/$cardId'
+import { Route as AppCartoesCardId_faturaInvoiceIdRouteImport } from './routes/_app/cartoes/$cardId_fatura.$invoiceId'
 import { Route as AppCartoesCardIdFaturaInvoiceIdRouteImport } from './routes/_app/cartoes/$cardId_.fatura.$invoiceId'
 
 const RecuperarSenhaRoute = RecuperarSenhaRouteImport.update({
@@ -124,6 +125,12 @@ const AppCartoesCardIdRoute = AppCartoesCardIdRouteImport.update({
   path: '/cartoes/$cardId',
   getParentRoute: () => AppRoute,
 } as any)
+const AppCartoesCardId_faturaInvoiceIdRoute =
+  AppCartoesCardId_faturaInvoiceIdRouteImport.update({
+    id: '/cartoes/$cardId_fatura/$invoiceId',
+    path: '/cartoes/$cardId_fatura/$invoiceId',
+    getParentRoute: () => AppRoute,
+  } as any)
 const AppCartoesCardIdFaturaInvoiceIdRoute =
   AppCartoesCardIdFaturaInvoiceIdRouteImport.update({
     id: '/cartoes/$cardId_/fatura/$invoiceId',
@@ -150,6 +157,7 @@ export interface FileRoutesByFullPath {
   '/cartoes/nova-despesa': typeof AppCartoesNovaDespesaRoute
   '/cartoes/novo': typeof AppCartoesNovoRoute
   '/cartoes/': typeof AppCartoesIndexRoute
+  '/cartoes/$cardId_fatura/$invoiceId': typeof AppCartoesCardId_faturaInvoiceIdRoute
   '/cartoes/$cardId/fatura/$invoiceId': typeof AppCartoesCardIdFaturaInvoiceIdRoute
 }
 export interface FileRoutesByTo {
@@ -171,6 +179,7 @@ export interface FileRoutesByTo {
   '/cartoes/nova-despesa': typeof AppCartoesNovaDespesaRoute
   '/cartoes/novo': typeof AppCartoesNovoRoute
   '/cartoes': typeof AppCartoesIndexRoute
+  '/cartoes/$cardId_fatura/$invoiceId': typeof AppCartoesCardId_faturaInvoiceIdRoute
   '/cartoes/$cardId/fatura/$invoiceId': typeof AppCartoesCardIdFaturaInvoiceIdRoute
 }
 export interface FileRoutesById {
@@ -194,6 +203,7 @@ export interface FileRoutesById {
   '/_app/cartoes/nova-despesa': typeof AppCartoesNovaDespesaRoute
   '/_app/cartoes/novo': typeof AppCartoesNovoRoute
   '/_app/cartoes/': typeof AppCartoesIndexRoute
+  '/_app/cartoes/$cardId_fatura/$invoiceId': typeof AppCartoesCardId_faturaInvoiceIdRoute
   '/_app/cartoes/$cardId_/fatura/$invoiceId': typeof AppCartoesCardIdFaturaInvoiceIdRoute
 }
 export interface FileRouteTypes {
@@ -217,6 +227,7 @@ export interface FileRouteTypes {
     | '/cartoes/nova-despesa'
     | '/cartoes/novo'
     | '/cartoes/'
+    | '/cartoes/$cardId_fatura/$invoiceId'
     | '/cartoes/$cardId/fatura/$invoiceId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -238,6 +249,7 @@ export interface FileRouteTypes {
     | '/cartoes/nova-despesa'
     | '/cartoes/novo'
     | '/cartoes'
+    | '/cartoes/$cardId_fatura/$invoiceId'
     | '/cartoes/$cardId/fatura/$invoiceId'
   id:
     | '__root__'
@@ -260,6 +272,7 @@ export interface FileRouteTypes {
     | '/_app/cartoes/nova-despesa'
     | '/_app/cartoes/novo'
     | '/_app/cartoes/'
+    | '/_app/cartoes/$cardId_fatura/$invoiceId'
     | '/_app/cartoes/$cardId_/fatura/$invoiceId'
   fileRoutesById: FileRoutesById
 }
@@ -410,6 +423,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCartoesCardIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/cartoes/$cardId_fatura/$invoiceId': {
+      id: '/_app/cartoes/$cardId_fatura/$invoiceId'
+      path: '/cartoes/$cardId_fatura/$invoiceId'
+      fullPath: '/cartoes/$cardId_fatura/$invoiceId'
+      preLoaderRoute: typeof AppCartoesCardId_faturaInvoiceIdRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/cartoes/$cardId_/fatura/$invoiceId': {
       id: '/_app/cartoes/$cardId_/fatura/$invoiceId'
       path: '/cartoes/$cardId/fatura/$invoiceId'
@@ -431,6 +451,7 @@ interface AppRouteChildren {
   AppCartoesNovaDespesaRoute: typeof AppCartoesNovaDespesaRoute
   AppCartoesNovoRoute: typeof AppCartoesNovoRoute
   AppCartoesIndexRoute: typeof AppCartoesIndexRoute
+  AppCartoesCardId_faturaInvoiceIdRoute: typeof AppCartoesCardId_faturaInvoiceIdRoute
   AppCartoesCardIdFaturaInvoiceIdRoute: typeof AppCartoesCardIdFaturaInvoiceIdRoute
 }
 
@@ -445,6 +466,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppCartoesNovaDespesaRoute: AppCartoesNovaDespesaRoute,
   AppCartoesNovoRoute: AppCartoesNovoRoute,
   AppCartoesIndexRoute: AppCartoesIndexRoute,
+  AppCartoesCardId_faturaInvoiceIdRoute: AppCartoesCardId_faturaInvoiceIdRoute,
   AppCartoesCardIdFaturaInvoiceIdRoute: AppCartoesCardIdFaturaInvoiceIdRoute,
 }
 

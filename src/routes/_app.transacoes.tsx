@@ -50,8 +50,12 @@ const FILTER_OPTIONS = [
 ] as const;
 type ActiveFilter = (typeof FILTER_OPTIONS)[number]["key"];
 
-const statusFilters = ["Todas", "Pagas/Recebidas", "Pendentes"] as const;
-type StatusFilter = (typeof statusFilters)[number];
+const STATUS_FILTER_OPTIONS = [
+  { key: "Todas",           label: "Todas",           Icon: LayoutList,   activeClass: "bg-foreground text-background",  iconClass: "text-muted-foreground" },
+  { key: "Pagas/Recebidas", label: "Pagas/Recebidas", Icon: CheckCircle2, activeClass: "bg-emerald-500 text-white",      iconClass: "text-emerald-500" },
+  { key: "Pendentes",       label: "Pendentes",        Icon: Circle,       activeClass: "bg-amber-500 text-white",        iconClass: "text-amber-500" },
+] as const;
+type StatusFilter = (typeof STATUS_FILTER_OPTIONS)[number]["key"];
 
 const MONTHS = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 type SortKey = "date-desc" | "date-asc" | "amount-desc" | "amount-asc" | "title-asc";
@@ -158,6 +162,10 @@ function TransacoesPage() {
       if (inv.total_amount <= 0) return false;
       const due = new Date(inv.due_date + "T12:00:00");
       if (!(due.getMonth() === selectedMonth && due.getFullYear() === selectedYear)) return false;
+      // Filtro de status aplicado às faturas
+      if (statusFilter === "Pagas/Recebidas" && inv.status !== "paid") return false;
+      if (statusFilter === "Pendentes" && inv.status !== "open") return false;
+      // Busca por nome do cartão quando filtro Faturas ativo
       if (activeFilter === "Faturas" && search) {
         const card = cards.find(c => c.id === inv.card_id);
         return card?.name.toLowerCase().includes(search.toLowerCase()) ?? false;
@@ -166,7 +174,7 @@ function TransacoesPage() {
     })
     .map(inv => ({ invoice: inv, card: cards.find(c => c.id === inv.card_id) }))
     .filter(item => item.card?.active),
-    [invoices, cards, selectedMonth, selectedYear, activeFilter, search]
+    [invoices, cards, selectedMonth, selectedYear, activeFilter, search, statusFilter]
   );
 
   const showCardSection = activeFilter === "Todas" || activeFilter === "Faturas";
@@ -239,19 +247,22 @@ function TransacoesPage() {
         </DropdownMenu>
       </div>
 
-      {/* Filtros de status — oculto quando Faturas está ativo */}
-      {activeFilter !== "Faturas" && (
-        <div className="flex items-center gap-2">
-          {statusFilters.map(f => (
-            <button key={f} onClick={() => setStatusFilter(f)}
-              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${statusFilter === f ? "bg-foreground text-background" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
-              {f === "Pagas/Recebidas" && <CheckCircle2 className="h-3 w-3" />}
-              {f === "Pendentes" && <Circle className="h-3 w-3" />}
-              {f}
+      {/* Filtros de status com ícones — mesmo visual das pills de categoria */}
+      <div className="flex items-center gap-2">
+        {STATUS_FILTER_OPTIONS.map(({ key, label, Icon, activeClass, iconClass }) => {
+          const isActive = statusFilter === key;
+          return (
+            <button key={key} onClick={() => setStatusFilter(key)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+                isActive ? activeClass : "bg-muted text-muted-foreground hover:bg-muted/80"
+              )}>
+              <Icon className={cn("h-3.5 w-3.5", isActive ? "opacity-90" : iconClass)} />
+              {label}
             </button>
-          ))}
-        </div>
-      )}
+          );
+        })}
+      </div>
 
       {/* Resumo dinâmico */}
       <div className="flex items-center justify-between rounded-xl border bg-card p-4 shadow-sm">
