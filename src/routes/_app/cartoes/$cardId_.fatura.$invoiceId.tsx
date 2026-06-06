@@ -12,7 +12,7 @@ import { useCardStore, type CardExpense, type ExpenseType } from "@/lib/card-sto
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_app/cartoes/$cardId/fatura/$invoiceId")({
+export const Route = createFileRoute("/_app/cartoes/$cardId_/fatura/$invoiceId")({
   component: FaturaDetailPage,
 });
 

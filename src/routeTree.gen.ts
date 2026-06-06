@@ -13,6 +13,8 @@ import { Route as RecuperarSenhaRouteImport } from './routes/recuperar-senha'
 import { Route as PlanosRouteImport } from './routes/planos'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as CadastroRouteImport } from './routes/cadastro'
+import { Route as BoasVindasRouteImport } from './routes/boas-vindas'
+import { Route as AssinaturaSucessoRouteImport } from './routes/assinatura-sucesso'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
@@ -22,6 +24,11 @@ import { Route as AppNovaTransacaoRouteImport } from './routes/_app.nova-transac
 import { Route as AppMetasRouteImport } from './routes/_app.metas'
 import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
 import { Route as AppCategoriasRouteImport } from './routes/_app.categorias'
+import { Route as AppCartoesIndexRouteImport } from './routes/_app/cartoes/index'
+import { Route as AppCartoesNovoRouteImport } from './routes/_app/cartoes/novo'
+import { Route as AppCartoesNovaDespesaRouteImport } from './routes/_app/cartoes/nova-despesa'
+import { Route as AppCartoesCardIdRouteImport } from './routes/_app/cartoes/$cardId'
+import { Route as AppCartoesCardIdFaturaInvoiceIdRouteImport } from './routes/_app/cartoes/$cardId_.fatura.$invoiceId'
 
 const RecuperarSenhaRoute = RecuperarSenhaRouteImport.update({
   id: '/recuperar-senha',
@@ -41,6 +48,16 @@ const LoginRoute = LoginRouteImport.update({
 const CadastroRoute = CadastroRouteImport.update({
   id: '/cadastro',
   path: '/cadastro',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BoasVindasRoute = BoasVindasRouteImport.update({
+  id: '/boas-vindas',
+  path: '/boas-vindas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AssinaturaSucessoRoute = AssinaturaSucessoRouteImport.update({
+  id: '/assinatura-sucesso',
+  path: '/assinatura-sucesso',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -87,10 +104,38 @@ const AppCategoriasRoute = AppCategoriasRouteImport.update({
   path: '/categorias',
   getParentRoute: () => AppRoute,
 } as any)
+const AppCartoesIndexRoute = AppCartoesIndexRouteImport.update({
+  id: '/cartoes/',
+  path: '/cartoes/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCartoesNovoRoute = AppCartoesNovoRouteImport.update({
+  id: '/cartoes/novo',
+  path: '/cartoes/novo',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCartoesNovaDespesaRoute = AppCartoesNovaDespesaRouteImport.update({
+  id: '/cartoes/nova-despesa',
+  path: '/cartoes/nova-despesa',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCartoesCardIdRoute = AppCartoesCardIdRouteImport.update({
+  id: '/cartoes/$cardId',
+  path: '/cartoes/$cardId',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCartoesCardIdFaturaInvoiceIdRoute =
+  AppCartoesCardIdFaturaInvoiceIdRouteImport.update({
+    id: '/cartoes/$cardId_/fatura/$invoiceId',
+    path: '/cartoes/$cardId/fatura/$invoiceId',
+    getParentRoute: () => AppRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/assinatura-sucesso': typeof AssinaturaSucessoRoute
+  '/boas-vindas': typeof BoasVindasRoute
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
   '/planos': typeof PlanosRoute
@@ -101,10 +146,17 @@ export interface FileRoutesByFullPath {
   '/nova-transacao': typeof AppNovaTransacaoRoute
   '/perfil': typeof AppPerfilRoute
   '/transacoes': typeof AppTransacoesRoute
+  '/cartoes/$cardId': typeof AppCartoesCardIdRoute
+  '/cartoes/nova-despesa': typeof AppCartoesNovaDespesaRoute
+  '/cartoes/novo': typeof AppCartoesNovoRoute
+  '/cartoes/': typeof AppCartoesIndexRoute
+  '/cartoes/$cardId/fatura/$invoiceId': typeof AppCartoesCardIdFaturaInvoiceIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/assinatura-sucesso': typeof AssinaturaSucessoRoute
+  '/boas-vindas': typeof BoasVindasRoute
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
   '/planos': typeof PlanosRoute
@@ -115,12 +167,19 @@ export interface FileRoutesByTo {
   '/nova-transacao': typeof AppNovaTransacaoRoute
   '/perfil': typeof AppPerfilRoute
   '/transacoes': typeof AppTransacoesRoute
+  '/cartoes/$cardId': typeof AppCartoesCardIdRoute
+  '/cartoes/nova-despesa': typeof AppCartoesNovaDespesaRoute
+  '/cartoes/novo': typeof AppCartoesNovoRoute
+  '/cartoes': typeof AppCartoesIndexRoute
+  '/cartoes/$cardId/fatura/$invoiceId': typeof AppCartoesCardIdFaturaInvoiceIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
   '/admin': typeof AdminRoute
+  '/assinatura-sucesso': typeof AssinaturaSucessoRoute
+  '/boas-vindas': typeof BoasVindasRoute
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
   '/planos': typeof PlanosRoute
@@ -131,12 +190,19 @@ export interface FileRoutesById {
   '/_app/nova-transacao': typeof AppNovaTransacaoRoute
   '/_app/perfil': typeof AppPerfilRoute
   '/_app/transacoes': typeof AppTransacoesRoute
+  '/_app/cartoes/$cardId': typeof AppCartoesCardIdRoute
+  '/_app/cartoes/nova-despesa': typeof AppCartoesNovaDespesaRoute
+  '/_app/cartoes/novo': typeof AppCartoesNovoRoute
+  '/_app/cartoes/': typeof AppCartoesIndexRoute
+  '/_app/cartoes/$cardId_/fatura/$invoiceId': typeof AppCartoesCardIdFaturaInvoiceIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/admin'
+    | '/assinatura-sucesso'
+    | '/boas-vindas'
     | '/cadastro'
     | '/login'
     | '/planos'
@@ -147,10 +213,17 @@ export interface FileRouteTypes {
     | '/nova-transacao'
     | '/perfil'
     | '/transacoes'
+    | '/cartoes/$cardId'
+    | '/cartoes/nova-despesa'
+    | '/cartoes/novo'
+    | '/cartoes/'
+    | '/cartoes/$cardId/fatura/$invoiceId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/admin'
+    | '/assinatura-sucesso'
+    | '/boas-vindas'
     | '/cadastro'
     | '/login'
     | '/planos'
@@ -161,11 +234,18 @@ export interface FileRouteTypes {
     | '/nova-transacao'
     | '/perfil'
     | '/transacoes'
+    | '/cartoes/$cardId'
+    | '/cartoes/nova-despesa'
+    | '/cartoes/novo'
+    | '/cartoes'
+    | '/cartoes/$cardId/fatura/$invoiceId'
   id:
     | '__root__'
     | '/'
     | '/_app'
     | '/admin'
+    | '/assinatura-sucesso'
+    | '/boas-vindas'
     | '/cadastro'
     | '/login'
     | '/planos'
@@ -176,12 +256,19 @@ export interface FileRouteTypes {
     | '/_app/nova-transacao'
     | '/_app/perfil'
     | '/_app/transacoes'
+    | '/_app/cartoes/$cardId'
+    | '/_app/cartoes/nova-despesa'
+    | '/_app/cartoes/novo'
+    | '/_app/cartoes/'
+    | '/_app/cartoes/$cardId_/fatura/$invoiceId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
   AdminRoute: typeof AdminRoute
+  AssinaturaSucessoRoute: typeof AssinaturaSucessoRoute
+  BoasVindasRoute: typeof BoasVindasRoute
   CadastroRoute: typeof CadastroRoute
   LoginRoute: typeof LoginRoute
   PlanosRoute: typeof PlanosRoute
@@ -216,6 +303,20 @@ declare module '@tanstack/react-router' {
       path: '/cadastro'
       fullPath: '/cadastro'
       preLoaderRoute: typeof CadastroRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/boas-vindas': {
+      id: '/boas-vindas'
+      path: '/boas-vindas'
+      fullPath: '/boas-vindas'
+      preLoaderRoute: typeof BoasVindasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/assinatura-sucesso': {
+      id: '/assinatura-sucesso'
+      path: '/assinatura-sucesso'
+      fullPath: '/assinatura-sucesso'
+      preLoaderRoute: typeof AssinaturaSucessoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -281,6 +382,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCategoriasRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/cartoes/': {
+      id: '/_app/cartoes/'
+      path: '/cartoes'
+      fullPath: '/cartoes/'
+      preLoaderRoute: typeof AppCartoesIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/cartoes/novo': {
+      id: '/_app/cartoes/novo'
+      path: '/cartoes/novo'
+      fullPath: '/cartoes/novo'
+      preLoaderRoute: typeof AppCartoesNovoRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/cartoes/nova-despesa': {
+      id: '/_app/cartoes/nova-despesa'
+      path: '/cartoes/nova-despesa'
+      fullPath: '/cartoes/nova-despesa'
+      preLoaderRoute: typeof AppCartoesNovaDespesaRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/cartoes/$cardId': {
+      id: '/_app/cartoes/$cardId'
+      path: '/cartoes/$cardId'
+      fullPath: '/cartoes/$cardId'
+      preLoaderRoute: typeof AppCartoesCardIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/cartoes/$cardId_/fatura/$invoiceId': {
+      id: '/_app/cartoes/$cardId_/fatura/$invoiceId'
+      path: '/cartoes/$cardId/fatura/$invoiceId'
+      fullPath: '/cartoes/$cardId/fatura/$invoiceId'
+      preLoaderRoute: typeof AppCartoesCardIdFaturaInvoiceIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -291,6 +427,11 @@ interface AppRouteChildren {
   AppNovaTransacaoRoute: typeof AppNovaTransacaoRoute
   AppPerfilRoute: typeof AppPerfilRoute
   AppTransacoesRoute: typeof AppTransacoesRoute
+  AppCartoesCardIdRoute: typeof AppCartoesCardIdRoute
+  AppCartoesNovaDespesaRoute: typeof AppCartoesNovaDespesaRoute
+  AppCartoesNovoRoute: typeof AppCartoesNovoRoute
+  AppCartoesIndexRoute: typeof AppCartoesIndexRoute
+  AppCartoesCardIdFaturaInvoiceIdRoute: typeof AppCartoesCardIdFaturaInvoiceIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -300,6 +441,11 @@ const AppRouteChildren: AppRouteChildren = {
   AppNovaTransacaoRoute: AppNovaTransacaoRoute,
   AppPerfilRoute: AppPerfilRoute,
   AppTransacoesRoute: AppTransacoesRoute,
+  AppCartoesCardIdRoute: AppCartoesCardIdRoute,
+  AppCartoesNovaDespesaRoute: AppCartoesNovaDespesaRoute,
+  AppCartoesNovoRoute: AppCartoesNovoRoute,
+  AppCartoesIndexRoute: AppCartoesIndexRoute,
+  AppCartoesCardIdFaturaInvoiceIdRoute: AppCartoesCardIdFaturaInvoiceIdRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
@@ -308,6 +454,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
   AdminRoute: AdminRoute,
+  AssinaturaSucessoRoute: AssinaturaSucessoRoute,
+  BoasVindasRoute: BoasVindasRoute,
   CadastroRoute: CadastroRoute,
   LoginRoute: LoginRoute,
   PlanosRoute: PlanosRoute,
