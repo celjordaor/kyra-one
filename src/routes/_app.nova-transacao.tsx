@@ -17,6 +17,9 @@ const RECURRING_MONTHS = 24;
 
 export const Route = createFileRoute("/_app/nova-transacao")({
   head: () => ({ meta: [{ title: "Nova Transação — Finanças Pessoais" }] }),
+  validateSearch: z.object({
+    type: z.enum(["income", "expense"]).optional(),
+  }),
   component: NovaTransacaoPage,
 });
 
@@ -59,7 +62,8 @@ function CatIcon({ icon, name, color, size = "md" }: {
 // ── Página ─────────────────────────────────────────────────────────────
 function NovaTransacaoPage() {
   const navigate = useNavigate();
-  const [transactionType, setTransactionType] = useState<"income" | "expense">("expense");
+  const { type: initialType } = Route.useSearch();
+  const [transactionType, setTransactionType] = useState<"income" | "expense">(initialType ?? "expense");
   const [recurring, setRecurring]             = useState(false);
   const [settled, setSettled]                 = useState(true);
   const [success, setSuccess]                 = useState<string | null>(null);
