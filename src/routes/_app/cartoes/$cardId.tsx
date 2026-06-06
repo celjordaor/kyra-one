@@ -1,17 +1,11 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import {
-  ArrowLeft,
-  Plus,
-  CreditCard,
-  Calendar,
-  ChevronRight,
-  Settings,
-} from "lucide-react";
+import { ArrowLeft, Plus, CreditCard, Calendar, ChevronRight, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCardStore } from "@/lib/card-store";
 import { LimitBar } from "@/components/cartoes/limit-bar";
 import { EditCardSheet } from "@/components/cartoes/edit-card-sheet";
+import { useLimitUsed } from "@/hooks/use-limit-used";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/cartoes/$cardId")({
@@ -34,13 +28,17 @@ function CartaoDetailPage() {
   const { cardId } = Route.useParams();
   const router = useRouter();
   const [showEdit, setShowEdit] = useState(false);
-  const { cards, invoices, fetchCards, fetchInvoices, ensureInvoices, getCardLimitUsed } =
-    useCardStore();
+  const { cards, invoices, fetchCards, fetchInvoices, ensureInvoices } = useCardStore();
+  const { limitUsed } = useLimitUsed(cardId);
 
   const card = cards.find((c) => c.id === cardId);
   const cardInvoices = invoices
     .filter((i) => i.card_id === cardId)
-    .sort((a, b) => a.competence.localeCompare(b.competence));
+    .sort((a, b) => {
+      const [am, ay] = a.competence.split("/");
+      const [bm, by] = b.competence.split("/");
+      return `${ay}-${am}`.localeCompare(`${by}-${bm}`);
+    });
 
   useEffect(() => {
     const init = async () => {
@@ -61,8 +59,7 @@ function CartaoDetailPage() {
     );
   }
 
-  const used = getCardLimitUsed(card.id);
-  const available = Math.max(card.limit_total - used, 0);
+  const available = Math.max(card.limit_total - limitUsed, 0);
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 px-4 py-6">
@@ -77,12 +74,9 @@ function CartaoDetailPage() {
           </button>
           <div>
             <h1 className="text-xl font-bold text-foreground">{card.name}</h1>
-            <p className="text-sm text-muted-foreground">
-              {card.bank} · {card.flag}
-            </p>
+            <p className="text-sm text-muted-foreground">{card.bank} · {card.flag}</p>
           </div>
         </div>
-        {/* Botão de configuração — abre sheet de edição */}
         <button
           onClick={() => setShowEdit(true)}
           className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground hover:bg-accent"
@@ -94,7 +88,7 @@ function CartaoDetailPage() {
       {/* Card de limite */}
       <div className="rounded-2xl border border-border bg-card p-5">
         <div className="mb-4">
-          <LimitBar used={used} total={card.limit_total} showLabel />
+          <LimitBar used={limitUsed} total={card.limit_total} showLabel />
         </div>
         <div className="grid grid-cols-3 gap-3 text-center">
           <div>
@@ -105,10 +99,11 @@ function CartaoDetailPage() {
           </div>
           <div>
             <p className="text-[11px] text-muted-foreground">Utilizado</p>
-            <p className={cn("mt-0.5 text-sm font-bold",
-              (used / card.limit_total) > 0.8 ? "text-destructive" : "text-foreground"
+            <p className={cn(
+              "mt-0.5 text-sm font-bold",
+              (limitUsed / card.limit_total) > 0.8 ? "text-destructive" : "text-foreground"
             )}>
-              {used.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+              {limitUsed.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
             </p>
           </div>
           <div>
@@ -165,10 +160,7 @@ function CartaoDetailPage() {
                 <div className="flex items-center gap-3">
                   <div className="text-right">
                     <p className="text-sm font-semibold text-foreground">
-                      {invoice.total_amount.toLocaleString("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      })}
+                      {invoice.total_amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                     </p>
                     <span className={cn(
                       "inline-block rounded-full px-2 py-0.5 text-[10px] font-medium",
@@ -185,10 +177,7 @@ function CartaoDetailPage() {
         )}
       </div>
 
-      {/* Sheet de edição */}
-      {showEdit && (
-        <EditCardSheet card={card} onClose={() => setShowEdit(false)} />
-      )}
+      {showEdit && <EditCardSheet card={card} onClose={() => setShowEdit(false)} />}
     </div>
   );
 }

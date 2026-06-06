@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { supabase } from "./supabase";
-import { addMonths, setDate, isAfter, format, parseISO } from "date-fns";
+import { addMonths, setDate, isAfter, isBefore, format, parseISO, startOfDay } from "date-fns";
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -25,7 +25,7 @@ export interface Invoice {
   id: string;
   user_id: string;
   card_id: string;
-  competence: string; // "MM/yyyy" ex: "06/2026"
+  competence: string;
   closing_date: string;
   due_date: string;
   total_amount: number;
@@ -64,8 +64,8 @@ export interface CardInstallment {
   created_at: string;
 }
 
-// ─── Utilitário de ordenação ──────────────────────────────────────────────────
-// Converte "MM/yyyy" → "yyyy-MM" para ordenação cronológica correta
+// ─── Utilitários ──────────────────────────────────────────────────────────────
+
 function competenceToSortKey(competence: string): string {
   const [mm, yyyy] = competence.split("/");
   return `${yyyy}-${mm}`;
@@ -73,6 +73,45 @@ function competenceToSortKey(competence: string): string {
 
 function sortByCompetence(a: Invoice, b: Invoice): number {
   return competenceToSortKey(a.competence).localeCompare(competenceToSortKey(b.competence));
+}
+
+function buildInvoiceDates(card: CreditCard, referenceDate: Date) {
+  const competence = format(referenceDate, "MM/yyyy");
+  const closingDate = setDate(referenceDate, card.closing_day);
+  let dueDate = setDate(referenceDate, card.due_day);
+  if (card.due_day <= card.closing_day) {
+    dueDate = setDate(addMonths(referenceDate, 1), card.due_day);
+  }
+  return {
+    competence,
+    closing_date: format(closingDate, "yyyy-MM-dd"),
+    due_date: format(dueDate, "yyyy-MM-dd"),
+  };
+}
+
+export function resolveInvoiceForDate(
+  purchaseDate: string,
+  invoices: Invoice[],
+  card: CreditCard
+): Invoice | null {
+  const date = parseISO(purchaseDate);
+  const current = invoices.find(
+    (inv) =>
+      inv.card_id === card.id &&
+      inv.status === "open" &&
+      isAfter(parseISO(inv.closing_date), date)
+  );
+  if (current) return current;
+  return (
+    invoices
+      .filter((inv) => inv.card_id === card.id && inv.status === "open")
+      .sort(sortByCompetence)[0] ?? null
+  );
+}
+
+function toTransactionDate(isoDate: string): string {
+  const [y, m, d] = isoDate.split("-");
+  return `${d}/${m}/${y}`;
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -111,53 +150,9 @@ interface CardStore {
   getCardInvoices: (cardId: string) => Invoice[];
   getInvoiceExpenses: (invoiceId: string) => CardExpense[];
   getInvoiceInstallments: (invoiceId: string) => CardInstallment[];
-  getCardLimitUsed: (cardId: string) => number;
+  getCardLimitUsed: (cardId: string) => Promise<number>;
   recalcInvoiceTotal: (invoiceId: string) => Promise<void>;
 }
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function buildInvoiceDates(card: CreditCard, referenceDate: Date) {
-  const competence = format(referenceDate, "MM/yyyy");
-  const closingDate = setDate(referenceDate, card.closing_day);
-  let dueDate = setDate(referenceDate, card.due_day);
-  if (card.due_day <= card.closing_day) {
-    dueDate = setDate(addMonths(referenceDate, 1), card.due_day);
-  }
-  return {
-    competence,
-    closing_date: format(closingDate, "yyyy-MM-dd"),
-    due_date: format(dueDate, "yyyy-MM-dd"),
-  };
-}
-
-export function resolveInvoiceForDate(
-  purchaseDate: string,
-  invoices: Invoice[],
-  card: CreditCard
-): Invoice | null {
-  const date = parseISO(purchaseDate);
-  const current = invoices.find(
-    (inv) =>
-      inv.card_id === card.id &&
-      inv.status === "open" &&
-      isAfter(parseISO(inv.closing_date), date)
-  );
-  if (current) return current;
-  // Fallback: próxima fatura aberta em ordem cronológica
-  return (
-    invoices
-      .filter((inv) => inv.card_id === card.id && inv.status === "open")
-      .sort(sortByCompetence)[0] ?? null
-  );
-}
-
-function toTransactionDate(isoDate: string): string {
-  const [y, m, d] = isoDate.split("-");
-  return `${d}/${m}/${y}`;
-}
-
-// ─── Implementação ────────────────────────────────────────────────────────────
 
 export const useCardStore = create<CardStore>((set, get) => ({
   cards: [],
@@ -203,7 +198,6 @@ export const useCardStore = create<CardStore>((set, get) => ({
   // ── Faturas ────────────────────────────────────────────────────────────────
 
   fetchInvoices: async (cardId) => {
-    // Busca ordenando por closing_date (campo DATE real) — ordenação correta no banco
     const { data } = await supabase
       .from("invoices")
       .select("*")
@@ -250,7 +244,6 @@ export const useCardStore = create<CardStore>((set, get) => ({
       await supabase.from("invoices").insert(toInsert);
     }
 
-    // Sempre recarrega do banco para garantir estado atualizado
     await get().fetchInvoices(card.id);
     return get().invoices.filter((i) => i.card_id === card.id);
   },
@@ -262,8 +255,10 @@ export const useCardStore = create<CardStore>((set, get) => ({
     const invoice = get().invoices.find((i) => i.id === invoiceId);
     if (!invoice) return;
 
+    // Atualiza fatura para "paid"
     await supabase.from("invoices").update({ status: "paid" }).eq("id", invoiceId);
 
+    // Registra em transactions
     await supabase.from("transactions").insert({
       user_id: user.id,
       title: `Fatura ${card.name} – ${invoice.competence}`,
@@ -276,6 +271,7 @@ export const useCardStore = create<CardStore>((set, get) => ({
       recurring: false,
     });
 
+    // Atualiza estado local — a fatura paga sai do cálculo do limite imediatamente
     set((s) => ({
       invoices: s.invoices.map((i) =>
         i.id === invoiceId ? { ...i, status: "paid" } : i
@@ -314,7 +310,6 @@ export const useCardStore = create<CardStore>((set, get) => ({
   },
 
   recalcInvoiceTotal: async (invoiceId) => {
-    // Soma direto no banco (fonte da verdade)
     const { data: expData } = await supabase
       .from("card_expenses")
       .select("amount")
@@ -329,10 +324,8 @@ export const useCardStore = create<CardStore>((set, get) => ({
       (expData ?? []).reduce((s, e) => s + e.amount, 0) +
       (instData ?? []).reduce((s, i) => s + i.amount, 0);
 
-    // Atualiza no banco
     await supabase.from("invoices").update({ total_amount: total }).eq("id", invoiceId);
 
-    // Sincroniza estado local imediatamente
     set((s) => ({
       invoices: s.invoices.map((inv) =>
         inv.id === invoiceId ? { ...inv, total_amount: total } : inv
@@ -347,7 +340,6 @@ export const useCardStore = create<CardStore>((set, get) => ({
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Faturas abertas deste cartão em ordem cronológica correta
     const allInvoices = get()
       .invoices.filter((i) => i.card_id === card.id && i.status === "open")
       .sort(sortByCompetence);
@@ -370,7 +362,7 @@ export const useCardStore = create<CardStore>((set, get) => ({
       const { data } = await supabase.from("card_expenses").insert(rows).select();
       if (data) set((s) => ({ expenses: [...s.expenses, ...data] }));
 
-      // Recalcula todas as faturas afetadas
+      // Recalcula totais de todas as faturas afetadas (para exibição na fatura)
       for (const inv of allInvoices.slice(0, 12)) {
         await get().recalcInvoiceTotal(inv.id);
       }
@@ -379,7 +371,6 @@ export const useCardStore = create<CardStore>((set, get) => ({
       const installmentAmount = Math.round((amount / installments) * 100) / 100;
       const startIndex = allInvoices.findIndex((i) => i.id === invoiceId);
 
-      // Parcela 1 → card_expenses
       const { data: parent } = await supabase
         .from("card_expenses")
         .insert({
@@ -402,7 +393,6 @@ export const useCardStore = create<CardStore>((set, get) => ({
       set((s) => ({ expenses: [...s.expenses, parent] }));
       await get().recalcInvoiceTotal(invoiceId);
 
-      // Parcelas 2..N → card_installments nas faturas seguintes em ordem correta
       const remainingRows = [];
       for (let i = 1; i < installments; i++) {
         const targetInvoice = allInvoices[startIndex + i];
@@ -428,7 +418,6 @@ export const useCardStore = create<CardStore>((set, get) => ({
           .select();
         if (instData) {
           set((s) => ({ installments: [...s.installments, ...instData] }));
-          // Recalcula o total de cada fatura afetada pelas novas parcelas
           const affectedIds = [...new Set(remainingRows.map((r) => r.invoice_id))];
           for (const id of affectedIds) {
             await get().recalcInvoiceTotal(id);
@@ -437,7 +426,6 @@ export const useCardStore = create<CardStore>((set, get) => ({
       }
 
     } else {
-      // Despesa simples
       const { data } = await supabase
         .from("card_expenses")
         .insert({
@@ -476,7 +464,7 @@ export const useCardStore = create<CardStore>((set, get) => ({
   getCardInvoices: (cardId) =>
     get()
       .invoices.filter((i) => i.card_id === cardId)
-      .sort(sortByCompetence), // ← usa a função correta
+      .sort(sortByCompetence),
 
   getInvoiceExpenses: (invoiceId) =>
     get().expenses.filter((e) => e.invoice_id === invoiceId),
@@ -484,10 +472,52 @@ export const useCardStore = create<CardStore>((set, get) => ({
   getInvoiceInstallments: (invoiceId) =>
     get().installments.filter((i) => i.invoice_id === invoiceId),
 
-  getCardLimitUsed: (cardId) => {
-    const openInvoices = get().invoices.filter(
+  /**
+   * Cálculo do limite utilizado — regra de negócio:
+   *
+   * 1. Fatura atual (fechamento ainda não passou): soma TODO o total_amount
+   *    → inclui simples, parceladas e recorrentes do mês corrente
+   *
+   * 2. Faturas futuras (fechamento já passou ou ainda não é o mês atual):
+   *    → soma APENAS as parcelas de compras parceladas (card_installments)
+   *    → NÃO soma despesas recorrentes futuras (elas existem no banco mas
+   *      só comprometem o limite quando chegarem o mês delas)
+   *
+   * 3. Faturas pagas: NÃO entram no cálculo (limite liberado)
+   */
+  getCardLimitUsed: async (cardId) => {
+    const today = startOfDay(new Date());
+    const invoices = get().invoices.filter(
       (i) => i.card_id === cardId && i.status !== "paid"
     );
-    return openInvoices.reduce((sum, inv) => sum + inv.total_amount, 0);
+
+    let total = 0;
+
+    for (const inv of invoices) {
+      const closingDate = startOfDay(parseISO(inv.closing_date));
+      const isFuture = isBefore(today, closingDate);
+
+      if (isFuture) {
+        // Fatura atual (fechamento não passou) → soma tudo
+        total += inv.total_amount;
+      } else {
+        // Fatura futura → soma apenas parcelas comprometidas (não recorrentes)
+        const { data: installments } = await supabase
+          .from("card_installments")
+          .select("amount")
+          .eq("invoice_id", inv.id);
+        total += (installments ?? []).reduce((s, i) => s + i.amount, 0);
+
+        // Soma também despesas únicas e parceladas (não recorrentes) desta fatura
+        const { data: expenses } = await supabase
+          .from("card_expenses")
+          .select("amount, expense_type")
+          .eq("invoice_id", inv.id)
+          .neq("expense_type", "recurring");
+        total += (expenses ?? []).reduce((s, e) => s + e.amount, 0);
+      }
+    }
+
+    return total;
   },
 }));
