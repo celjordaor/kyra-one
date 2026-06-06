@@ -5,7 +5,6 @@ import { useAuth } from "@/lib/auth";
 import { useSubscription } from "@/lib/subscription-store";
 import { GracePeriodBanner } from "@/components/grace-period-banner";
 import { PaymentRequired } from "@/components/payment-required";
-import { setPreselectedTransactionType } from "@/lib/transaction-type-preset";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -44,8 +43,7 @@ function AppLayout() {
 
   const handleAddTransaction = (type: "income" | "expense") => {
     setAddMenuOpen(false);
-    setPreselectedTransactionType(type);
-    router.navigate({ to: "/nova-transacao" });
+    router.navigate({ to: "/nova-transacao", search: { type } });
   };
 
   const handleAddCardExpense = () => {
