@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   Plus,
@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useCardStore } from "@/lib/card-store";
 import { LimitBar } from "@/components/cartoes/limit-bar";
+import { EditCardSheet } from "@/components/cartoes/edit-card-sheet";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/cartoes/$cardId")({
@@ -32,6 +33,7 @@ const STATUS_CLASS: Record<string, string> = {
 function CartaoDetailPage() {
   const { cardId } = Route.useParams();
   const router = useRouter();
+  const [showEdit, setShowEdit] = useState(false);
   const { cards, invoices, fetchCards, fetchInvoices, ensureInvoices, getCardLimitUsed } =
     useCardStore();
 
@@ -80,7 +82,11 @@ function CartaoDetailPage() {
             </p>
           </div>
         </div>
-        <button className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground hover:bg-accent">
+        {/* Botão de configuração — abre sheet de edição */}
+        <button
+          onClick={() => setShowEdit(true)}
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground hover:bg-accent"
+        >
           <Settings className="h-4 w-4" />
         </button>
       </div>
@@ -164,12 +170,10 @@ function CartaoDetailPage() {
                         currency: "BRL",
                       })}
                     </p>
-                    <span
-                      className={cn(
-                        "inline-block rounded-full px-2 py-0.5 text-[10px] font-medium",
-                        STATUS_CLASS[invoice.status]
-                      )}
-                    >
+                    <span className={cn(
+                      "inline-block rounded-full px-2 py-0.5 text-[10px] font-medium",
+                      STATUS_CLASS[invoice.status]
+                    )}>
                       {STATUS_LABEL[invoice.status]}
                     </span>
                   </div>
@@ -180,6 +184,11 @@ function CartaoDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Sheet de edição */}
+      {showEdit && (
+        <EditCardSheet card={card} onClose={() => setShowEdit(false)} />
+      )}
     </div>
   );
 }

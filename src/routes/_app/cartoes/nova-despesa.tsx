@@ -3,7 +3,7 @@ import { z } from "zod";
 import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeft, Info } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,7 +18,9 @@ import {
 import { useCardStore, resolveInvoiceForDate } from "@/lib/card-store";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, parseISO, isAfter } from "date-fns";
+import { DatePicker } from "@/components/cartoes/date-picker";
+import { InstallmentPicker } from "@/components/cartoes/installment-picker";
 
 export const Route = createFileRoute("/_app/cartoes/nova-despesa")({
   validateSearch: z.object({ cardId: z.string().optional() }),
@@ -31,7 +33,7 @@ const schema = z.object({
   description: z.string().min(1, "Informe a descrição"),
   amount_raw: z.string().min(1, "Informe o valor"),
   purchase_date: z.string().min(1, "Informe a data"),
-  installments: z.coerce.number().int().min(1).max(48),
+  installments: z.number().int().min(1).max(48),
   is_recurring: z.boolean().default(false),
   invoice_id: z.string().min(1, "Selecione a fatura"),
   observations: z.string().optional(),
@@ -39,7 +41,6 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-// Formata dígitos em valor monetário BRL enquanto digita
 function formatCurrencyInput(digits: string): string {
   const nums = digits.replace(/\D/g, "");
   if (!nums) return "";
@@ -50,16 +51,32 @@ function formatCurrencyInput(digits: string): string {
   });
 }
 
-// Converte string formatada "1.234,56" → número 1234.56
 function parseCurrencyInput(value: string): number {
   return parseFloat(value.replace(/\./g, "").replace(",", ".")) || 0;
+}
+
+// Retorna a fatura aberta mais próxima cuja data de fechamento ainda não passou
+function resolveDefaultInvoice(invoices: ReturnType<typeof useCardStore.getState>["invoices"], cardId: string, purchaseDate: string) {
+  const today = new Date();
+  const open = invoices
+    .filter((i) => i.card_id === cardId && i.status === "open")
+    .sort((a, b) => a.competence.localeCompare(b.competence));
+
+  // Prefere a fatura cujo fechamento é após hoje E após a data da compra
+  const purchase = parseISO(purchaseDate);
+  const best = open.find(
+    (inv) =>
+      isAfter(parseISO(inv.closing_date), today) &&
+      isAfter(parseISO(inv.closing_date), purchase)
+  );
+  return best ?? open[0] ?? null;
 }
 
 function NovaDespesaPage() {
   const router = useRouter();
   const { cardId: preselectedCardId } = Route.useSearch();
   const { cards, invoices, fetchCards, ensureInvoices, fetchInvoices, addExpense } = useCardStore();
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categories, setCategories] = useState<{ name: string; color: string; icon: string }[]>([]);
   const [loadingInvoices, setLoadingInvoices] = useState(false);
   const [displayValue, setDisplayValue] = useState("");
 
@@ -89,28 +106,28 @@ function NovaDespesaPage() {
   const amountRaw = watch("amount_raw");
 
   const selectedCard = cards.find((c) => c.id === selectedCardId);
+
+  // Faturas ordenadas da mais próxima para a mais futura
   const cardInvoices = invoices
     .filter((i) => i.card_id === selectedCardId && i.status === "open")
     .sort((a, b) => a.competence.localeCompare(b.competence))
     .slice(0, 7);
 
   const parsedAmount = parseCurrencyInput(amountRaw);
-  const installmentAmount =
-    parsedAmount > 0 && installments > 1
-      ? Math.round((parsedAmount / installments) * 100) / 100
-      : null;
 
   useEffect(() => {
     if (cards.length === 0) fetchCards();
     loadCategories();
   }, []);
 
+  // Auto-seleciona fatura correta quando cartão ou data mudam
   useEffect(() => {
     if (!selectedCard || !purchaseDate || cardInvoices.length === 0) return;
-    const resolved = resolveInvoiceForDate(purchaseDate, invoices, selectedCard);
+    const resolved = resolveDefaultInvoice(invoices, selectedCard.id, purchaseDate);
     if (resolved) setValue("invoice_id", resolved.id);
   }, [selectedCardId, purchaseDate, invoices.length]);
 
+  // Carrega faturas ao trocar cartão
   useEffect(() => {
     if (!selectedCard) return;
     setLoadingInvoices(true);
@@ -124,11 +141,11 @@ function NovaDespesaPage() {
     if (!user) return;
     const { data } = await supabase
       .from("categories")
-      .select("name")
+      .select("name, color, icon")
       .eq("user_id", user.id)
       .eq("type", "expense")
       .order("name");
-    setCategories((data ?? []).map((c) => c.name));
+    setCategories(data ?? []);
   };
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -140,10 +157,7 @@ function NovaDespesaPage() {
   const onSubmit = async (data: FormData) => {
     if (!selectedCard) return;
     const amount = parseCurrencyInput(data.amount_raw);
-    if (amount <= 0) {
-      toast.error("Informe um valor válido.");
-      return;
-    }
+    if (amount <= 0) { toast.error("Informe um valor válido."); return; }
     try {
       await addExpense({
         card: selectedCard,
@@ -193,9 +207,7 @@ function NovaDespesaPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {cards.filter((c) => c.active).map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name} · {c.bank}
-                    </SelectItem>
+                    <SelectItem key={c.id} value={c.id}>{c.name} · {c.bank}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -217,7 +229,15 @@ function NovaDespesaPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map((cat) => (
-                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                    <SelectItem key={cat.name} value={cat.name}>
+                      <span className="flex items-center gap-2">
+                        <span
+                          className="inline-block h-3 w-3 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: cat.color ?? "#6b7280" }}
+                        />
+                        {cat.name}
+                      </span>
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -229,23 +249,15 @@ function NovaDespesaPage() {
         {/* Descrição */}
         <div className="space-y-1.5">
           <Label htmlFor="description">Descrição</Label>
-          <Input
-            id="description"
-            placeholder="Ex: Netflix, Supermercado Extra"
-            {...register("description")}
-          />
-          {errors.description && (
-            <p className="text-xs text-destructive">{errors.description.message}</p>
-          )}
+          <Input id="description" placeholder="Ex: Netflix, Supermercado Extra" {...register("description")} />
+          {errors.description && <p className="text-xs text-destructive">{errors.description.message}</p>}
         </div>
 
-        {/* Valor — máscara BRL */}
+        {/* Valor com máscara BRL */}
         <div className="space-y-1.5">
           <Label htmlFor="amount_display">Valor (R$)</Label>
           <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-              R$
-            </span>
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
             <Input
               id="amount_display"
               inputMode="numeric"
@@ -255,43 +267,23 @@ function NovaDespesaPage() {
               onChange={handleAmountChange}
             />
           </div>
-          {errors.amount_raw && (
-            <p className="text-xs text-destructive">{errors.amount_raw.message}</p>
-          )}
+          {errors.amount_raw && <p className="text-xs text-destructive">{errors.amount_raw.message}</p>}
         </div>
 
-        {/* Data */}
-        <div className="space-y-1.5">
-          <Label htmlFor="purchase_date">Data da compra</Label>
-          <Input id="purchase_date" type="date" {...register("purchase_date")} />
-          {errors.purchase_date && (
-            <p className="text-xs text-destructive">{errors.purchase_date.message}</p>
-          )}
-        </div>
+        {/* DatePicker moderno */}
+        <DatePicker
+          label="Data da compra"
+          value={purchaseDate}
+          onChange={(v) => setValue("purchase_date", v)}
+        />
 
-        {/* Parcelas */}
-        {!isRecurring && (
-          <div className="space-y-1.5">
-            <Label htmlFor="installments">Número de parcelas</Label>
-            <Input
-              id="installments"
-              type="number"
-              min="1"
-              max="48"
-              {...register("installments")}
-            />
-            {installmentAmount && (
-              <div className="flex items-center gap-1.5 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700 dark:bg-blue-900/20 dark:text-blue-400">
-                <Info className="h-3.5 w-3.5 flex-shrink-0" />
-                {installments}x de{" "}
-                {installmentAmount.toLocaleString("pt-BR", {
-                  style: "currency",
-                  currency: "BRL",
-                })}{" "}
-                nas próximas faturas
-              </div>
-            )}
-          </div>
+        {/* InstallmentPicker — só aparece se não for recorrente e tiver valor */}
+        {!isRecurring && parsedAmount > 0 && (
+          <InstallmentPicker
+            amount={parsedAmount}
+            value={installments}
+            onChange={(n) => setValue("installments", n)}
+          />
         )}
 
         {/* Recorrente */}
@@ -304,7 +296,10 @@ function NovaDespesaPage() {
                 id="is_recurring"
                 className="mt-0.5"
                 checked={!!field.value}
-                onCheckedChange={field.onChange}
+                onCheckedChange={(v) => {
+                  field.onChange(v);
+                  if (v) setValue("installments", 1);
+                }}
               />
             )}
           />
@@ -318,7 +313,7 @@ function NovaDespesaPage() {
           </div>
         </div>
 
-        {/* Fatura destino */}
+        {/* Fatura destino — ordenada da mais próxima para a mais futura */}
         {selectedCard && (
           <div className="space-y-1.5">
             <Label>Fatura destino</Label>
@@ -345,27 +340,17 @@ function NovaDespesaPage() {
                 )}
               />
             )}
-            {errors.invoice_id && (
-              <p className="text-xs text-destructive">{errors.invoice_id.message}</p>
-            )}
+            {errors.invoice_id && <p className="text-xs text-destructive">{errors.invoice_id.message}</p>}
           </div>
         )}
 
         {/* Observações */}
         <div className="space-y-1.5">
           <Label htmlFor="observations">Observações (opcional)</Label>
-          <Input
-            id="observations"
-            placeholder="Alguma nota sobre esta despesa"
-            {...register("observations")}
-          />
+          <Input id="observations" placeholder="Alguma nota sobre esta despesa" {...register("observations")} />
         </div>
 
-        <Button
-          type="submit"
-          className="h-11 w-full bg-primary font-semibold"
-          disabled={isSubmitting}
-        >
+        <Button type="submit" className="h-11 w-full bg-primary font-semibold" disabled={isSubmitting}>
           {isSubmitting ? "Salvando..." : "Lançar despesa"}
         </Button>
       </form>
