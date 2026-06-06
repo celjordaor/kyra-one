@@ -133,7 +133,7 @@ export const useCardStore = create<CardStore>((set, get) => ({
     const { data: { user } } = await supabase.auth.getUser(); if (!user) return;
     const invoice = get().invoices.find(i => i.id === invoiceId); if (!invoice) return;
     const { addTransaction } = await import("./transactions-store");
-    await addTransaction({ title: `Fatura ${card.name} – ${invoice.competence}`, amount: invoice.total_amount, type: "expense", date: toTransactionDate(invoice.due_date), category: "Cartão de Crédito", settled: true, paidAt: toTransactionDate(format(new Date(), "yyyy-MM-dd")), recurring: false });
+    await addTransaction({ title: `Fatura ${card.name} – ${invoice.competence}`, amount: invoice.total_amount, type: "expense", date: toTransactionDate(invoice.due_date), category: "Cartão de Crédito", settled: true, paidAt: toTransactionDate(format(new Date(), "yyyy-MM-dd")), recurring: false, source: "invoice" });
     const { data: txRow } = await supabase.from("transactions").select("id").eq("user_id", user.id).eq("category", "Cartão de Crédito").eq("title", `Fatura ${card.name} – ${invoice.competence}`).order("created_at", { ascending: false }).limit(1).single();
     const txId = txRow?.id ?? null;
     await supabase.from("invoices").update({ status: "paid", transaction_id: txId }).eq("id", invoiceId);
