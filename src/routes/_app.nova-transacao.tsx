@@ -3,13 +3,13 @@ import { useEffect, useState } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeft, Calendar, TrendingUp, TrendingDown, Repeat, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, TrendingUp, TrendingDown, Repeat, CheckCircle2 } from "lucide-react";
+import { DatePicker } from "@/components/date-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useCategories } from "@/lib/categories-store";
-import { getAndClearPreselectedTransactionType } from "@/lib/transaction-type-preset";
 import {
   addTransactions,
   formatBrDate,
@@ -36,14 +36,13 @@ type TransactionForm = z.infer<typeof transactionSchema>;
 
 function NovaTransacaoPage() {
   const navigate = useNavigate();
-  const presetType = sessionStorage.getItem("jadeone:new-transaction-type") as "income" | "expense" | null;
-  if (presetType) sessionStorage.removeItem("jadeone:new-transaction-type");
-  const [transactionType, setTransactionType] = useState<"income" | "expense">(presetType ?? "expense");
+  const [transactionType, setTransactionType] = useState<"income" | "expense">("expense");
   const [recurring, setRecurring] = useState(false);
   const [settled, setSettled] = useState(true);
   const [success, setSuccess] = useState<string | null>(null);
   const [amountDisplay, setAmountDisplay] = useState("");
   const categories = useCategories().filter((c) => c.active && c.type === transactionType);
+
 
   const {
     register,
@@ -230,10 +229,10 @@ function NovaTransacaoPage() {
         {/* Date */}
         <div className="space-y-1.5">
           <Label className="text-sm font-medium">Data</Label>
-          <div className="relative">
-            <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input type="date" className="h-11 pl-10" {...register("date")} />
-          </div>
+          <DatePicker
+            value={dateValue}
+            onChange={(iso) => setValue("date", iso, { shouldValidate: true })}
+          />
           {errors.date && <p className="text-xs text-destructive">{errors.date.message}</p>}
         </div>
 
