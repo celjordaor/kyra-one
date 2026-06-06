@@ -3,7 +3,7 @@ import { z } from "zod";
 import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeft, ChevronRight, CheckCircle2, X } from "lucide-react";
+import { ArrowLeft, ChevronRight, CheckCircle2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -66,6 +66,7 @@ function NovaDespesaPage() {
   const [openCard, setOpenCard]       = useState(false);
   const [openCat, setOpenCat]         = useState(false);
   const [openBilling, setOpenBilling] = useState(false);
+  const [catSearch, setCatSearch] = useState("");
 
   const { register, handleSubmit, watch, setValue, control, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -87,6 +88,9 @@ function NovaDespesaPage() {
   const parsedAmount    = parseCurrencyInput(amountRaw);
 
   const selectedCard    = cards.find(c => c.id === selectedCardId);
+  const filteredCategories = categories.filter(c =>
+    c.name.toLowerCase().includes(catSearch.toLowerCase())
+  );
   const cardInvoices    = sortInvoicesByCompetence(invoices.filter(i => i.card_id === selectedCardId && i.status === "open")).slice(0, 6);
   const selectedInvoice = cardInvoices.find(i => i.id === selectedInvId);
   const selectedCat     = categories.find(c => c.name === selectedCatName);
@@ -193,10 +197,15 @@ function NovaDespesaPage() {
           <button type="button" onClick={() => setOpenCat(true)}
             className="flex h-11 w-full items-center justify-between rounded-lg border bg-background px-3 text-sm hover:bg-muted/50 transition-colors">
             {selectedCat ? (
-              <div className="flex items-center gap-2.5">
-                <span className="text-base">{selectedCat.icon || "📦"}</span>
-                <span className="font-medium text-foreground">{selectedCat.name}</span>
-                <span className="h-2.5 w-2.5 rounded-full" style={{ background: selectedCat.color || "#6b7280" }} />
+              <div className="flex items-center gap-2 rounded-full border px-3 py-1.5"
+                style={{ borderColor: selectedCat.color || "#6b7280", background: (selectedCat.color || "#6b7280") + "18" }}>
+                <div className="flex h-6 w-6 items-center justify-center rounded-full"
+                  style={{ background: selectedCat.color || "#6b7280" }}>
+                  <span className="text-xs text-white">{selectedCat.icon || "📦"}</span>
+                </div>
+                <span className="text-sm font-semibold" style={{ color: selectedCat.color || "#6b7280" }}>
+                  {selectedCat.name}
+                </span>
               </div>
             ) : (
               <span className="text-muted-foreground">Selecione a categoria</span>
@@ -302,29 +311,58 @@ function NovaDespesaPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Modal: Categoria — pills coloridas com ícone ── */}
-      <Dialog open={openCat} onOpenChange={setOpenCat}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>Selecionar categoria</DialogTitle></DialogHeader>
-          <div className="flex flex-wrap gap-2 pb-2">
-            {categories.map(cat => {
-              const isSelected = selectedCatName === cat.name;
-              return (
-                <button key={cat.name} type="button"
-                  onClick={() => { setValue("category", cat.name, { shouldValidate: true }); setOpenCat(false); }}
-                  className="flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition-all"
-                  style={{
-                    background: isSelected ? (cat.color || "#6b7280") : (cat.color || "#6b7280") + "18",
-                    color: isSelected ? "white" : (cat.color || "#6b7280"),
-                    border: `1.5px solid ${(cat.color || "#6b7280")}44`,
-                    transform: isSelected ? "scale(1.05)" : "scale(1)",
-                  }}>
-                  <span>{cat.icon || "📦"}</span>
-                  <span>{cat.name}</span>
-                  {isSelected && <X className="h-3 w-3" />}
-                </button>
-              );
-            })}
+      {/* ── Modal: Categoria — lista com busca ── */}
+      <Dialog open={openCat} onOpenChange={(v) => { setOpenCat(v); if (!v) setCatSearch(""); }}>
+        <DialogContent className="max-w-sm p-0 gap-0">
+          <DialogHeader className="px-4 pt-4 pb-0">
+            <DialogTitle>Selecionar categoria</DialogTitle>
+          </DialogHeader>
+
+          {/* Busca */}
+          <div className="relative mx-4 mt-3 mb-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Pesquisar categoria..."
+              value={catSearch}
+              onChange={e => setCatSearch(e.target.value)}
+              className="h-10 w-full rounded-lg border bg-muted pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+            />
+          </div>
+
+          {/* Lista */}
+          <div className="max-h-80 overflow-y-auto px-2 pb-3">
+            {categories
+              .filter(cat => cat.name.toLowerCase().includes(catSearch.toLowerCase()))
+              .map(cat => {
+                const isSelected = selectedCatName === cat.name;
+                return (
+                  <button key={cat.name} type="button"
+                    onClick={() => { setValue("category", cat.name, { shouldValidate: true }); setOpenCat(false); setCatSearch(""); }}
+                    className="flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left transition-colors hover:bg-muted/60">
+
+                    {/* Ícone colorido */}
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-base text-white"
+                      style={{ background: cat.color || "#6b7280" }}>
+                      {cat.icon || "📦"}
+                    </div>
+
+                    {/* Nome */}
+                    <span className="flex-1 text-sm font-medium text-foreground">{cat.name}</span>
+
+                    {/* Indicador de seleção */}
+                    <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
+                      isSelected
+                        ? "border-primary bg-primary"
+                        : "border-muted-foreground/30"
+                    }`}>
+                      {isSelected && (
+                        <CheckCircle2 className="h-3.5 w-3.5 text-white" />
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
           </div>
         </DialogContent>
       </Dialog>
