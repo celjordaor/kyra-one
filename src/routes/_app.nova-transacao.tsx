@@ -216,7 +216,6 @@ function NovaTransacaoPage() {
 
         {/* ── Data — mesmo componente dos cartões ── */}
         <div className="space-y-1.5">
-          <Label className="text-sm font-medium">Data</Label>
           <DatePicker
             label="Data"
             value={dateValue}
