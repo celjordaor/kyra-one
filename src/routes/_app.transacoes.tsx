@@ -41,8 +41,9 @@ function brDateToIso(br: string): string {
 const fmt = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
+// ── Pills de filtro ────────────────────────────────────────────────────
 const FILTER_OPTIONS = [
-  { key: "Todas",    label: "Todas",    Icon: LayoutList,  activeClass: "bg-primary text-primary-foreground",  iconClass: "" },
+  { key: "Todas",    label: "Todas",    Icon: LayoutList,  activeClass: "bg-primary text-primary-foreground",  iconClass: "text-muted-foreground" },
   { key: "Receitas", label: "Receitas", Icon: TrendingUp,  activeClass: "bg-emerald-500 text-white",           iconClass: "text-emerald-500" },
   { key: "Despesas", label: "Despesas", Icon: TrendingDown,activeClass: "bg-red-500 text-white",               iconClass: "text-red-500" },
   { key: "Faturas",  label: "Faturas",  Icon: CreditCard,  activeClass: "bg-blue-500 text-white",              iconClass: "text-blue-500" },
@@ -51,6 +52,7 @@ type ActiveFilter = (typeof FILTER_OPTIONS)[number]["key"];
 
 const statusFilters = ["Todas", "Pagas/Recebidas", "Pendentes"] as const;
 type StatusFilter = (typeof statusFilters)[number];
+
 const MONTHS = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 type SortKey = "date-desc" | "date-asc" | "amount-desc" | "amount-asc" | "title-asc";
 const SORT_LABELS: Record<SortKey, string> = {
@@ -58,7 +60,7 @@ const SORT_LABELS: Record<SortKey, string> = {
   "amount-desc": "Valor (maior)", "amount-asc": "Valor (menor)", "title-asc": "Título (A–Z)",
 };
 
-// ── Cabeçalho de seção colapsável ──────────────────────────────────────
+// ── Cabeçalho colapsável ───────────────────────────────────────────────
 function SectionHeader({
   title, count, countColor = "bg-muted-foreground/20 text-muted-foreground",
   open, onToggle, right,
@@ -67,11 +69,8 @@ function SectionHeader({
   open: boolean; onToggle: () => void; right?: React.ReactNode;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className="flex w-full items-center justify-between rounded-xl bg-muted/60 px-4 py-2.5 transition-colors hover:bg-muted"
-    >
+    <button type="button" onClick={onToggle}
+      className="flex w-full items-center justify-between rounded-xl bg-muted/60 px-4 py-2.5 transition-colors hover:bg-muted">
       <div className="flex items-center gap-2">
         <span className="text-sm font-semibold text-foreground">{title}</span>
         {count !== undefined && (
@@ -112,12 +111,8 @@ function TransacoesPage() {
   const [selectedYear, setSelectedYear]   = useState<number>(initial.year);
   const [sort, setSort]                   = useState<SortKey>("date-desc");
   const [editingId, setEditingId]         = useState<string | null>(null);
-
-  // Seções colapsáveis
   const [showTransactions, setShowTransactions] = useState(true);
   const [showCards, setShowCards]               = useState(true);
-
-  // Modal de fatura
   const [detailInvoice, setDetailInvoice] = useState<Invoice | null>(null);
   const [detailCard, setDetailCard]       = useState<CreditCardType | null>(null);
 
@@ -128,51 +123,60 @@ function TransacoesPage() {
 
   const isCurrentMonth = selectedMonth === now.getMonth() && selectedYear === now.getFullYear();
 
-  // Carregar cartões e suas faturas
   useEffect(() => { fetchCards(); }, []);
   useEffect(() => { cards.forEach(c => fetchInvoices(c.id)); }, [cards.length]);
 
   const goPrevMonth = () => { if (selectedMonth===0){setSelectedMonth(11);setSelectedYear(y=>y-1);}else setSelectedMonth(m=>m-1); };
   const goNextMonth = () => { if (selectedMonth===11){setSelectedMonth(0);setSelectedYear(y=>y+1);}else setSelectedMonth(m=>m+1); };
 
-  // ── Transações regulares (excluir faturas) ────────────────────────────
-  const filteredRegular = useMemo(() => allTransactions
-    .filter(t => {
-      if (isFaturaTransaction(t)) return false;
-      if (activeFilter === "Faturas") return false; // faturas ficam só na seção própria
-      const date = parseBrDate(t.date);
-      return date.getMonth() === selectedMonth && date.getFullYear() === selectedYear
-        && t.title.toLowerCase().includes(search.toLowerCase())
-        && (activeFilter === "Todas" || (activeFilter === "Receitas" && t.type === "income") || (activeFilter === "Despesas" && t.type === "expense"))
-        && (statusFilter === "Todas" || (statusFilter === "Pagas/Recebidas" && t.settled) || (statusFilter === "Pendentes" && !t.settled));
-    })
-    .sort((a, b) => {
-      switch (sort) {
-        case "date-desc": return parseBrDate(b.date).getTime() - parseBrDate(a.date).getTime();
-        case "date-asc":  return parseBrDate(a.date).getTime() - parseBrDate(b.date).getTime();
-        case "amount-desc": return Math.abs(b.amount) - Math.abs(a.amount);
-        case "amount-asc":  return Math.abs(a.amount) - Math.abs(b.amount);
-        case "title-asc":   return a.title.localeCompare(b.title);
-      }
-    }), [allTransactions, selectedMonth, selectedYear, search, activeFilter, statusFilter, sort]
-  );
+  // ── Transações regulares ───────────────────────────────────────────────
+  const filteredRegular = useMemo(() => {
+    if (activeFilter === "Faturas") return [];
+    return allTransactions
+      .filter(t => {
+        if (isFaturaTransaction(t)) return false;
+        const date = parseBrDate(t.date);
+        return date.getMonth() === selectedMonth && date.getFullYear() === selectedYear
+          && t.title.toLowerCase().includes(search.toLowerCase())
+          && (activeFilter === "Todas" || (activeFilter === "Receitas" && t.type === "income") || (activeFilter === "Despesas" && t.type === "expense"))
+          && (statusFilter === "Todas" || (statusFilter === "Pagas/Recebidas" && t.settled) || (statusFilter === "Pendentes" && !t.settled));
+      })
+      .sort((a, b) => {
+        switch (sort) {
+          case "date-desc": return parseBrDate(b.date).getTime() - parseBrDate(a.date).getTime();
+          case "date-asc":  return parseBrDate(a.date).getTime() - parseBrDate(b.date).getTime();
+          case "amount-desc": return Math.abs(b.amount) - Math.abs(a.amount);
+          case "amount-asc":  return Math.abs(a.amount) - Math.abs(b.amount);
+          case "title-asc":   return a.title.localeCompare(b.title);
+        }
+      });
+  }, [allTransactions, selectedMonth, selectedYear, search, activeFilter, statusFilter, sort]);
 
-  // ── Faturas do cartão no mês selecionado ──────────────────────────────
+  // ── Faturas do mês ─────────────────────────────────────────────────────
   const cardInvoices = useMemo(() =>
     invoices.filter(inv => {
       if (inv.total_amount <= 0) return false;
       const due = new Date(inv.due_date + "T12:00:00");
-      return due.getMonth() === selectedMonth && due.getFullYear() === selectedYear;
-    }).map(inv => ({ invoice: inv, card: cards.find(c => c.id === inv.card_id) }))
-      .filter(item => item.card?.active),
-    [invoices, cards, selectedMonth, selectedYear]
+      if (!(due.getMonth() === selectedMonth && due.getFullYear() === selectedYear)) return false;
+      if (activeFilter === "Faturas" && search) {
+        const card = cards.find(c => c.id === inv.card_id);
+        return card?.name.toLowerCase().includes(search.toLowerCase()) ?? false;
+      }
+      return true;
+    })
+    .map(inv => ({ invoice: inv, card: cards.find(c => c.id === inv.card_id) }))
+    .filter(item => item.card?.active),
+    [invoices, cards, selectedMonth, selectedYear, activeFilter, search]
   );
 
+  const showCardSection = activeFilter === "Todas" || activeFilter === "Faturas";
+  const showRegularSection = activeFilter !== "Faturas";
+
   const totalBalance = filteredRegular.reduce((s, t) => s + t.amount, 0);
+  const totalFaturas = cardInvoices.reduce((s, i) => s + i.invoice.total_amount, 0);
 
   const openDetail = async (invoice: Invoice, card: CreditCardType) => {
-    setDetailInvoice(invoice);
-    setDetailCard(card);
+    setDetailInvoice(invoice); setDetailCard(card);
     await fetchExpenses(invoice.id);
     await fetchInstallments(invoice.id);
   };
@@ -202,14 +206,21 @@ function TransacoesPage() {
         <Input placeholder="Buscar transação..." className="h-10 pl-10" value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
-      {/* Filtros */}
+      {/* Pills de filtro com ícones */}
       <div className="flex items-center gap-2">
-        {filters.map(f => (
-          <button key={f} onClick={() => setActiveFilter(f)}
-            className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${activeFilter === f ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
-            {f}
-          </button>
-        ))}
+        {FILTER_OPTIONS.map(({ key, label, Icon, activeClass, iconClass }) => {
+          const isActive = activeFilter === key;
+          return (
+            <button key={key} onClick={() => setActiveFilter(key)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+                isActive ? activeClass : "bg-muted text-muted-foreground hover:bg-muted/80"
+              )}>
+              <Icon className={cn("h-3.5 w-3.5", isActive ? "opacity-90" : iconClass)} />
+              {label}
+            </button>
+          );
+        })}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="ml-auto flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary hover:bg-primary/20">
@@ -228,149 +239,140 @@ function TransacoesPage() {
         </DropdownMenu>
       </div>
 
-      {/* Filtros de status — oculto no filtro Faturas */}
-      {activeFilter !== "Faturas" && <div className="flex items-center gap-2">
-        {statusFilters.map(f => (
-          <button key={f} onClick={() => setStatusFilter(f)}
-            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${statusFilter === f ? "bg-foreground text-background" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
-            {f === "Pagas/Recebidas" && <CheckCircle2 className="h-3 w-3" />}
-            {f === "Pendentes" && <Circle className="h-3 w-3" />}
-            {f}
-          </button>
-        ))}
-      </div>
+      {/* Filtros de status — oculto quando Faturas está ativo */}
+      {activeFilter !== "Faturas" && (
+        <div className="flex items-center gap-2">
+          {statusFilters.map(f => (
+            <button key={f} onClick={() => setStatusFilter(f)}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${statusFilter === f ? "bg-foreground text-background" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
+              {f === "Pagas/Recebidas" && <CheckCircle2 className="h-3 w-3" />}
+              {f === "Pendentes" && <Circle className="h-3 w-3" />}
+              {f}
+            </button>
+          ))}
+        </div>
+      )}
 
-      {/* Resumo */}
+      {/* Resumo dinâmico */}
       <div className="flex items-center justify-between rounded-xl border bg-card p-4 shadow-sm">
         <div>
           <p className="text-xs text-muted-foreground">
             {activeFilter === "Faturas" ? "Total em faturas" : "Total do período"}
           </p>
           <p className={cn("text-lg font-bold", activeFilter === "Faturas" ? "text-blue-500" : "text-foreground")}>
-            {activeFilter === "Faturas"
-              ? `-${fmt(cardInvoices.reduce((s, i) => s + i.invoice.total_amount, 0))}`
-              : fmt(totalBalance)
-            }
+            {activeFilter === "Faturas" ? `-${fmt(totalFaturas)}` : fmt(totalBalance)}
           </p>
         </div>
         <p className="text-xs text-muted-foreground">
           {activeFilter === "Faturas"
             ? `${cardInvoices.length} fatura(s)`
-            : `${filteredRegular.length} transações`
-          }
+            : `${filteredRegular.length} transações`}
         </p>
       </div>
 
-      {/* ══ SEÇÃO 1: Transações regulares ══ */}
-      {activeFilter !== "Faturas" && <SectionHeader
-        title="Receitas e Despesas"
-        count={filteredRegular.length}
-        countColor="bg-primary/10 text-primary"
-        open={showTransactions}
-        onToggle={() => setShowTransactions(v => !v)}
-      />
-
-      {showTransactions && (
-        <div className="space-y-2">
-          {filteredRegular.length === 0 ? (
-            <div className="rounded-xl border bg-card p-6 text-center text-sm text-muted-foreground shadow-sm">
-              Nenhuma transação encontrada para este período.
-            </div>
-          ) : filteredRegular.map(t => {
-            const isFuture  = parseBrDate(t.date).getTime() > today.getTime();
-            const isFatura  = isFaturaTransaction(t);
-            const statusLabel = t.type === "income" ? "Recebida" : "Paga";
-
-            return (
-              <div key={t.id}
-                className={`flex items-center justify-between rounded-xl border p-3 shadow-sm ${t.settled ? "bg-settled" : "bg-pending"}`}>
-                <div className="flex items-center gap-3">
-                  {/* Ícone: 💳 azul para fatura, normal para o resto */}
-                  <div className={cn(
-                    "flex h-9 w-9 items-center justify-center rounded-full",
-                    isFatura ? "bg-blue-100" : t.type === "income" ? "bg-emerald-100" : "bg-red-100"
-                  )}>
-                    {isFatura
-                      ? <CreditCard className="h-4 w-4 text-blue-500" />
-                      : t.type === "income"
-                      ? <TrendingUp className="h-4 w-4 text-emerald-600" />
-                      : <TrendingDown className="h-4 w-4 text-red-500" />
-                    }
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-sm font-medium text-foreground">{t.title}</p>
-                      {t.recurring && !isFatura && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="inline-flex"><Repeat className="h-3 w-3 text-muted-foreground" /></span>
-                          </TooltipTrigger>
-                          <TooltipContent>Recorrente</TooltipContent>
-                        </Tooltip>
+      {/* ══ SEÇÃO 1: Receitas e Despesas ══ */}
+      {showRegularSection && (
+        <>
+          <SectionHeader
+            title="Receitas e Despesas"
+            count={filteredRegular.length}
+            countColor="bg-primary/10 text-primary"
+            open={showTransactions}
+            onToggle={() => setShowTransactions(v => !v)}
+          />
+          {showTransactions && (
+            <div className="space-y-2">
+              {filteredRegular.length === 0 ? (
+                <div className="rounded-xl border bg-card p-6 text-center text-sm text-muted-foreground shadow-sm">
+                  Nenhuma transação encontrada para este período.
+                </div>
+              ) : filteredRegular.map(t => {
+                const isFuture  = parseBrDate(t.date).getTime() > today.getTime();
+                const isFatura  = isFaturaTransaction(t);
+                const statusLabel = t.type === "income" ? "Recebida" : "Paga";
+                return (
+                  <div key={t.id}
+                    className={`flex items-center justify-between rounded-xl border p-3 shadow-sm ${t.settled ? "bg-settled" : "bg-pending"}`}>
+                    <div className="flex items-center gap-3">
+                      <div className={cn("flex h-9 w-9 items-center justify-center rounded-full",
+                        isFatura ? "bg-blue-100" : t.type === "income" ? "bg-emerald-100" : "bg-red-100"
+                      )}>
+                        {isFatura ? <CreditCard className="h-4 w-4 text-blue-500" />
+                          : t.type === "income" ? <TrendingUp className="h-4 w-4 text-emerald-600" />
+                          : <TrendingDown className="h-4 w-4 text-red-500" />}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-sm font-medium text-foreground">{t.title}</p>
+                          {t.recurring && !isFatura && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex"><Repeat className="h-3 w-3 text-muted-foreground" /></span>
+                              </TooltipTrigger>
+                              <TooltipContent>Recorrente</TooltipContent>
+                            </Tooltip>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">{t.category} • {t.date}</p>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-0.5">
+                      <div className="flex items-center gap-2">
+                        <p className={cn("text-sm font-semibold",
+                          isFatura ? "text-blue-500" : t.type === "income" ? "text-emerald-600" : "text-red-500"
+                        )}>
+                          {t.type === "income" ? "+" : ""}{fmt(Math.abs(t.amount))}
+                        </p>
+                        {isFatura ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground/50 cursor-default">
+                                <Lock className="h-3.5 w-3.5" />
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="left" className="max-w-[180px] text-center text-xs">
+                              Gerada pelo pagamento de fatura. Estorne pela tela de faturas.
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          <>
+                            <button onClick={() => !isFuture && toggleSettled(t.id)} disabled={isFuture}
+                              className={cn("flex h-7 w-7 items-center justify-center rounded-full transition-colors",
+                                isFuture ? "cursor-not-allowed text-muted-foreground/40"
+                                : t.settled ? "bg-emerald-100 text-emerald-600 hover:bg-emerald-200"
+                                : "border border-dashed border-muted-foreground/40 text-muted-foreground hover:bg-muted"
+                              )}>
+                              {t.settled ? <CheckCircle2 className="h-4 w-4" /> : <Circle className="h-4 w-4" />}
+                            </button>
+                            <button onClick={() => setEditingId(t.id)}
+                              className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground">
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button onClick={() => !t.settled && deleteTransaction(t.id)} disabled={t.settled}
+                              className={cn("flex h-7 w-7 items-center justify-center rounded-full transition-colors",
+                                t.settled ? "cursor-not-allowed text-muted-foreground/30" : "text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                              )}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                      {t.settled && t.paidAt && (
+                        <p className="text-[10px] font-medium text-emerald-600">
+                          {t.type === "income" ? "Recebido" : "Pago"} em {t.paidAt}
+                        </p>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground">{t.category} • {t.date}</p>
                   </div>
-                </div>
-
-                <div className="flex flex-col items-end gap-0.5">
-                  <div className="flex items-center gap-2">
-                    <p className={cn("text-sm font-semibold", isFatura ? "text-blue-500" : t.type === "income" ? "text-emerald-600" : "text-red-500")}>
-                      {t.type === "income" ? "+" : ""}{fmt(Math.abs(t.amount))}
-                    </p>
-
-                    {/* Fatura: só cadeado */}
-                    {isFatura ? (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground/50 cursor-default">
-                            <Lock className="h-3.5 w-3.5" />
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent side="left" className="max-w-[180px] text-center text-xs">
-                          Gerada pelo pagamento de fatura. Estorne pela tela de faturas.
-                        </TooltipContent>
-                      </Tooltip>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => !isFuture && toggleSettled(t.id)} disabled={isFuture}
-                          className={cn("flex h-7 w-7 items-center justify-center rounded-full transition-colors",
-                            isFuture ? "cursor-not-allowed text-muted-foreground/40"
-                            : t.settled ? "bg-emerald-100 text-emerald-600 hover:bg-emerald-200"
-                            : "border border-dashed border-muted-foreground/40 text-muted-foreground hover:bg-muted"
-                          )}>
-                          {t.settled ? <CheckCircle2 className="h-4 w-4" /> : <Circle className="h-4 w-4" />}
-                        </button>
-                        <button onClick={() => setEditingId(t.id)}
-                          className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground">
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                        <button onClick={() => !t.settled && deleteTransaction(t.id)} disabled={t.settled}
-                          className={cn("flex h-7 w-7 items-center justify-center rounded-full transition-colors",
-                            t.settled ? "cursor-not-allowed text-muted-foreground/30" : "text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                          )}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                  {t.settled && t.paidAt && (
-                    <p className="text-[10px] font-medium text-emerald-600">
-                      {t.type === "income" ? "Recebido" : "Pago"} em {t.paidAt}
-                    </p>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
 
-      }
-
       {/* ══ SEÇÃO 2: Cartões de Crédito ══ */}
-      {cardInvoices.length > 0 && (activeFilter === "Todas" || activeFilter === "Faturas") && (
+      {cardInvoices.length > 0 && showCardSection && (
         <>
           <SectionHeader
             title="Cartões de Crédito"
@@ -380,11 +382,10 @@ function TransacoesPage() {
             onToggle={() => setShowCards(v => !v)}
             right={
               <span className="text-xs text-muted-foreground mr-1">
-                {fmt(cardInvoices.reduce((s, i) => s + i.invoice.total_amount, 0))}
+                {fmt(totalFaturas)}
               </span>
             }
           />
-
           {showCards && (
             <div className="space-y-2">
               {cardInvoices.map(({ invoice, card }) => {
@@ -392,20 +393,17 @@ function TransacoesPage() {
                 const isPaid = invoice.status === "paid";
                 return (
                   <div key={invoice.id}
-                    className={cn(
-                      "flex items-center justify-between gap-3 rounded-xl border p-3 shadow-sm",
+                    className={cn("flex items-center justify-between gap-3 rounded-xl border p-3 shadow-sm",
                       isPaid ? "bg-card border-border" : "bg-blue-50/50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-900/40"
                     )}>
                     <div className="flex min-w-0 items-center gap-3">
-                      {/* 💳 azul */}
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/40">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-100">
                         <CreditCard className="h-4 w-4 text-blue-500" />
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5">
                           <p className="truncate text-sm font-medium text-foreground">{card.name}</p>
-                          <span className={cn(
-                            "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold",
+                          <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold",
                             isPaid ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
                           )}>
                             {isPaid ? "Paga" : "Em aberto"}
@@ -416,17 +414,12 @@ function TransacoesPage() {
                         </p>
                       </div>
                     </div>
-
                     <div className="flex items-center gap-2">
                       <p className="shrink-0 text-sm font-semibold text-red-500">
                         -{fmt(invoice.total_amount)}
                       </p>
-                      {/* Botão detalhar */}
-                      <button
-                        onClick={() => openDetail(invoice, card)}
-                        title="Ver despesas desta fatura"
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-blue-400 text-blue-500 hover:bg-blue-500/10 transition-colors"
-                      >
+                      <button onClick={() => openDetail(invoice, card)} title="Ver despesas desta fatura"
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-blue-400 text-blue-500 hover:bg-blue-500/10 transition-colors">
                         <Receipt className="h-3.5 w-3.5" />
                       </button>
                     </div>
@@ -440,8 +433,7 @@ function TransacoesPage() {
 
       {/* Modal de detalhes da fatura */}
       <InvoiceDetailModal
-        invoice={detailInvoice}
-        card={detailCard}
+        invoice={detailInvoice} card={detailCard}
         expenses={expenses.filter(e => e.invoice_id === detailInvoice?.id)}
         installments={installments.filter(i => i.invoice_id === detailInvoice?.id)}
         open={!!detailInvoice}
@@ -469,7 +461,6 @@ function InvoiceDetailModal({
 }) {
   if (!invoice || !card) return null;
   const isPaid = invoice.status === "paid";
-
   const allItems = [
     ...expenses.map(e => ({ id:e.id, description:e.description, amount:e.amount, category:e.category, date:e.purchase_date })),
     ...installments.map(i => ({ id:i.id, description:i.description, amount:i.amount, category:i.category, date:i.purchase_date })),
@@ -478,7 +469,6 @@ function InvoiceDetailModal({
   return (
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
       <DialogContent className="max-w-sm p-0 overflow-hidden">
-        {/* Header */}
         <div className="bg-primary px-5 pt-5 pb-4 text-primary-foreground">
           <DialogHeader>
             <DialogTitle className="text-primary-foreground">Fatura {card.name}</DialogTitle>
@@ -487,41 +477,33 @@ function InvoiceDetailModal({
             {invoice.competence} • Vence {new Date(invoice.due_date+"T12:00:00").toLocaleDateString("pt-BR")}
           </p>
           <p className="mt-3 text-2xl font-bold">{fmt(invoice.total_amount)}</p>
-          <span className={cn(
-            "mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold",
+          <span className={cn("mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold",
             isPaid ? "bg-emerald-400/30 text-emerald-100" : "bg-amber-400/30 text-amber-100"
           )}>
             {isPaid ? "Paga" : "Em aberto"}
           </span>
         </div>
-
-        {/* Lista */}
         <div className="max-h-72 overflow-y-auto">
-          {allItems.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma despesa lançada nesta fatura.</p>
-          ) : (
-            <div className="divide-y">
-              {allItems.map(item => (
-                <div key={item.id} className="flex items-center justify-between gap-3 px-5 py-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-foreground">{item.description}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {item.category} • {new Date(item.date+"T12:00:00").toLocaleDateString("pt-BR",{ day:"2-digit", month:"short" })}
-                    </p>
-                  </div>
-                  <p className="shrink-0 text-sm font-semibold text-red-500">-{fmt(item.amount)}</p>
+          {allItems.length === 0
+            ? <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma despesa lançada nesta fatura.</p>
+            : <div className="divide-y">{allItems.map(item => (
+              <div key={item.id} className="flex items-center justify-between gap-3 px-5 py-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-foreground">{item.description}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {item.category} • {new Date(item.date+"T12:00:00").toLocaleDateString("pt-BR",{ day:"2-digit", month:"short" })}
+                  </p>
                 </div>
-              ))}
-            </div>
-          )}
+                <p className="shrink-0 text-sm font-semibold text-red-500">-{fmt(item.amount)}</p>
+              </div>
+            ))}</div>
+          }
         </div>
-
-        {/* Rodapé */}
         <div className="flex items-center justify-between border-t px-5 py-4">
           <Button variant="outline" size="sm" onClick={onClose}>Fechar</Button>
           {!isPaid && (
-            <button onClick={onAddExpense} title="Adicionar despesa nesta fatura"
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md shadow-primary/25 hover:-translate-y-0.5 transition-all hover:shadow-lg hover:shadow-primary/30">
+            <button onClick={onAddExpense}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md shadow-primary/25 hover:-translate-y-0.5 transition-all">
               <Plus className="h-5 w-5" />
             </button>
           )}
