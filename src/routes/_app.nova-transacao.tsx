@@ -36,8 +36,9 @@ type TransactionForm = z.infer<typeof transactionSchema>;
 
 function NovaTransacaoPage() {
   const navigate = useNavigate();
-  const [transactionType, setTransactionType] = useState<"income" | "expense">(() => {
-  return getAndClearPreselectedTransactionType() ?? "expense";
+  const [type, setType] = useState<"income" | "expense">(() => {
+     return getAndClearPreselectedTransactionType() ?? "expense";
+   });
   const [recurring, setRecurring] = useState(false);
   const [settled, setSettled] = useState(true);
   const [success, setSuccess] = useState<string | null>(null);
