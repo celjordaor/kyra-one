@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useCardStore, type ExpenseType } from "@/lib/card-store";
 import { useCategories } from "@/lib/categories-store";
+import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -27,8 +28,8 @@ const TYPE_LABEL: Record<ExpenseType, string> = {
 };
 const TYPE_CLASS: Record<ExpenseType, string> = {
   single:      "bg-muted text-muted-foreground",
-  installment: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  recurring:   "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+  installment: "bg-blue-100 text-blue-700",
+  recurring:   "bg-purple-100 text-purple-700",
 };
 
 const fmt = (v: number) =>
@@ -40,9 +41,6 @@ type UnifiedItem = {
   isInstallment: boolean; invoiceId: string;
 };
 
-function parseCurrencyInput(v: string): number {
-  return parseFloat(v.replace(/\./g, "").replace(",", ".")) || 0;
-}
 function formatCurrencyInput(digits: string): string {
   const nums = digits.replace(/\D/g, "");
   if (!nums) return "";
@@ -50,29 +48,27 @@ function formatCurrencyInput(digits: string): string {
     minimumFractionDigits: 2, maximumFractionDigits: 2,
   });
 }
+function parseCurrencyInput(v: string): number {
+  return parseFloat(v.replace(/\./g, "").replace(",", ".")) || 0;
+}
 
-// ── Modal de detalhe / edição ──────────────────────────────────────────
+// ── Modal: direto no Supabase, sem depender de funções do store ─────────
 function ExpenseDetailModal({
   item, invoiceStatus, open, onClose, onSaved, onDeleted,
 }: {
   item: UnifiedItem | null;
   invoiceStatus: "open" | "closed" | "paid";
-  open: boolean;
-  onClose: () => void;
-  onSaved: () => void;
-  onDeleted: () => void;
+  open: boolean; onClose: () => void;
+  onSaved: () => void; onDeleted: () => void;
 }) {
-  const { updateExpense, updateInstallment, deleteExpense, deleteInstallment } = useCardStore();
   const categories = useCategories().filter(c => c.active && c.type === "expense");
-
-  const [description, setDescription]   = useState("");
-  const [category, setCategory]         = useState("");
+  const [description, setDescription]    = useState("");
+  const [category, setCategory]          = useState("");
   const [amountDisplay, setAmountDisplay] = useState("");
-  const [date, setDate]                 = useState("");
-  const [saving, setSaving]             = useState(false);
+  const [date, setDate]                  = useState("");
+  const [saving, setSaving]              = useState(false);
 
-  const canEdit  = invoiceStatus === "open";
-  const isLocked = !canEdit;
+  const canEdit = invoiceStatus === "open";
 
   useEffect(() => {
     if (!item) return;
@@ -92,8 +88,14 @@ function ExpenseDetailModal({
     setSaving(true);
     try {
       const patch = { description: description.trim(), category, amount, purchase_date: date };
-      if (item.isInstallment) await updateInstallment(item.id, item.invoiceId, patch);
-      else await updateExpense(item.id, patch);
+      const table = item.isInstallment ? "card_installments" : "card_expenses";
+      const { error } = await supabase.from(table).update(patch).eq("id", item.id);
+      if (error) throw error;
+      // Recalcular total da fatura
+      const { data: expData } = await supabase.from("card_expenses").select("amount").eq("invoice_id", item.invoiceId);
+      const { data: instData } = await supabase.from("card_installments").select("amount").eq("invoice_id", item.invoiceId);
+      const total = (expData ?? []).reduce((s, e) => s + e.amount, 0) + (instData ?? []).reduce((s, i) => s + i.amount, 0);
+      await supabase.from("invoices").update({ total_amount: total }).eq("id", item.invoiceId);
       toast.success("Lançamento atualizado!");
       onSaved();
     } catch { toast.error("Erro ao salvar."); }
@@ -102,13 +104,21 @@ function ExpenseDetailModal({
 
   async function handleDelete() {
     if (!item || !canEdit) return;
-    const confirmMsg = item.expense_type === "installment"
+    const msg = item.expense_type === "installment"
       ? `Excluir esta parcela de "${item.description}"?`
       : `Excluir "${item.description}"?`;
-    if (!confirm(confirmMsg)) return;
+    if (!confirm(msg)) return;
     try {
-      if (item.isInstallment) await deleteInstallment(item.id, item.invoiceId);
-      else await deleteExpense(item.id);
+      const table = item.isInstallment ? "card_installments" : "card_expenses";
+      await supabase.from(table).delete().eq("id", item.id);
+      if (!item.isInstallment && item.expense_type === "installment") {
+        await supabase.from("card_installments").delete().eq("parent_expense_id", item.id);
+      }
+      // Recalcular total
+      const { data: expData } = await supabase.from("card_expenses").select("amount").eq("invoice_id", item.invoiceId);
+      const { data: instData } = await supabase.from("card_installments").select("amount").eq("invoice_id", item.invoiceId);
+      const total = (expData ?? []).reduce((s, e) => s + e.amount, 0) + (instData ?? []).reduce((s, i) => s + i.amount, 0);
+      await supabase.from("invoices").update({ total_amount: total }).eq("id", item.invoiceId);
       toast.success("Lançamento excluído.");
       onDeleted();
     } catch { toast.error("Erro ao excluir."); }
@@ -118,101 +128,66 @@ function ExpenseDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
-      <DialogContent className="max-w-sm p-0 overflow-hidden">
-
-        {/* Header */}
-        <div className={cn("px-5 pt-5 pb-4", isLocked ? "bg-muted/60" : "bg-primary/5")}>
+      <DialogContent className="max-w-sm p-0 overflow-hidden" aria-describedby={undefined}>
+        <div className={cn("px-5 pt-5 pb-4", !canEdit ? "bg-muted/60" : "bg-primary/5")}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
-              {isLocked && <Lock className="h-4 w-4 text-muted-foreground" />}
+              {!canEdit && <Lock className="h-4 w-4 text-muted-foreground" />}
               {canEdit ? "Editar lançamento" : "Detalhes do lançamento"}
             </DialogTitle>
           </DialogHeader>
-          {isLocked && (
+          {!canEdit && (
             <p className="mt-1.5 text-xs text-muted-foreground">
-              {invoiceStatus === "paid"
-                ? "🔒 Fatura paga — edição não permitida"
-                : "🔒 Fatura fechada — edição não permitida"}
+              {invoiceStatus === "paid" ? "🔒 Fatura paga — edição não permitida" : "🔒 Fatura fechada — edição não permitida"}
             </p>
           )}
           <div className="mt-2">
             <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold", TYPE_CLASS[item.expense_type])}>
-              {TYPE_ICON[item.expense_type]}
-              {TYPE_LABEL[item.expense_type]}
+              {TYPE_ICON[item.expense_type]} {TYPE_LABEL[item.expense_type]}
             </span>
           </div>
         </div>
 
-        {/* Corpo */}
         <div className="space-y-4 px-5 py-4">
-
-          {/* Descrição */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Descrição
-            </Label>
+            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Descrição</Label>
             {canEdit
               ? <Input value={description} onChange={e => setDescription(e.target.value)} className="h-10" />
-              : <p className="text-sm font-medium text-foreground">{item.description}</p>
-            }
+              : <p className="text-sm font-medium text-foreground">{item.description}</p>}
           </div>
-
-          {/* Categoria */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Categoria
-            </Label>
+            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Categoria</Label>
             {canEdit ? (
-              <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
+              <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
                 {categories.map(cat => (
                   <button key={cat.id} type="button" onClick={() => setCategory(cat.name)}
-                    className={cn(
-                      "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
-                      category === cat.name
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:bg-muted"
-                    )}>
-                    {cat.name}
-                  </button>
+                    className={cn("rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                      category === cat.name ? "border-primary bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
+                    )}>{cat.name}</button>
                 ))}
               </div>
-            ) : (
-              <p className="text-sm font-medium text-foreground">{item.category}</p>
-            )}
+            ) : <p className="text-sm font-medium text-foreground">{item.category}</p>}
           </div>
-
-          {/* Valor */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Valor
-            </Label>
+            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Valor</Label>
             {canEdit ? (
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
                 <Input type="text" inputMode="decimal" className="h-10 pl-9"
-                  value={amountDisplay}
-                  onChange={e => setAmountDisplay(formatCurrencyInput(e.target.value))} />
+                  value={amountDisplay} onChange={e => setAmountDisplay(formatCurrencyInput(e.target.value))} />
               </div>
-            ) : (
-              <p className="text-sm font-semibold text-red-500">-{fmt(item.amount)}</p>
-            )}
+            ) : <p className="text-sm font-semibold text-red-500">-{fmt(item.amount)}</p>}
           </div>
-
-          {/* Data */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Data da compra
-            </Label>
+            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Data da compra</Label>
             {canEdit
               ? <Input type="date" className="h-10" value={date} onChange={e => setDate(e.target.value)} />
               : <p className="text-sm font-medium text-foreground">
                   {new Date(item.purchase_date + "T12:00:00").toLocaleDateString("pt-BR", { dateStyle: "long" })}
-                </p>
-            }
+                </p>}
           </div>
         </div>
 
-        {/* Rodapé */}
         <DialogFooter className="flex-row items-center justify-between gap-2 border-t px-5 py-4">
           {canEdit ? (
             <>
@@ -223,8 +198,7 @@ function ExpenseDetailModal({
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
                 <Button size="sm" onClick={handleSave} disabled={saving} className="gap-1.5">
-                  <Save className="h-3.5 w-3.5" />
-                  {saving ? "Salvando..." : "Salvar"}
+                  <Save className="h-3.5 w-3.5" /> {saving ? "Salvando..." : "Salvar"}
                 </Button>
               </div>
             </>
@@ -247,7 +221,7 @@ function FaturaDetailPage() {
     getInvoiceExpenses, getInvoiceInstallments,
   } = useCardStore();
 
-  const [paying, setPaying]     = useState(false);
+  const [paying, setPaying]       = useState(false);
   const [reversing, setReversing] = useState(false);
   const [modalItem, setModalItem] = useState<UnifiedItem | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -266,16 +240,16 @@ function FaturaDetailPage() {
     init();
   }, [invoiceId, cardId]);
 
-  const invoiceExpenses     = getInvoiceExpenses(invoiceId);
-  const invoiceInstallments = getInvoiceInstallments(invoiceId);
+  const rawExpenses     = getInvoiceExpenses(invoiceId);
+  const rawInstallments = getInvoiceInstallments(invoiceId);
 
   const allItems: UnifiedItem[] = [
-    ...invoiceExpenses.map(e => ({
+    ...rawExpenses.map(e => ({
       id: e.id, description: e.description, category: e.category,
       amount: e.amount, purchase_date: e.purchase_date,
       expense_type: e.expense_type, isInstallment: false, invoiceId,
     })),
-    ...invoiceInstallments.map(i => ({
+    ...rawInstallments.map(i => ({
       id: i.id, description: i.description, category: i.category,
       amount: i.amount, purchase_date: i.purchase_date,
       expense_type: "installment" as ExpenseType, isInstallment: true, invoiceId,
@@ -291,16 +265,11 @@ function FaturaDetailPage() {
   };
 
   const handleReverse = async () => {
-    if (!confirm("Estornar esta fatura? A transação será removida e o valor voltará ao saldo.")) return;
+    if (!confirm("Estornar esta fatura? A transação será removida.")) return;
     setReversing(true);
     try { await reverseInvoice(invoiceId); toast.success("Fatura estornada."); }
     catch { toast.error("Erro ao estornar."); }
     finally { setReversing(false); }
-  };
-
-  const openModal = (item: UnifiedItem) => {
-    setModalItem(item);
-    setModalOpen(true);
   };
 
   const reloadData = async () => {
@@ -325,8 +294,6 @@ function FaturaDetailPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 px-4 py-6">
-
-      {/* Header */}
       <div className="flex items-center gap-3">
         <button onClick={() => router.history.back()}
           className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground hover:bg-accent">
@@ -340,51 +307,30 @@ function FaturaDetailPage() {
         </div>
       </div>
 
-      {/* Resumo */}
       <div className="rounded-2xl border bg-card p-5">
         <div className="grid grid-cols-2 gap-y-3 text-sm">
-          <div>
-            <p className="text-xs text-muted-foreground">Competência</p>
-            <p className="font-medium">{invoice.competence}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Fechamento</p>
-            <p className="font-medium">{new Date(invoice.closing_date+"T12:00:00").toLocaleDateString("pt-BR")}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Vencimento</p>
-            <p className="font-medium">{new Date(invoice.due_date+"T12:00:00").toLocaleDateString("pt-BR")}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Total</p>
-            <p className="text-lg font-bold">{fmt(invoice.total_amount)}</p>
-          </div>
+          <div><p className="text-xs text-muted-foreground">Competência</p><p className="font-medium">{invoice.competence}</p></div>
+          <div><p className="text-xs text-muted-foreground">Fechamento</p><p className="font-medium">{new Date(invoice.closing_date+"T12:00:00").toLocaleDateString("pt-BR")}</p></div>
+          <div><p className="text-xs text-muted-foreground">Vencimento</p><p className="font-medium">{new Date(invoice.due_date+"T12:00:00").toLocaleDateString("pt-BR")}</p></div>
+          <div><p className="text-xs text-muted-foreground">Total</p><p className="text-lg font-bold">{fmt(invoice.total_amount)}</p></div>
         </div>
-
         {!isPaid && invoice.total_amount > 0 && (
-          <Button className="mt-4 h-11 w-full gap-2 bg-green-600 font-semibold hover:bg-green-700"
-            onClick={handlePay} disabled={paying}>
-            <CheckCircle2 className="h-4 w-4" />
-            {paying ? "Processando..." : "Marcar como paga"}
+          <Button className="mt-4 h-11 w-full gap-2 bg-green-600 font-semibold hover:bg-green-700" onClick={handlePay} disabled={paying}>
+            <CheckCircle2 className="h-4 w-4" /> {paying ? "Processando..." : "Marcar como paga"}
           </Button>
         )}
-
         {isPaid && (
           <div className="mt-4 space-y-3">
-            <div className="flex items-center justify-center gap-2 rounded-xl bg-green-50 py-3 text-sm font-medium text-green-700 dark:bg-green-900/20 dark:text-green-400">
+            <div className="flex items-center justify-center gap-2 rounded-xl bg-green-50 py-3 text-sm font-medium text-green-700">
               <CheckCircle2 className="h-4 w-4" /> Fatura paga · Transação registrada
             </div>
-            <Button variant="outline"
-              className="h-10 w-full gap-2 border-destructive/30 text-destructive hover:bg-destructive/5"
-              onClick={handleReverse} disabled={reversing}>
-              <Undo2 className="h-4 w-4" />
-              {reversing ? "Estornando..." : "Estornar fatura"}
+            <Button variant="outline" className="h-10 w-full gap-2 border-destructive/30 text-destructive hover:bg-destructive/5" onClick={handleReverse} disabled={reversing}>
+              <Undo2 className="h-4 w-4" /> {reversing ? "Estornando..." : "Estornar fatura"}
             </Button>
           </div>
         )}
       </div>
 
-      {/* Por categoria */}
       {Object.keys(categoryTotals).length > 0 && (
         <div>
           <h2 className="mb-3 text-sm font-semibold text-foreground">Por categoria</h2>
@@ -399,12 +345,9 @@ function FaturaDetailPage() {
         </div>
       )}
 
-      {/* Lançamentos */}
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-foreground">
-            Lançamentos ({allItems.length})
-          </h2>
+          <h2 className="text-sm font-semibold text-foreground">Lançamentos ({allItems.length})</h2>
           {!isOpen && (
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
               <Lock className="h-3 w-3" />
@@ -412,7 +355,6 @@ function FaturaDetailPage() {
             </span>
           )}
         </div>
-
         {allItems.length === 0 ? (
           <div className="rounded-xl border border-dashed py-10 text-center text-sm text-muted-foreground">
             Nenhuma despesa nesta fatura.
@@ -420,15 +362,12 @@ function FaturaDetailPage() {
         ) : (
           <div className="space-y-2">
             {allItems.map(item => (
-              <div key={item.id}
-                className="flex items-center gap-3 rounded-xl border bg-card px-4 py-3.5 hover:bg-muted/30 transition-colors">
-
-                {/* Ícone de tipo */}
+              <button key={item.id} type="button"
+                onClick={() => { setModalItem(item); setModalOpen(true); }}
+                className="flex w-full items-center gap-3 rounded-xl border bg-card px-4 py-3.5 text-left transition-colors hover:bg-muted/40">
                 <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
                   {TYPE_ICON[item.expense_type]}
                 </div>
-
-                {/* Info */}
                 <div className="flex-1 min-w-0">
                   <p className="truncate text-sm font-medium text-foreground">{item.description}</p>
                   <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
@@ -442,32 +381,22 @@ function FaturaDetailPage() {
                     </span>
                   </div>
                 </div>
-
-                {/* Valor */}
-                <p className="shrink-0 text-sm font-semibold text-foreground">{fmt(item.amount)}</p>
-
-                {/* Botão de ação */}
-                <button onClick={() => openModal(item)}
-                  title={isOpen ? "Editar lançamento" : "Ver detalhes"}
-                  className={cn(
-                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors",
-                    isOpen
-                      ? "text-muted-foreground hover:bg-primary/10 hover:text-primary"
-                      : "text-muted-foreground hover:bg-muted"
+                <div className="flex shrink-0 items-center gap-2">
+                  <p className="text-sm font-semibold text-foreground">{fmt(item.amount)}</p>
+                  <div className={cn("flex h-7 w-7 items-center justify-center rounded-full",
+                    isOpen ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
                   )}>
-                  {isOpen ? <Pencil className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                </button>
-              </div>
+                    {isOpen ? <Pencil className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  </div>
+                </div>
+              </button>
             ))}
           </div>
         )}
       </div>
 
-      {/* Modal */}
       <ExpenseDetailModal
-        item={modalItem}
-        invoiceStatus={invoiceStatus}
-        open={modalOpen}
+        item={modalItem} invoiceStatus={invoiceStatus} open={modalOpen}
         onClose={() => { setModalOpen(false); setModalItem(null); }}
         onSaved={async () => { setModalOpen(false); setModalItem(null); await reloadData(); }}
         onDeleted={async () => { setModalOpen(false); setModalItem(null); await reloadData(); }}
