@@ -1,4 +1,4 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute, useRouter, Outlet, useChildMatches } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Plus, CreditCard, Calendar, ChevronRight, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,13 @@ const STATUS_CLASS: Record<string, string> = {
 function CartaoDetailPage() {
   const { cardId } = Route.useParams();
   const router = useRouter();
+  const childMatches = useChildMatches();
+
+  // Se há rota filha ativa (ex: tela de fatura), renderiza o filho
+  if (childMatches.length > 0) {
+    return <Outlet />;
+  }
+
   const [showEdit, setShowEdit] = useState(false);
   const { cards, invoices, fetchCards, fetchInvoices, ensureInvoices } = useCardStore();
   const { limitUsed } = useLimitUsed(cardId);
