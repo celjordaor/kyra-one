@@ -20,6 +20,11 @@ import {
 import { useCardStore, type Invoice, type CreditCard as CreditCardType } from "@/lib/card-store";
 import { useCategories } from "@/lib/categories-store";
 import { cn } from "@/lib/utils";
+import {
+  ExpenseDetailModal, ExpenseActionButton,
+  TYPE_CLASS, TYPE_LABEL, fmt as fmtExp,
+  type UnifiedItem, type InvoiceStatus,
+} from "@/components/cartoes/expense-detail-modal";
 
 export const Route = createFileRoute("/_app/transacoes")({
   head: () => ({ meta: [{ title: "Transações — Finanças Pessoais" }] }),
@@ -463,19 +468,33 @@ function TransacoesPage() {
 
 // ── Modal de detalhes da fatura ────────────────────────────────────────
 function InvoiceDetailModal({
-  invoice, card, expenses, installments, open, onClose, onAddExpense,
+  invoice, card, expenses, installments, open, onClose, onAddExpense, onDataChanged,
 }: {
   invoice: Invoice | null; card: CreditCardType | null;
   expenses: ReturnType<typeof useCardStore.getState>["expenses"];
   installments: ReturnType<typeof useCardStore.getState>["installments"];
   open: boolean; onClose: () => void; onAddExpense: () => void;
+  onDataChanged: () => Promise<void>;
 }) {
   if (!invoice || !card) return null;
   const isPaid = invoice.status === "paid";
-  const allItems = [
-    ...expenses.map(e => ({ id:e.id, description:e.description, amount:e.amount, category:e.category, date:e.purchase_date })),
-    ...installments.map(i => ({ id:i.id, description:i.description, amount:i.amount, category:i.category, date:i.purchase_date })),
-  ].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const invoiceStatus: InvoiceStatus = invoice.status === "paid" ? "paid" : invoice.status === "closed" ? "closed" : "open";
+  const allItems: UnifiedItem[] = [
+    ...expenses.map(e => ({
+      id: e.id, description: e.description, amount: e.amount, category: e.category,
+      purchase_date: e.purchase_date, expense_type: e.expense_type,
+      isInstallment: false, invoiceId: invoice.id,
+      installmentNumber: e.installment_number,
+    })),
+    ...installments.map(i => ({
+      id: i.id, description: i.description, amount: i.amount, category: i.category,
+      purchase_date: i.purchase_date, expense_type: "installment" as const,
+      isInstallment: true, invoiceId: invoice.id,
+      parentExpenseId: i.parent_expense_id,
+      installmentNumber: i.installment_number,
+    })),
+  ].sort((a, b) => new Date(b.purchase_date).getTime() - new Date(a.purchase_date).getTime());
+  const [editingItem, setEditingItem] = useState<UnifiedItem | null>(null);
 
   return (
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
@@ -498,14 +517,24 @@ function InvoiceDetailModal({
           {allItems.length === 0
             ? <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma despesa lançada nesta fatura.</p>
             : <div className="divide-y">{allItems.map(item => (
-              <div key={item.id} className="flex items-center justify-between gap-3 px-5 py-3">
-                <div className="min-w-0">
+              <div key={item.id} className="flex items-center gap-3 px-5 py-3">
+                <div className="flex-1 min-w-0">
                   <p className="truncate text-sm font-medium text-foreground">{item.description}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {item.category} • {new Date(item.date+"T12:00:00").toLocaleDateString("pt-BR",{ day:"2-digit", month:"short" })}
-                  </p>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs text-muted-foreground">{item.category}</span>
+                    <span className="text-xs text-muted-foreground">·</span>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(item.purchase_date+"T12:00:00").toLocaleDateString("pt-BR",{ day:"2-digit", month:"short" })}
+                    </span>
+                    <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] font-medium", TYPE_CLASS[item.expense_type])}>
+                      {TYPE_LABEL[item.expense_type]}
+                    </span>
+                  </div>
                 </div>
-                <p className="shrink-0 text-sm font-semibold text-red-500">-{fmt(item.amount)}</p>
+                <div className="flex shrink-0 items-center gap-2">
+                  <p className="text-sm font-semibold text-red-500">-{fmt(item.amount)}</p>
+                  <ExpenseActionButton item={item} invoiceStatus={invoiceStatus} onOpen={setEditingItem} />
+                </div>
               </div>
             ))}</div>
           }
@@ -521,6 +550,21 @@ function InvoiceDetailModal({
         </div>
       </DialogContent>
     </Dialog>
+
+    <ExpenseDetailModal
+      item={editingItem}
+      invoiceStatus={invoiceStatus}
+      open={!!editingItem}
+      onClose={() => setEditingItem(null)}
+      onSaved={async () => {
+        setEditingItem(null);
+        await onDataChanged();
+      }}
+      onDeleted={async () => {
+        setEditingItem(null);
+        await onDataChanged();
+      }}
+    />
   );
 }
 

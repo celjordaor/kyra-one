@@ -15,8 +15,13 @@ import { useCategories } from "@/lib/categories-store";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import {
+  ExpenseDetailModal,
+  TYPE_ICON, TYPE_LABEL, TYPE_CLASS, fmt, recalcTotal,
+  type UnifiedItem, type InvoiceStatus,
+} from "@/components/cartoes/expense-detail-modal";
 
-export const Route = createFileRoute("/_app/cartoes/$cardId/fatura/$invoiceId")({
+export const Route = createFileRoute("/cartoes/$cardId/fatura/$invoiceId")({
   component: FaturaDetailPage,
 });
 
@@ -34,154 +39,10 @@ const TYPE_CLASS: Record<ExpenseType, string> = {
   recurring:   "bg-purple-100 text-purple-700",
 };
 
-const fmt = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-type UnifiedItem = {
-  id: string; description: string; category: string;
-  amount: number; purchase_date: string; expense_type: ExpenseType;
-  isInstallment: boolean; invoiceId: string;
-  parentExpenseId?: string;   // para parceladas
-  installmentNumber?: number; // para parceladas
-  cardId?: string;            // para recorrentes (filtrar por cartão)
-};
 
-function formatCurrencyInput(digits: string): string {
-  const nums = digits.replace(/\D/g, "");
-  if (!nums) return "";
-  return (parseInt(nums, 10) / 100).toLocaleString("pt-BR", {
-    minimumFractionDigits: 2, maximumFractionDigits: 2,
-  });
-}
-function parseCurrencyInput(v: string): number {
-  return parseFloat(v.replace(/\./g, "").replace(",", ".")) || 0;
-}
-
-// ── Modal de opções de exclusão (recorrente / parcelada) ──────────────────
-function DeleteOptionsModal({
-  open, item, onClose, onDeleteSingle, onDeleteFuture,
-}: {
-  open: boolean;
-  item: UnifiedItem | null;
-  onClose: () => void;
-  onDeleteSingle: () => Promise<void>;
-  onDeleteFuture: () => Promise<void>;
-}) {
-  const [selected, setSelected] = useState<"single" | "future">("single");
-  const [loading, setLoading] = useState(false);
-
-  // Resetar seleção ao abrir
-  useEffect(() => { if (open) setSelected("single"); }, [open]);
-
-  if (!item) return null;
-  const isRecurring = item.expense_type === "recurring";
-
-  async function handleConfirm() {
-    setLoading(true);
-    try {
-      if (selected === "single") await onDeleteSingle();
-      else await onDeleteFuture();
-    } finally { setLoading(false); }
-  }
-
-  const options: { key: "single" | "future"; title: string; description: string; danger: boolean }[] = [
-    {
-      key: "single",
-      title: "Deletar apenas essa despesa",
-      description: "Remove somente este lançamento da fatura",
-      danger: false,
-    },
-    {
-      key: "future",
-      title: "Deletar essa e futuras",
-      description: isRecurring
-        ? "Remove este e todos os lançamentos recorrentes futuros"
-        : "Remove esta parcela e todas as seguintes",
-      danger: true,
-    },
-  ];
-
-  return (
-    <Dialog open={open} onOpenChange={o => !o && onClose()}>
-      <DialogContent className="max-w-sm p-0 overflow-hidden" aria-describedby={undefined}>
-        <div className="px-5 pt-5 pb-2">
-          <DialogHeader>
-            <DialogTitle className="text-base">Excluir lançamento</DialogTitle>
-          </DialogHeader>
-          <p className="mt-1.5 text-sm text-muted-foreground">
-            Escolha como deseja excluir{" "}
-            <span className="font-medium text-foreground">"{item.description}"</span>:
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-2 px-5 py-3">
-          {options.map(opt => {
-            const isSelected = selected === opt.key;
-            return (
-              <button
-                key={opt.key}
-                type="button"
-                onClick={() => setSelected(opt.key)}
-                className={cn(
-                  "flex w-full items-start gap-3 rounded-xl border p-3.5 text-left transition-all",
-                  isSelected
-                    ? opt.danger
-                      ? "border-destructive/50 bg-destructive/5"
-                      : "border-primary/50 bg-primary/5"
-                    : "border-border hover:bg-muted/40"
-                )}
-              >
-                {/* Radio circle */}
-                <div className={cn(
-                  "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
-                  isSelected
-                    ? opt.danger ? "border-destructive bg-destructive" : "border-primary bg-primary"
-                    : "border-muted-foreground/40"
-                )}>
-                  {isSelected && <div className="h-2 w-2 rounded-full bg-white" />}
-                </div>
-                <div className="min-w-0">
-                  <p className={cn(
-                    "text-sm font-medium leading-snug",
-                    isSelected && opt.danger ? "text-destructive" : "text-foreground"
-                  )}>
-                    {opt.title}
-                  </p>
-                  <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                    {opt.description}
-                  </p>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="flex items-center justify-end gap-2 border-t px-5 py-4">
-          <Button variant="outline" size="sm" onClick={onClose} disabled={loading}>
-            Cancelar
-          </Button>
-          <Button
-            size="sm"
-            disabled={loading}
-            onClick={handleConfirm}
-            className={cn(
-              selected === "future"
-                ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                : ""
-            )}
-          >
-            {loading ? "Excluindo..." : "Confirmar"}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-
-function ExpenseDetailModal({
-  item, invoiceStatus, open, onClose, onSaved, onDeleted,
-}: {
+: {
   item: UnifiedItem | null;
   invoiceStatus: "open" | "closed" | "paid";
   open: boolean; onClose: () => void;
@@ -228,15 +89,6 @@ function ExpenseDetailModal({
       onSaved();
     } catch { toast.error("Erro ao salvar."); }
     finally { setSaving(false); }
-  }
-
-  // Recalcula o total de uma fatura
-  async function recalcTotal(invoiceId: string) {
-    const { data: expData } = await supabase.from("card_expenses").select("amount").eq("invoice_id", invoiceId);
-    const { data: instData } = await supabase.from("card_installments").select("amount").eq("invoice_id", invoiceId);
-    const total = (expData ?? []).reduce((s, e) => s + (e.amount ?? 0), 0)
-                + (instData ?? []).reduce((s, i) => s + (i.amount ?? 0), 0);
-    await supabase.from("invoices").update({ total_amount: total }).eq("id", invoiceId);
   }
 
   function handleDelete() {
