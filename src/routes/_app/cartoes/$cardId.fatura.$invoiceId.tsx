@@ -264,25 +264,67 @@ function ExpenseDetailModal({
   async function deleteFuture() {
     if (!item) return;
     try {
-      if (item.expense_type === "installment" && item.parentExpenseId && item.installmentNumber !== undefined) {
-        // Deletar esta parcela e as seguintes (mesmo parent)
-        await supabase.from("card_installments")
-          .delete()
-          .eq("parent_expense_id", item.parentExpenseId)
-          .gte("installment_number", item.installmentNumber);
+      const affectedIds = new Set<string>([item.invoiceId]);
+
+      if (item.expense_type === "installment") {
+        if (item.isInstallment && item.parentExpenseId && item.installmentNumber !== undefined) {
+          // Buscar invoices afetados ANTES de deletar
+          const { data: rows } = await supabase
+            .from("card_installments")
+            .select("invoice_id")
+            .eq("parent_expense_id", item.parentExpenseId)
+            .gte("installment_number", item.installmentNumber);
+          rows?.forEach(r => affectedIds.add(r.invoice_id));
+
+          // Deletar parcelas seguintes
+          await supabase
+            .from("card_installments")
+            .delete()
+            .eq("parent_expense_id", item.parentExpenseId)
+            .gte("installment_number", item.installmentNumber);
+
+        } else if (!item.isInstallment) {
+          // Buscar todos os filhos ANTES de deletar
+          const { data: children } = await supabase
+            .from("card_installments")
+            .select("invoice_id")
+            .eq("parent_expense_id", item.id);
+          children?.forEach(r => affectedIds.add(r.invoice_id));
+
+          // Deletar pai + todos os filhos
+          await supabase.from("card_expenses").delete().eq("id", item.id);
+          await supabase.from("card_installments").delete().eq("parent_expense_id", item.id);
+        }
+
       } else if (item.expense_type === "recurring") {
-        // Deletar esta e futuras recorrentes (mesmo nome + cartão)
-        await supabase.from("card_expenses")
+        // Buscar invoices afetados ANTES de deletar
+        const { data: rows } = await supabase
+          .from("card_expenses")
+          .select("invoice_id")
+          .eq("description", item.description)
+          .eq("expense_type", "recurring")
+          .gte("purchase_date", item.purchase_date);
+        rows?.forEach(r => affectedIds.add(r.invoice_id));
+
+        // Deletar recorrentes futuras
+        await supabase
+          .from("card_expenses")
           .delete()
           .eq("description", item.description)
           .eq("expense_type", "recurring")
           .gte("purchase_date", item.purchase_date);
       }
-      // Recarregar dados completos (vários meses podem ser afetados)
+
+      // Recalcular TODOS os invoices afetados em paralelo
+      await Promise.all([...affectedIds].map(id => recalcTotal(id)));
+
       toast.success("Lançamentos excluídos.");
       setShowDeleteOptions(false);
       onDeleted();
-    } catch { toast.error("Erro ao excluir."); }
+    } catch (e) {
+      console.error("deleteFuture error:", e);
+      toast.error("Erro ao excluir.");
+    }
   }
 
   if (!item) return null;
@@ -444,6 +486,7 @@ function FaturaDetailPage() {
       amount: e.amount, purchase_date: e.purchase_date,
       expense_type: e.expense_type, isInstallment: false, invoiceId,
       cardId,
+      installmentNumber: e.installment_number, // para parceladas (installment_number=1 é o pai)
     })),
     ...rawInstallments.map(i => ({
       id: i.id, description: i.description, category: i.category,
@@ -471,8 +514,11 @@ function FaturaDetailPage() {
   };
 
   const reloadData = async () => {
+    // Recarrega detalhes da fatura atual
     await fetchExpenses(invoiceId);
     await fetchInstallments(invoiceId);
+    // Recarrega TODAS as faturas do cartão (atualiza totais nos cards)
+    await fetchInvoices(cardId);
   };
 
   if (loading) return (
