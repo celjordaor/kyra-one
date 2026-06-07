@@ -123,6 +123,8 @@ function TransacoesPage() {
   const [sort, setSort]                   = useState<SortKey>("date-desc");
   const [editingId, setEditingId]         = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget]   = useState<Transaction | null>(null);
+  const [editScopeTarget, setEditScopeTarget] = useState<Transaction | null>(null);
+  const [bulkEdit, setBulkEdit]               = useState(false);
   const [showTransactions, setShowTransactions] = useState(true);
   const [showCards, setShowCards]               = useState(true);
   const [detailInvoice, setDetailInvoice] = useState<Invoice | null>(null);
@@ -369,7 +371,14 @@ function TransacoesPage() {
                               )}>
                               {t.settled ? <CheckCircle2 className="h-4 w-4" /> : <Circle className="h-4 w-4" />}
                             </button>
-                            <button onClick={() => setEditingId(t.id)}
+                            <button
+                              onClick={() => {
+                                if (t.recurring || isInstallmentTransaction(t)) {
+                                  setEditScopeTarget(t);
+                                } else {
+                                  setEditingId(t.id);
+                                }
+                              }}
                               className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground">
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
@@ -479,7 +488,27 @@ function TransacoesPage() {
         }}
       />
 
-      <EditTransactionDialog transaction={editing} onClose={() => setEditingId(null)} />
+      <EditTransactionDialog
+        transaction={editing}
+        bulkEdit={bulkEdit}
+        onClose={() => { setEditingId(null); setBulkEdit(false); }}
+        allTransactions={allTransactions}
+      />
+
+      {/* Modal de escopo de edição: apenas essa ou todas */}
+      <EditScopeModal
+        transaction={editScopeTarget}
+        open={!!editScopeTarget}
+        onClose={() => setEditScopeTarget(null)}
+        onEditSingle={() => {
+          if (editScopeTarget) { setBulkEdit(false); setEditingId(editScopeTarget.id); }
+          setEditScopeTarget(null);
+        }}
+        onEditAll={() => {
+          if (editScopeTarget) { setBulkEdit(true); setEditingId(editScopeTarget.id); }
+          setEditScopeTarget(null);
+        }}
+      />
 
       {/* Modal de exclusão para transações parceladas */}
       <TransactionDeleteModal
@@ -689,7 +718,75 @@ function InvoiceDetailModal({
 }
 
 // ── Dialog de edição ───────────────────────────────────────────────────
-function EditTransactionDialog({ transaction, onClose }: { transaction: Transaction | null; onClose: () => void }) {
+// ── Modal de escopo de edição ─────────────────────────────────────────────
+function EditScopeModal({
+  transaction, open, onClose, onEditSingle, onEditAll,
+}: {
+  transaction: Transaction | null;
+  open: boolean;
+  onClose: () => void;
+  onEditSingle: () => void;
+  onEditAll: () => void;
+}) {
+  const [selected, setSelected] = useState<"single" | "all">("single");
+  useEffect(() => { if (open) setSelected("single"); }, [open]);
+  if (!transaction) return null;
+
+  const isInstallment = isInstallmentTransaction(transaction);
+  const label         = isInstallment ? "parcela" : "recorrência";
+  const labelAll      = isInstallment ? "todas as parcelas" : "todas as recorrências";
+
+  return (
+    <Dialog open={open} onOpenChange={o => !o && onClose()}>
+      <DialogContent className="max-w-sm p-0 overflow-hidden" aria-describedby={undefined}>
+        <div className="px-5 pt-5 pb-2">
+          <h3 className="text-base font-semibold text-foreground">Editar transação</h3>
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">"{transaction.title}"</span>{" "}
+            é uma {label}. O que deseja editar?
+          </p>
+        </div>
+        <div className="flex flex-col gap-2 px-5 py-3">
+          {([
+            { key: "single" as const, title: `Apenas essa ${label}`, description: "Edita somente este lançamento específico" },
+            { key: "all" as const, title: `Editar ${labelAll}`, description: isInstallment ? "Aplica as alterações em todas as parcelas desta série" : "Aplica as alterações em todas as recorrências futuras" },
+          ]).map(opt => {
+            const isSel = selected === opt.key;
+            return (
+              <button key={opt.key} type="button" onClick={() => setSelected(opt.key)}
+                className={cn("flex w-full items-start gap-3 rounded-xl border p-3.5 text-left transition-all",
+                  isSel ? "border-primary/50 bg-primary/5" : "border-border hover:bg-muted/40"
+                )}>
+                <div className={cn("mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+                  isSel ? "border-primary bg-primary" : "border-muted-foreground/40"
+                )}>
+                  {isSel && <div className="h-2 w-2 rounded-full bg-white" />}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium leading-snug text-foreground">{opt.title}</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{opt.description}</p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex items-center justify-end gap-2 border-t px-5 py-4">
+          <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
+          <Button size="sm" onClick={() => selected === "single" ? onEditSingle() : onEditAll()}>
+            Continuar
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditTransactionDialog({ transaction, onClose, bulkEdit = false, allTransactions = [] }: {
+  transaction: Transaction | null;
+  onClose: () => void;
+  bulkEdit?: boolean;
+  allTransactions?: Transaction[];
+}) {
   const categories = useCategories();
   const [title, setTitle]             = useState("");
   const [amountDisplay, setAmountDisplay] = useState("");
@@ -730,20 +827,79 @@ function EditTransactionDialog({ transaction, onClose }: { transaction: Transact
     if (!amountValue) return setError("Valor é obrigatório");
     if (!category) return setError("Categoria é obrigatória");
     if (!dateIso) return setError("Data é obrigatória");
-    const numeric = parseFloat(amountValue);
-    const signed = type==="expense" ? -Math.abs(numeric) : Math.abs(numeric);
-    const [y,m,d] = dateIso.split("-").map(Number);
-    const brDate = formatBrDate(new Date(y,m-1,d));
+    const numeric  = parseFloat(amountValue);
+    const signed   = type === "expense" ? -Math.abs(numeric) : Math.abs(numeric);
+    const [y,m,d]  = dateIso.split("-").map(Number);
+    const brDate   = formatBrDate(new Date(y, m-1, d));
     const todayStr = formatBrDate(new Date());
-    const paidAt = settled ? (transaction.settled?(transaction.paidAt??todayStr):todayStr) : undefined;
-    updateTransaction(transaction.id,{ title:title.trim(), amount:signed, type, category, date:brDate, settled, paidAt });
+    const paidAt   = settled ? (transaction.settled ? (transaction.paidAt ?? todayStr) : todayStr) : undefined;
+
+    if (bulkEdit) {
+      // ── Editar em lote: aplica a série ────────────────────────────────
+      const isInstallment = isInstallmentTransaction(transaction);
+      const newDay = d; // dia escolhido — será mantido em cada mês
+
+      // Encontrar transações futuras da série
+      const futures = isInstallment
+        ? allTransactions.filter(t =>
+            t.recurrence_id === transaction.recurrence_id &&
+            (t.installment_number ?? 0) >= (transaction.installment_number ?? 0)
+          )
+        : allTransactions.filter(t =>
+            t.recurring === true &&
+            t.title === transaction.title &&
+            t.type === transaction.type &&
+            parseBrDate(t.date).getTime() >= parseBrDate(transaction.date).getTime()
+          );
+
+      for (const t of futures) {
+        const patch: Partial<Transaction> = {};
+
+        // Descrição: atualiza o título base (N/M é gerado via getDisplayTitle)
+        if (title.trim() !== transaction.title) patch.title = title.trim();
+
+        // Categoria
+        if (category !== transaction.category) patch.category = category;
+
+        // Valor: atualiza com sinal correto conforme tipo
+        const origSigned = t.type === "expense" ? -Math.abs(Math.abs(transaction.amount)) : Math.abs(transaction.amount);
+        if (signed !== origSigned) patch.amount = t.type === "expense" ? -Math.abs(numeric) : Math.abs(numeric);
+
+        // Data: mantém mês/ano de cada parcela, altera só o dia
+        if (newDay !== parseBrDate(t.date).getDate()) {
+          const tDate   = parseBrDate(t.date);
+          const lastDay = new Date(tDate.getFullYear(), tDate.getMonth() + 1, 0).getDate();
+          patch.date    = formatBrDate(new Date(tDate.getFullYear(), tDate.getMonth(), Math.min(newDay, lastDay)));
+        }
+
+        // Settled/paidAt: só aplica na transação atual
+        if (t.id === transaction.id) {
+          patch.settled = settled;
+          patch.paidAt  = paidAt;
+        }
+
+        if (Object.keys(patch).length > 0) updateTransaction(t.id, patch);
+      }
+    } else {
+      // ── Edição simples ────────────────────────────────────────────────
+      updateTransaction(transaction.id, { title: title.trim(), amount: signed, type, category, date: brDate, settled, paidAt });
+    }
     onClose();
   }
 
   return (
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>Editar transação</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            Editar transação
+            {bulkEdit && (
+              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                Todas as parcelas
+              </span>
+            )}
+          </DialogTitle>
+        </DialogHeader>
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-2 rounded-xl bg-muted p-1">
             {(["expense","income"] as const).map(tp => (
@@ -795,6 +951,11 @@ function EditTransactionDialog({ transaction, onClose }: { transaction: Transact
           <div className="space-y-1.5">
             <Label>Data</Label>
             <DatePicker value={dateIso} onChange={setDateIso} />
+            {bulkEdit && (
+              <p className="text-[11px] text-muted-foreground">
+                ℹ️ Altera apenas o <strong>dia</strong> — cada parcela mantém seu próprio mês.
+              </p>
+            )}
           </div>
           <div className="flex items-center justify-between rounded-xl border p-3">
             <div>

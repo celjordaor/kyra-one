@@ -1,10 +1,9 @@
-import { Repeat2, Minus,
- createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeft, TrendingUp, TrendingDown, Repeat, CheckCircle2, ChevronRight, X } from "lucide-react";
+import { ArrowLeft, TrendingUp, TrendingDown, Repeat, Repeat2, Minus, Plus, CheckCircle2, ChevronRight, X } from "lucide-react";
 import { DatePicker } from "@/components/cartoes/date-picker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
