@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useCardStore, type ExpenseType } from "@/lib/card-store";
 import { DatePicker } from "@/components/cartoes/date-picker";
 import { useCategories } from "@/lib/categories-store";
@@ -245,12 +246,11 @@ function ExpenseDetailModal({
       return;
     }
     // Despesa única: confirmar e deletar
-    if (!confirm(`Excluir "${item.description}"?`)) return;
-    deleteSingle();
+    setConfirmDeleteItem(item);
   }
 
-  async function deleteSingle() {
-    if (!item) return;
+  async function deleteSingleItem(target: UnifiedItem) {
+    const item = target;
     try {
       const table = item.isInstallment ? "card_installments" : "card_expenses";
       await supabase.from(table).delete().eq("id", item.id);
@@ -454,6 +454,9 @@ function FaturaDetailPage() {
   const [modalItem, setModalItem] = useState<UnifiedItem | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [loading, setLoading]     = useState(true);
+  const [confirmReverse, setConfirmReverse]         = useState(false);
+  const [confirmDeleteItem, setConfirmDeleteItem]   = useState<UnifiedItem | null>(null);
+  const [blockedByInvoice, setBlockedByInvoice]     = useState<typeof invoices[0] | null>(null);
 
   const card    = cards.find(c => c.id === cardId);
   const invoice = invoices.find(i => i.id === invoiceId);
@@ -497,7 +500,32 @@ function FaturaDetailPage() {
     })),
   ].sort((a, b) => a.purchase_date.localeCompare(b.purchase_date));
 
-  const handlePay = async () => {
+  const handlePay = () => {
+    if (!card || !invoice) return;
+
+    // Verificar faturas anteriores em aberto para o mesmo cartão
+    const openPrevious = invoices
+      .filter(inv =>
+        inv.card_id === cardId &&
+        inv.id !== invoiceId &&
+        inv.status === "open" &&
+        inv.total_amount > 0 &&
+        new Date(inv.due_date + "T12:00:00") < new Date(invoice.due_date + "T12:00:00")
+      )
+      .sort((a, b) =>
+        new Date(a.due_date + "T12:00:00").getTime() -
+        new Date(b.due_date + "T12:00:00").getTime()
+      );
+
+    if (openPrevious.length > 0) {
+      setBlockedByInvoice(openPrevious[0]);
+      return;
+    }
+
+    doPay();
+  };
+
+  const doPay = async () => {
     if (!card || !invoice) return;
     setPaying(true);
     try { await payInvoice(invoiceId, card); toast.success("Fatura marcada como paga!"); }
@@ -506,7 +534,10 @@ function FaturaDetailPage() {
   };
 
   const handleReverse = async () => {
-    if (!confirm("Estornar esta fatura? A transação será removida.")) return;
+    setConfirmReverse(true);
+  };
+
+  const doReverse = async () => {
     setReversing(true);
     try { await reverseInvoice(invoiceId); toast.success("Fatura estornada."); }
     catch { toast.error("Erro ao estornar."); }
@@ -653,6 +684,46 @@ function FaturaDetailPage() {
         onClose={() => { setModalOpen(false); setModalItem(null); }}
         onSaved={async () => { setModalOpen(false); setModalItem(null); await reloadData(); }}
         onDeleted={async () => { setModalOpen(false); setModalItem(null); await reloadData(); }}
+      />
+
+      {/* Alerta: fatura anterior em aberto */}
+      <ConfirmDialog
+        open={!!blockedByInvoice}
+        title="Fatura anterior em aberto"
+        description={
+          blockedByInvoice ? (
+            <span>
+              Não é possível pagar esta fatura pois a fatura de{" "}
+              <strong className="text-foreground">{blockedByInvoice.competence}</strong>{" "}
+              ainda está em aberto. Quite as faturas anteriores antes de continuar.
+            </span>
+          ) : ""
+        }
+        variant="warning"
+        alertOnly
+        onClose={() => setBlockedByInvoice(null)}
+      />
+
+      {/* Confirm: estornar fatura */}
+      <ConfirmDialog
+        open={confirmReverse}
+        title="Estornar fatura"
+        description="A transação registrada será removida e o valor voltará ao saldo. Essa ação não pode ser desfeita."
+        confirmLabel="Estornar"
+        onConfirm={doReverse}
+        onClose={() => setConfirmReverse(false)}
+      />
+
+      {/* Confirm: excluir despesa única */}
+      <ConfirmDialog
+        open={!!confirmDeleteItem}
+        title="Excluir lançamento"
+        description={`Deseja excluir "${confirmDeleteItem?.description}"? Essa ação não pode ser desfeita.`}
+        confirmLabel="Excluir"
+        onConfirm={() => {
+          if (confirmDeleteItem) deleteSingleItem(confirmDeleteItem);
+        }}
+        onClose={() => setConfirmDeleteItem(null)}
       />
     </div>
   );
