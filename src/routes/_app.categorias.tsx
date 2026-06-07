@@ -205,8 +205,6 @@ function CategoriasPage() {
           income.map(renderItem)
         )}
       </section>
-    </div>
-
       <ConfirmDialog
         open={!!deletingCat}
         title="Excluir categoria"
@@ -215,5 +213,6 @@ function CategoriasPage() {
         onConfirm={() => { if (deletingCat) deleteCategory(deletingCat.id); }}
         onClose={() => setDeletingCat(null)}
       />
+    </div>
   );
 }

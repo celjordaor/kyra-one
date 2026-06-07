@@ -194,6 +194,7 @@ function ExpenseDetailModal({
   const [date, setDate]                  = useState("");
   const [saving, setSaving]              = useState(false);
   const [showDeleteOptions, setShowDeleteOptions] = useState(false);
+  const [confirmSingle, setConfirmSingle]         = useState(false);
 
   const canEdit = invoiceStatus === "open";
 
@@ -246,11 +247,11 @@ function ExpenseDetailModal({
       return;
     }
     // Despesa única: confirmar e deletar
-    setConfirmDeleteItem(item);
+    setConfirmSingle(true);
   }
 
-  async function deleteSingleItem(target: UnifiedItem) {
-    const item = target;
+  async function deleteSingle() {
+    if (!item) return;
     try {
       const table = item.isInstallment ? "card_installments" : "card_expenses";
       await supabase.from(table).delete().eq("id", item.id);
@@ -455,7 +456,6 @@ function FaturaDetailPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [loading, setLoading]     = useState(true);
   const [confirmReverse, setConfirmReverse]         = useState(false);
-  const [confirmDeleteItem, setConfirmDeleteItem]   = useState<UnifiedItem | null>(null);
   const [blockedByInvoice, setBlockedByInvoice]     = useState<typeof invoices[0] | null>(null);
 
   const card    = cards.find(c => c.id === cardId);
@@ -712,18 +712,6 @@ function FaturaDetailPage() {
         confirmLabel="Estornar"
         onConfirm={doReverse}
         onClose={() => setConfirmReverse(false)}
-      />
-
-      {/* Confirm: excluir despesa única */}
-      <ConfirmDialog
-        open={!!confirmDeleteItem}
-        title="Excluir lançamento"
-        description={`Deseja excluir "${confirmDeleteItem?.description}"? Essa ação não pode ser desfeita.`}
-        confirmLabel="Excluir"
-        onConfirm={() => {
-          if (confirmDeleteItem) deleteSingleItem(confirmDeleteItem);
-        }}
-        onClose={() => setConfirmDeleteItem(null)}
       />
     </div>
   );
