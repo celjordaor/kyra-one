@@ -16,7 +16,7 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/_app/cartoes/$cardId_fatura/$invoiceId")({
   component: FaturaDetailPage,
 });
-  
+
 const TYPE_ICON: Record<ExpenseType, React.ReactNode> = {
   single:      <ShoppingBag className="h-3.5 w-3.5" />,
   installment: <Layers className="h-3.5 w-3.5" />,
@@ -51,6 +51,7 @@ function formatCurrencyInput(digits: string): string {
   });
 }
 
+// ── Modal de detalhe / edição ──────────────────────────────────────────
 function ExpenseDetailModal({
   item, invoiceStatus, open, onClose, onSaved, onDeleted,
 }: {
@@ -64,11 +65,11 @@ function ExpenseDetailModal({
   const { updateExpense, updateInstallment, deleteExpense, deleteInstallment } = useCardStore();
   const categories = useCategories().filter(c => c.active && c.type === "expense");
 
-  const [description, setDescription]    = useState("");
-  const [category, setCategory]          = useState("");
+  const [description, setDescription]   = useState("");
+  const [category, setCategory]         = useState("");
   const [amountDisplay, setAmountDisplay] = useState("");
-  const [date, setDate]                  = useState("");
-  const [saving, setSaving]              = useState(false);
+  const [date, setDate]                 = useState("");
+  const [saving, setSaving]             = useState(false);
 
   const canEdit  = invoiceStatus === "open";
   const isLocked = !canEdit;
@@ -101,10 +102,10 @@ function ExpenseDetailModal({
 
   async function handleDelete() {
     if (!item || !canEdit) return;
-    const msg = item.expense_type === "installment"
+    const confirmMsg = item.expense_type === "installment"
       ? `Excluir esta parcela de "${item.description}"?`
       : `Excluir "${item.description}"?`;
-    if (!confirm(msg)) return;
+    if (!confirm(confirmMsg)) return;
     try {
       if (item.isInstallment) await deleteInstallment(item.id, item.invoiceId);
       else await deleteExpense(item.id);
@@ -118,6 +119,8 @@ function ExpenseDetailModal({
   return (
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
       <DialogContent className="max-w-sm p-0 overflow-hidden">
+
+        {/* Header */}
         <div className={cn("px-5 pt-5 pb-4", isLocked ? "bg-muted/60" : "bg-primary/5")}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
@@ -127,56 +130,89 @@ function ExpenseDetailModal({
           </DialogHeader>
           {isLocked && (
             <p className="mt-1.5 text-xs text-muted-foreground">
-              {invoiceStatus === "paid" ? "🔒 Fatura paga — edição não permitida" : "🔒 Fatura fechada — edição não permitida"}
+              {invoiceStatus === "paid"
+                ? "🔒 Fatura paga — edição não permitida"
+                : "🔒 Fatura fechada — edição não permitida"}
             </p>
           )}
           <div className="mt-2">
             <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold", TYPE_CLASS[item.expense_type])}>
-              {TYPE_ICON[item.expense_type]} {TYPE_LABEL[item.expense_type]}
+              {TYPE_ICON[item.expense_type]}
+              {TYPE_LABEL[item.expense_type]}
             </span>
           </div>
         </div>
 
+        {/* Corpo */}
         <div className="space-y-4 px-5 py-4">
+
+          {/* Descrição */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Descrição</Label>
+            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Descrição
+            </Label>
             {canEdit
               ? <Input value={description} onChange={e => setDescription(e.target.value)} className="h-10" />
-              : <p className="text-sm font-medium text-foreground">{item.description}</p>}
+              : <p className="text-sm font-medium text-foreground">{item.description}</p>
+            }
           </div>
+
+          {/* Categoria */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Categoria</Label>
+            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Categoria
+            </Label>
             {canEdit ? (
               <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
                 {categories.map(cat => (
                   <button key={cat.id} type="button" onClick={() => setCategory(cat.name)}
-                    className={cn("rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
-                      category === cat.name ? "border-primary bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
-                    )}>{cat.name}</button>
+                    className={cn(
+                      "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                      category === cat.name
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:bg-muted"
+                    )}>
+                    {cat.name}
+                  </button>
                 ))}
               </div>
-            ) : <p className="text-sm font-medium text-foreground">{item.category}</p>}
+            ) : (
+              <p className="text-sm font-medium text-foreground">{item.category}</p>
+            )}
           </div>
+
+          {/* Valor */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Valor</Label>
+            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Valor
+            </Label>
             {canEdit ? (
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
                 <Input type="text" inputMode="decimal" className="h-10 pl-9"
-                  value={amountDisplay} onChange={e => setAmountDisplay(formatCurrencyInput(e.target.value))} />
+                  value={amountDisplay}
+                  onChange={e => setAmountDisplay(formatCurrencyInput(e.target.value))} />
               </div>
-            ) : <p className="text-sm font-semibold text-red-500">-{fmt(item.amount)}</p>}
+            ) : (
+              <p className="text-sm font-semibold text-red-500">-{fmt(item.amount)}</p>
+            )}
           </div>
+
+          {/* Data */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Data da compra</Label>
+            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Data da compra
+            </Label>
             {canEdit
               ? <Input type="date" className="h-10" value={date} onChange={e => setDate(e.target.value)} />
               : <p className="text-sm font-medium text-foreground">
                   {new Date(item.purchase_date + "T12:00:00").toLocaleDateString("pt-BR", { dateStyle: "long" })}
-                </p>}
+                </p>
+            }
           </div>
         </div>
 
+        {/* Rodapé */}
         <DialogFooter className="flex-row items-center justify-between gap-2 border-t px-5 py-4">
           {canEdit ? (
             <>
@@ -187,7 +223,8 @@ function ExpenseDetailModal({
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
                 <Button size="sm" onClick={handleSave} disabled={saving} className="gap-1.5">
-                  <Save className="h-3.5 w-3.5" /> {saving ? "Salvando..." : "Salvar"}
+                  <Save className="h-3.5 w-3.5" />
+                  {saving ? "Salvando..." : "Salvar"}
                 </Button>
               </div>
             </>
@@ -200,6 +237,7 @@ function ExpenseDetailModal({
   );
 }
 
+// ── Página principal ───────────────────────────────────────────────────
 function FaturaDetailPage() {
   const { cardId, invoiceId } = Route.useParams();
   const router = useRouter();
@@ -209,7 +247,7 @@ function FaturaDetailPage() {
     getInvoiceExpenses, getInvoiceInstallments,
   } = useCardStore();
 
-  const [paying, setPaying]       = useState(false);
+  const [paying, setPaying]     = useState(false);
   const [reversing, setReversing] = useState(false);
   const [modalItem, setModalItem] = useState<UnifiedItem | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -260,6 +298,11 @@ function FaturaDetailPage() {
     finally { setReversing(false); }
   };
 
+  const openModal = (item: UnifiedItem) => {
+    setModalItem(item);
+    setModalOpen(true);
+  };
+
   const reloadData = async () => {
     await fetchExpenses(invoiceId);
     await fetchInstallments(invoiceId);
@@ -282,6 +325,8 @@ function FaturaDetailPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 px-4 py-6">
+
+      {/* Header */}
       <div className="flex items-center gap-3">
         <button onClick={() => router.history.back()}
           className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground hover:bg-accent">
@@ -295,30 +340,51 @@ function FaturaDetailPage() {
         </div>
       </div>
 
+      {/* Resumo */}
       <div className="rounded-2xl border bg-card p-5">
         <div className="grid grid-cols-2 gap-y-3 text-sm">
-          <div><p className="text-xs text-muted-foreground">Competência</p><p className="font-medium">{invoice.competence}</p></div>
-          <div><p className="text-xs text-muted-foreground">Fechamento</p><p className="font-medium">{new Date(invoice.closing_date+"T12:00:00").toLocaleDateString("pt-BR")}</p></div>
-          <div><p className="text-xs text-muted-foreground">Vencimento</p><p className="font-medium">{new Date(invoice.due_date+"T12:00:00").toLocaleDateString("pt-BR")}</p></div>
-          <div><p className="text-xs text-muted-foreground">Total</p><p className="text-lg font-bold">{fmt(invoice.total_amount)}</p></div>
+          <div>
+            <p className="text-xs text-muted-foreground">Competência</p>
+            <p className="font-medium">{invoice.competence}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Fechamento</p>
+            <p className="font-medium">{new Date(invoice.closing_date+"T12:00:00").toLocaleDateString("pt-BR")}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Vencimento</p>
+            <p className="font-medium">{new Date(invoice.due_date+"T12:00:00").toLocaleDateString("pt-BR")}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Total</p>
+            <p className="text-lg font-bold">{fmt(invoice.total_amount)}</p>
+          </div>
         </div>
+
         {!isPaid && invoice.total_amount > 0 && (
-          <Button className="mt-4 h-11 w-full gap-2 bg-green-600 font-semibold hover:bg-green-700" onClick={handlePay} disabled={paying}>
-            <CheckCircle2 className="h-4 w-4" /> {paying ? "Processando..." : "Marcar como paga"}
+          <Button className="mt-4 h-11 w-full gap-2 bg-green-600 font-semibold hover:bg-green-700"
+            onClick={handlePay} disabled={paying}>
+            <CheckCircle2 className="h-4 w-4" />
+            {paying ? "Processando..." : "Marcar como paga"}
           </Button>
         )}
+
         {isPaid && (
           <div className="mt-4 space-y-3">
             <div className="flex items-center justify-center gap-2 rounded-xl bg-green-50 py-3 text-sm font-medium text-green-700 dark:bg-green-900/20 dark:text-green-400">
               <CheckCircle2 className="h-4 w-4" /> Fatura paga · Transação registrada
             </div>
-            <Button variant="outline" className="h-10 w-full gap-2 border-destructive/30 text-destructive hover:bg-destructive/5" onClick={handleReverse} disabled={reversing}>
-              <Undo2 className="h-4 w-4" /> {reversing ? "Estornando..." : "Estornar fatura"}
+            <Button variant="outline"
+              className="h-10 w-full gap-2 border-destructive/30 text-destructive hover:bg-destructive/5"
+              onClick={handleReverse} disabled={reversing}>
+              <Undo2 className="h-4 w-4" />
+              {reversing ? "Estornando..." : "Estornar fatura"}
             </Button>
           </div>
         )}
       </div>
 
+      {/* Por categoria */}
       {Object.keys(categoryTotals).length > 0 && (
         <div>
           <h2 className="mb-3 text-sm font-semibold text-foreground">Por categoria</h2>
@@ -333,9 +399,12 @@ function FaturaDetailPage() {
         </div>
       )}
 
+      {/* Lançamentos */}
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-foreground">Lançamentos ({allItems.length})</h2>
+          <h2 className="text-sm font-semibold text-foreground">
+            Lançamentos ({allItems.length})
+          </h2>
           {!isOpen && (
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
               <Lock className="h-3 w-3" />
@@ -351,15 +420,15 @@ function FaturaDetailPage() {
         ) : (
           <div className="space-y-2">
             {allItems.map(item => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => { setModalItem(item); setModalOpen(true); }}
-                className="flex w-full items-center gap-3 rounded-xl border bg-card px-4 py-3.5 text-left transition-colors hover:bg-muted/40 active:bg-muted/60"
-              >
+              <div key={item.id}
+                className="flex items-center gap-3 rounded-xl border bg-card px-4 py-3.5 hover:bg-muted/30 transition-colors">
+
+                {/* Ícone de tipo */}
                 <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
                   {TYPE_ICON[item.expense_type]}
                 </div>
+
+                {/* Info */}
                 <div className="flex-1 min-w-0">
                   <p className="truncate text-sm font-medium text-foreground">{item.description}</p>
                   <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
@@ -373,21 +442,28 @@ function FaturaDetailPage() {
                     </span>
                   </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <p className="text-sm font-semibold text-foreground">{fmt(item.amount)}</p>
-                  <div className={cn(
-                    "flex h-7 w-7 items-center justify-center rounded-full",
-                    isOpen ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+
+                {/* Valor */}
+                <p className="shrink-0 text-sm font-semibold text-foreground">{fmt(item.amount)}</p>
+
+                {/* Botão de ação */}
+                <button onClick={() => openModal(item)}
+                  title={isOpen ? "Editar lançamento" : "Ver detalhes"}
+                  className={cn(
+                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors",
+                    isOpen
+                      ? "text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                      : "text-muted-foreground hover:bg-muted"
                   )}>
-                    {isOpen ? <Pencil className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                  </div>
-                </div>
-              </button>
+                  {isOpen ? <Pencil className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                </button>
+              </div>
             ))}
           </div>
         )}
       </div>
 
+      {/* Modal */}
       <ExpenseDetailModal
         item={modalItem}
         invoiceStatus={invoiceStatus}

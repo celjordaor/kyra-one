@@ -68,11 +68,10 @@ interface CardStore {
   fetchExpenses: (invoiceId: string) => Promise<void>;
   fetchInstallments: (invoiceId: string) => Promise<void>;
   addExpense: (e: { card: CreditCard; invoiceId: string; category: string; description: string; amount: number; purchaseDate: string; installments: number; isRecurring: boolean; observations?: string }) => Promise<void>;
+  deleteExpense: (id: string) => Promise<void>;
   updateExpense: (id: string, patch: Partial<Pick<CardExpense, "description"|"category"|"amount"|"purchase_date">>) => Promise<void>;
   updateInstallment: (id: string, invoiceId: string, patch: Partial<Pick<CardInstallment, "description"|"category"|"amount"|"purchase_date">>) => Promise<void>;
   deleteInstallment: (id: string, invoiceId: string) => Promise<void>;
-  deleteExpense: (id: string) => Promise<void>;
-  
   getCardInvoices: (cardId: string) => Invoice[];
   getInvoiceExpenses: (invoiceId: string) => CardExpense[];
   getInvoiceInstallments: (invoiceId: string) => CardInstallment[];
@@ -216,7 +215,6 @@ export const useCardStore = create<CardStore>((set, get) => ({
     set(s => ({ installments: s.installments.filter(i => i.id !== id) }));
     await get().recalcInvoiceTotal(invoiceId);
   },
-
   deleteExpense: async (expenseId) => {
     const expense = get().expenses.find(e => e.id === expenseId);
     await supabase.from("card_expenses").delete().eq("id", expenseId);
