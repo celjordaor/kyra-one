@@ -1,7 +1,7 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { TrendingUp, TrendingDown, PiggyBank, ChevronLeft, ChevronRight, CalendarDays, Eye, EyeOff, AlertCircle, Check, User, LogOut, KeyRound, CreditCard, Plus, Receipt, Shield } from "lucide-react";
-import { useTransactions, parseBrDate, toggleSettled } from "@/lib/transactions-store";
+import { TrendingUp, TrendingDown, PiggyBank, ChevronLeft, ChevronRight, CalendarDays, Eye, EyeOff, AlertCircle, Check, User, LogOut, KeyRound, CreditCard, Plus, Receipt, Shield, Repeat2 } from "lucide-react";
+import { useTransactions, parseBrDate, toggleSettled, isInstallmentTransaction, getDisplayTitle } from "@/lib/transactions-store";
 import { useCardStore, type Invoice, type CreditCard as CreditCardType } from "@/lib/card-store";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
@@ -49,8 +49,9 @@ function isCardRelated(t:{source?:string;category?:string}):boolean {
 
 // Item unificado para "Últimas transações"
 type RecentItem = {
-  id: string; title: string; amount: number; type: "income"|"expense";
-  category: string; _d: Date; isCardExpense: boolean; cardName?: string; settled?: boolean;
+  id: string; title: string; displayTitle: string; amount: number; type: "income"|"expense";
+  category: string; _d: Date; isCardExpense: boolean; isInstallment: boolean;
+  cardName?: string; settled?: boolean;
 };
 
 // ── Campo de senha com toggle mostrar/ocultar ─────────────────────────────
@@ -172,14 +173,14 @@ function DashboardPage() {
     // Transações regulares (excluir pagamentos de fatura)
     const regular:RecentItem[]=monthTx
       .filter(t=>!isCardRelated(t))
-      .map(t=>({id:t.id,title:t.title,amount:t.amount,type:t.type,category:t.category,_d:t._d,isCardExpense:false,settled:t.settled}));
+      .map(t=>({id:t.id,title:t.title,displayTitle:getDisplayTitle(t),amount:t.amount,type:t.type,category:t.category,_d:t._d,isCardExpense:false,isInstallment:isInstallmentTransaction(t),settled:t.settled}));
 
     // Despesas de cartão do mês (por data de compra)
     const cardExp:RecentItem[]=expenses
       .filter(e=>{const d=new Date(e.purchase_date+"T12:00:00");return d.getMonth()===selectedMonth&&d.getFullYear()===selectedYear;})
       .map(e=>{
         const card=cards.find(c=>c.id===e.card_id);
-        return{id:e.id,title:e.description,amount:-Math.abs(e.amount),type:"expense" as const,category:e.category,_d:new Date(e.purchase_date+"T12:00:00"),isCardExpense:true,cardName:card?.name};
+        return{id:e.id,title:e.description,displayTitle:e.description,amount:-Math.abs(e.amount),type:"expense" as const,category:e.category,_d:new Date(e.purchase_date+"T12:00:00"),isCardExpense:true,isInstallment:false,cardName:card?.name};
       });
 
     // Parcelas de cartão do mês (por data de compra)
@@ -187,7 +188,7 @@ function DashboardPage() {
       .filter(i=>{const d=new Date(i.purchase_date+"T12:00:00");return d.getMonth()===selectedMonth&&d.getFullYear()===selectedYear;})
       .map(i=>{
         const card=cards.find(c=>c.id===i.card_id);
-        return{id:i.id,title:i.description,amount:-Math.abs(i.amount),type:"expense" as const,category:i.category,_d:new Date(i.purchase_date+"T12:00:00"),isCardExpense:true,cardName:card?.name};
+        return{id:i.id,title:i.description,displayTitle:i.description,amount:-Math.abs(i.amount),type:"expense" as const,category:i.category,_d:new Date(i.purchase_date+"T12:00:00"),isCardExpense:true,isInstallment:false,cardName:card?.name};
       });
 
     return[...regular,...cardExp,...cardInst].sort((a,b)=>b._d.getTime()-a._d.getTime());
@@ -346,14 +347,18 @@ function DashboardPage() {
                   t.isCardExpense?"bg-blue-100":t.type==="income"?"bg-emerald-100":"bg-red-100"
                 )}>
                   {t.isCardExpense
-                    ?<CreditCard className="h-4 w-4 text-blue-500"/>
-                    :t.type==="income"
-                    ?<TrendingUp className="h-4 w-4 text-emerald-600"/>
-                    :<TrendingDown className="h-4 w-4 text-red-500"/>
+                    ? <CreditCard className="h-4 w-4 text-blue-500"/>
+                    : t.isInstallment
+                    ? (t.type==="income"
+                        ? <Repeat2 className="h-4 w-4 text-emerald-600"/>
+                        : <Repeat2 className="h-4 w-4 text-red-500"/>)
+                    : t.type==="income"
+                    ? <TrendingUp className="h-4 w-4 text-emerald-600"/>
+                    : <TrendingDown className="h-4 w-4 text-red-500"/>
                   }
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-foreground">{t.title}</p>
+                  <p className="text-sm font-medium text-foreground">{t.displayTitle}</p>
                   <p className="text-xs text-muted-foreground">
                     {t.category} • {relativeLabel(t._d)}
                     {/* Nome do cartão ao lado da data */}

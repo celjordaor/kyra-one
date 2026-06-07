@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   TrendingUp, TrendingDown, Search, SlidersHorizontal,
   ChevronLeft, ChevronRight, CalendarDays, CheckCircle2, Circle,
-  Pencil, Repeat, Trash2, CreditCard, Lock, Plus, Receipt,
+  Pencil, Repeat, Repeat2, Trash2, CreditCard, Lock, Plus, Receipt,
   ChevronDown, LayoutList,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   useTransactions, toggleSettled, updateTransaction, deleteTransaction,
+  deleteTransactionSeries, isInstallmentTransaction, getDisplayTitle,
   parseBrDate, formatBrDate, isTodayOrPast, type Transaction,
 } from "@/lib/transactions-store";
 import { useCardStore, type Invoice, type CreditCard as CreditCardType } from "@/lib/card-store";
@@ -121,6 +122,7 @@ function TransacoesPage() {
   const [selectedYear, setSelectedYear]   = useState<number>(initial.year);
   const [sort, setSort]                   = useState<SortKey>("date-desc");
   const [editingId, setEditingId]         = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget]   = useState<Transaction | null>(null);
   const [showTransactions, setShowTransactions] = useState(true);
   const [showCards, setShowCards]               = useState(true);
   const [detailInvoice, setDetailInvoice] = useState<Invoice | null>(null);
@@ -314,13 +316,19 @@ function TransacoesPage() {
                       <div className={cn("flex h-9 w-9 items-center justify-center rounded-full",
                         isFatura ? "bg-blue-100" : t.type === "income" ? "bg-emerald-100" : "bg-red-100"
                       )}>
-                        {isFatura ? <CreditCard className="h-4 w-4 text-blue-500" />
-                          : t.type === "income" ? <TrendingUp className="h-4 w-4 text-emerald-600" />
+                        {isFatura
+                          ? <CreditCard className="h-4 w-4 text-blue-500" />
+                          : isInstallmentTransaction(t)
+                          ? (t.type === "income"
+                              ? <Repeat2 className="h-4 w-4 text-emerald-600" />
+                              : <Repeat2 className="h-4 w-4 text-red-500" />)
+                          : t.type === "income"
+                          ? <TrendingUp className="h-4 w-4 text-emerald-600" />
                           : <TrendingDown className="h-4 w-4 text-red-500" />}
                       </div>
                       <div>
                         <div className="flex items-center gap-1.5">
-                          <p className="text-sm font-medium text-foreground">{t.title}</p>
+                          <p className="text-sm font-medium text-foreground">{getDisplayTitle(t)}</p>
                           {t.recurring && !isFatura && (
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -365,7 +373,16 @@ function TransacoesPage() {
                               className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground">
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
-                            <button onClick={() => !t.settled && deleteTransaction(t.id)} disabled={t.settled}
+                            <button
+                              onClick={() => {
+                                if (t.settled) return;
+                                if (isInstallmentTransaction(t)) {
+                                  setDeleteTarget(t);
+                                } else {
+                                  deleteTransaction(t.id);
+                                }
+                              }}
+                              disabled={t.settled}
                               className={cn("flex h-7 w-7 items-center justify-center rounded-full transition-colors",
                                 t.settled ? "cursor-not-allowed text-muted-foreground/30" : "text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                               )}>
@@ -463,7 +480,107 @@ function TransacoesPage() {
       />
 
       <EditTransactionDialog transaction={editing} onClose={() => setEditingId(null)} />
+
+      {/* Modal de exclusão para transações parceladas */}
+      <TransactionDeleteModal
+        transaction={deleteTarget}
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onDeleteSingle={() => {
+          if (deleteTarget) deleteTransaction(deleteTarget.id);
+          setDeleteTarget(null);
+        }}
+        onDeleteFuture={() => {
+          if (deleteTarget?.recurrence_id && deleteTarget.installment_number) {
+            deleteTransactionSeries(deleteTarget.recurrence_id, deleteTarget.installment_number);
+          }
+          setDeleteTarget(null);
+        }}
+      />
     </div>
+  );
+}
+
+// ── Modal de exclusão de série de transações ──────────────────────────────
+function TransactionDeleteModal({
+  transaction, open, onClose, onDeleteSingle, onDeleteFuture,
+}: {
+  transaction: Transaction | null;
+  open: boolean;
+  onClose: () => void;
+  onDeleteSingle: () => void;
+  onDeleteFuture: () => void;
+}) {
+  const [selected, setSelected] = useState<"single" | "future">("single");
+
+  useEffect(() => { if (open) setSelected("single"); }, [open]);
+  if (!transaction) return null;
+
+  const remaining = (transaction.installments_total ?? 0) - (transaction.installment_number ?? 0);
+
+  return (
+    <Dialog open={open} onOpenChange={o => !o && onClose()}>
+      <DialogContent className="max-w-sm p-0 overflow-hidden" aria-describedby={undefined}>
+        <div className="px-5 pt-5 pb-2">
+          <h3 className="text-base font-semibold text-foreground">Excluir transação</h3>
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            Como deseja excluir <span className="font-medium text-foreground">"{transaction.title}"</span>?
+          </p>
+        </div>
+        <div className="flex flex-col gap-2 px-5 py-3">
+          {[
+            {
+              key: "single" as const,
+              title: "Excluir apenas essa parcela",
+              description: `Remove somente a parcela ${transaction.installment_number}/${transaction.installments_total}`,
+              danger: false,
+            },
+            {
+              key: "future" as const,
+              title: "Excluir essa e as próximas",
+              description: remaining > 0
+                ? `Remove esta parcela e as ${remaining} seguintes`
+                : "Remove esta última parcela",
+              danger: true,
+            },
+          ].map(opt => {
+            const isSel = selected === opt.key;
+            return (
+              <button key={opt.key} type="button" onClick={() => setSelected(opt.key)}
+                className={cn(
+                  "flex w-full items-start gap-3 rounded-xl border p-3.5 text-left transition-all",
+                  isSel
+                    ? opt.danger ? "border-destructive/50 bg-destructive/5" : "border-primary/50 bg-primary/5"
+                    : "border-border hover:bg-muted/40"
+                )}>
+                <div className={cn(
+                  "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+                  isSel
+                    ? opt.danger ? "border-destructive bg-destructive" : "border-primary bg-primary"
+                    : "border-muted-foreground/40"
+                )}>
+                  {isSel && <div className="h-2 w-2 rounded-full bg-white" />}
+                </div>
+                <div className="min-w-0">
+                  <p className={cn("text-sm font-medium leading-snug",
+                    isSel && opt.danger ? "text-destructive" : "text-foreground"
+                  )}>{opt.title}</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{opt.description}</p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex items-center justify-end gap-2 border-t px-5 py-4">
+          <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
+          <Button size="sm"
+            onClick={() => selected === "single" ? onDeleteSingle() : onDeleteFuture()}
+            className={cn(selected === "future" && "bg-destructive text-destructive-foreground hover:bg-destructive/90")}>
+            Confirmar
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

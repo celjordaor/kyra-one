@@ -1,4 +1,5 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Repeat2, Minus,
+ createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -11,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useCategories } from "@/lib/categories-store";
-import { addTransactions, formatBrDate, isTodayOrPast } from "@/lib/transactions-store";
+import { addTransactions, formatBrDate, isTodayOrPast, calcInstallmentDate } from "@/lib/transactions-store";
 
 const RECURRING_MONTHS = 24;
 
@@ -65,6 +66,8 @@ function NovaTransacaoPage() {
   const { type: initialType } = Route.useSearch();
   const [transactionType, setTransactionType] = useState<"income" | "expense">(initialType ?? "expense");
   const [recurring, setRecurring]             = useState(false);
+  const [repeat, setRepeat]                   = useState(false);
+  const [repeatMonths, setRepeatMonths]       = useState(3);
   const [settled, setSettled]                 = useState(true);
   const [success, setSuccess]                 = useState<string | null>(null);
   const [amountDisplay, setAmountDisplay]     = useState("");
@@ -111,28 +114,52 @@ function NovaTransacaoPage() {
     const signed  = transactionType === "expense" ? -Math.abs(numeric) : Math.abs(numeric);
     const [y, m, d] = data.date.split("-").map(Number);
     const baseDate  = new Date(y, m - 1, d);
-    const count     = recurring ? RECURRING_MONTHS : 1;
+    const label     = transactionType === "income" ? "Receita" : "Despesa";
 
-    const items = Array.from({ length: count }, (_, i) => {
-      const dt  = new Date(baseDate);
-      dt.setMonth(dt.getMonth() + i);
-      const iso = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
-      return {
-        title: data.title, amount: signed, type: transactionType,
-        date: formatBrDate(dt), category: data.category,
-        settled: i === 0 ? settled : isTodayOrPast(iso), recurring,
-      };
-    });
+    if (repeat && repeatMonths > 1) {
+      // Série de N meses (parcelamento manual)
+      const recurrenceId = crypto.randomUUID();
+      const items = Array.from({ length: repeatMonths }, (_, i) => {
+        const dt = calcInstallmentDate(y, m, d, i);
+        const iso = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
+        return {
+          title: data.title, amount: signed, type: transactionType,
+          date: formatBrDate(dt), category: data.category,
+          settled: i === 0 ? settled : isTodayOrPast(iso),
+          recurring: false, source: "manual" as const,
+          installment_number: i + 1,
+          installments_total: repeatMonths,
+          recurrence_id: recurrenceId,
+        };
+      });
+      addTransactions(items);
+      setSuccess(`${label} parcelada em ${repeatMonths}x criada com sucesso!`);
+    } else {
+      // Recorrente ou simples
+      const count = recurring ? RECURRING_MONTHS : 1;
+      const items = Array.from({ length: count }, (_, i) => {
+        const dt  = new Date(baseDate);
+        dt.setMonth(dt.getMonth() + i);
+        const iso = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
+        return {
+          title: data.title, amount: signed, type: transactionType,
+          date: formatBrDate(dt), category: data.category,
+          settled: i === 0 ? settled : isTodayOrPast(iso),
+          recurring, source: "manual" as const,
+        };
+      });
+      addTransactions(items);
+      setSuccess(recurring
+        ? `${label} recorrente criada para os próximos ${RECURRING_MONTHS} meses!`
+        : `${label} adicionada com sucesso!`
+      );
+    }
 
-    addTransactions(items);
-    const label = transactionType === "income" ? "Receita" : "Despesa";
-    setSuccess(recurring
-      ? `${label} recorrente criada para os próximos ${RECURRING_MONTHS} meses!`
-      : `${label} adicionada com sucesso!`
-    );
     reset();
     setAmountDisplay("");
     setRecurring(false);
+    setRepeat(false);
+    setRepeatMonths(3);
     setSettled(true);
     const monthParam = `${baseDate.getFullYear()}-${String(baseDate.getMonth()+1).padStart(2,"0")}`;
     setTimeout(() => { setSuccess(null); navigate({ to: "/transacoes", search: { month: monthParam } }); }, 900);
@@ -257,7 +284,58 @@ function NovaTransacaoPage() {
               </p>
             </div>
           </div>
-          <Switch checked={recurring} onCheckedChange={setRecurring} />
+          <Switch
+            checked={recurring}
+            onCheckedChange={v => { setRecurring(v); if (v) setRepeat(false); }}
+          />
+        </div>
+
+        {/* Repetir N meses */}
+        <div className="rounded-xl border bg-card p-4 space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <Repeat2 className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground">Repetir por N meses</p>
+                <p className="text-xs text-muted-foreground">
+                  {repeat
+                    ? `Lança ${repeatMonths} parcelas a partir desta data`
+                    : `Cria cópias desta ${transactionType === "income" ? "receita" : "despesa"} nos próximos meses`}
+                </p>
+              </div>
+            </div>
+            <Switch
+              checked={repeat}
+              onCheckedChange={v => { setRepeat(v); if (v) setRecurring(false); }}
+            />
+          </div>
+
+          {/* Stepper de meses */}
+          {repeat && (
+            <div className="flex items-center justify-between rounded-xl bg-muted px-4 py-3">
+              <p className="text-xs font-medium text-muted-foreground">Quantidade de meses</p>
+              <div className="flex items-center gap-3">
+                <button type="button"
+                  onClick={() => setRepeatMonths(n => Math.max(2, n - 1))}
+                  className="flex h-8 w-8 items-center justify-center rounded-full border bg-background text-foreground hover:bg-muted transition-colors">
+                  <Minus className="h-4 w-4" />
+                </button>
+                <div className="flex w-12 flex-col items-center">
+                  <span className="text-xl font-bold text-primary leading-none">{repeatMonths}</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {repeatMonths === 1 ? "mês" : "meses"}
+                  </span>
+                </div>
+                <button type="button"
+                  onClick={() => setRepeatMonths(n => Math.min(36, n + 1))}
+                  className="flex h-8 w-8 items-center justify-center rounded-full border bg-background text-foreground hover:bg-muted transition-colors">
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <Button type="submit" className="h-12 w-full bg-primary text-base font-semibold" disabled={isSubmitting}>
