@@ -52,7 +52,6 @@ function parseCurrencyInput(v: string): number {
   return parseFloat(v.replace(/\./g, "").replace(",", ".")) || 0;
 }
 
-// ── Modal: direto no Supabase, sem depender de funções do store ─────────
 function ExpenseDetailModal({
   item, invoiceStatus, open, onClose, onSaved, onDeleted,
 }: {
@@ -91,10 +90,10 @@ function ExpenseDetailModal({
       const table = item.isInstallment ? "card_installments" : "card_expenses";
       const { error } = await supabase.from(table).update(patch).eq("id", item.id);
       if (error) throw error;
-      // Recalcular total da fatura
       const { data: expData } = await supabase.from("card_expenses").select("amount").eq("invoice_id", item.invoiceId);
       const { data: instData } = await supabase.from("card_installments").select("amount").eq("invoice_id", item.invoiceId);
-      const total = (expData ?? []).reduce((s, e) => s + e.amount, 0) + (instData ?? []).reduce((s, i) => s + i.amount, 0);
+      const total = (expData ?? []).reduce((s, e) => s + (e.amount ?? 0), 0)
+                  + (instData ?? []).reduce((s, i) => s + (i.amount ?? 0), 0);
       await supabase.from("invoices").update({ total_amount: total }).eq("id", item.invoiceId);
       toast.success("Lançamento atualizado!");
       onSaved();
@@ -111,13 +110,10 @@ function ExpenseDetailModal({
     try {
       const table = item.isInstallment ? "card_installments" : "card_expenses";
       await supabase.from(table).delete().eq("id", item.id);
-      if (!item.isInstallment && item.expense_type === "installment") {
-        await supabase.from("card_installments").delete().eq("parent_expense_id", item.id);
-      }
-      // Recalcular total
       const { data: expData } = await supabase.from("card_expenses").select("amount").eq("invoice_id", item.invoiceId);
       const { data: instData } = await supabase.from("card_installments").select("amount").eq("invoice_id", item.invoiceId);
-      const total = (expData ?? []).reduce((s, e) => s + e.amount, 0) + (instData ?? []).reduce((s, i) => s + i.amount, 0);
+      const total = (expData ?? []).reduce((s, e) => s + (e.amount ?? 0), 0)
+                  + (instData ?? []).reduce((s, i) => s + (i.amount ?? 0), 0);
       await supabase.from("invoices").update({ total_amount: total }).eq("id", item.invoiceId);
       toast.success("Lançamento excluído.");
       onDeleted();
@@ -211,7 +207,6 @@ function ExpenseDetailModal({
   );
 }
 
-// ── Página principal ───────────────────────────────────────────────────
 function FaturaDetailPage() {
   const { cardId, invoiceId } = Route.useParams();
   const router = useRouter();
@@ -337,7 +332,7 @@ function FaturaDetailPage() {
           <div className="space-y-2">
             {Object.entries(categoryTotals).sort(([,a],[,b]) => b-a).map(([cat, total]) => (
               <div key={cat} className="flex items-center justify-between rounded-xl border bg-card px-4 py-3">
-                <span className="text-sm text-foreground">{cat}</span>
+                <span className="text-sm">{cat}</span>
                 <span className="text-sm font-semibold">{fmt(total)}</span>
               </div>
             ))}
@@ -382,7 +377,7 @@ function FaturaDetailPage() {
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  <p className="text-sm font-semibold text-foreground">{fmt(item.amount)}</p>
+                  <p className="text-sm font-semibold">{fmt(item.amount)}</p>
                   <div className={cn("flex h-7 w-7 items-center justify-center rounded-full",
                     isOpen ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
                   )}>

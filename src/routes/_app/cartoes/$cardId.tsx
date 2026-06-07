@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Plus, CreditCard, Calendar, ChevronRight, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -121,11 +121,12 @@ function CartaoDetailPage() {
       </div>
 
       {/* Botão nova despesa */}
-      <Button asChild className="h-11 w-full gap-2 bg-primary font-semibold">
-        <Link to="/cartoes/nova-despesa" search={{ cardId: card.id }}>
-          <Plus className="h-4 w-4" />
-          Lançar despesa
-        </Link>
+      <Button
+        className="h-11 w-full gap-2 bg-primary font-semibold"
+        onClick={() => router.navigate({ to: "/cartoes/nova-despesa", search: { cardId: card.id } })}
+      >
+        <Plus className="h-4 w-4" />
+        Lançar despesa
       </Button>
 
       {/* Faturas */}
@@ -142,10 +143,10 @@ function CartaoDetailPage() {
         ) : (
           <div className="space-y-2">
             {cardInvoices.map((invoice) => (
-              <Link
+              /* Usar href direto para evitar problemas de tipagem de rota */
+              <a
                 key={invoice.id}
-                to="/cartoes/$cardId/fatura/$invoiceId"
-                params={{ cardId: card.id, invoiceId: invoice.id }}
+                href={`/cartoes/${card.id}/fatura/${invoice.id}`}
                 className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3.5 transition-shadow hover:shadow-sm"
               >
                 <div className="flex items-center gap-3">
@@ -171,7 +172,7 @@ function CartaoDetailPage() {
                   </div>
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </div>
-              </Link>
+              </a>
             ))}
           </div>
         )}
