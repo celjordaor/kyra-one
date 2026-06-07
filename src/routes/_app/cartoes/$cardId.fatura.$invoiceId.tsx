@@ -1,18 +1,9 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import {
-  ArrowLeft, CheckCircle2, ShoppingBag, RotateCcw, Layers, Undo2,
-  Eye, Pencil, Lock, Save, Trash2,
-} from "lucide-react";
+import { ArrowLeft, CheckCircle2, Undo2, Lock, Pencil, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { useCardStore, type ExpenseType } from "@/lib/card-store";
-import { DatePicker } from "@/components/cartoes/date-picker";
-import { useCategories } from "@/lib/categories-store";
-import { supabase } from "@/lib/supabase";
+import { useCardStore } from "@/lib/card-store";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
@@ -20,278 +11,11 @@ import {
   TYPE_ICON, TYPE_LABEL, TYPE_CLASS, fmt, recalcTotal,
   type UnifiedItem, type InvoiceStatus,
 } from "@/components/cartoes/expense-detail-modal";
+import type { ExpenseType } from "@/lib/card-store";
 
-export const Route = createFileRoute("/cartoes/$cardId/fatura/$invoiceId")({
+export const Route = createFileRoute("/_app/cartoes/$cardId/fatura/$invoiceId")({
   component: FaturaDetailPage,
 });
-
-const TYPE_ICON: Record<ExpenseType, React.ReactNode> = {
-  single:      <ShoppingBag className="h-3.5 w-3.5" />,
-  installment: <Layers className="h-3.5 w-3.5" />,
-  recurring:   <RotateCcw className="h-3.5 w-3.5" />,
-};
-const TYPE_LABEL: Record<ExpenseType, string> = {
-  single: "Única", installment: "Parcelada", recurring: "Recorrente",
-};
-const TYPE_CLASS: Record<ExpenseType, string> = {
-  single:      "bg-muted text-muted-foreground",
-  installment: "bg-blue-100 text-blue-700",
-  recurring:   "bg-purple-100 text-purple-700",
-};
-
-  v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
-
-: {
-  item: UnifiedItem | null;
-  invoiceStatus: "open" | "closed" | "paid";
-  open: boolean; onClose: () => void;
-  onSaved: () => void; onDeleted: () => void;
-}) {
-  const categories = useCategories().filter(c => c.active && c.type === "expense");
-  const [description, setDescription]    = useState("");
-  const [category, setCategory]          = useState("");
-  const [amountDisplay, setAmountDisplay] = useState("");
-  const [date, setDate]                  = useState("");
-  const [saving, setSaving]              = useState(false);
-  const [showDeleteOptions, setShowDeleteOptions] = useState(false);
-  const [confirmSingle, setConfirmSingle]         = useState(false);
-
-  const canEdit = invoiceStatus === "open";
-
-  useEffect(() => {
-    if (!item) return;
-    setDescription(item.description);
-    setCategory(item.category);
-    setDate(item.purchase_date);
-    const abs = Math.abs(item.amount);
-    setAmountDisplay(abs.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-  }, [item]);
-
-  async function handleSave() {
-    if (!item || !canEdit) return;
-    if (!description.trim()) { toast.error("Informe a descrição"); return; }
-    if (!category) { toast.error("Selecione a categoria"); return; }
-    const amount = parseCurrencyInput(amountDisplay);
-    if (amount <= 0) { toast.error("Informe um valor válido"); return; }
-    setSaving(true);
-    try {
-      const patch = { description: description.trim(), category, amount, purchase_date: date };
-      const table = item.isInstallment ? "card_installments" : "card_expenses";
-      const { error } = await supabase.from(table).update(patch).eq("id", item.id);
-      if (error) throw error;
-      const { data: expData } = await supabase.from("card_expenses").select("amount").eq("invoice_id", item.invoiceId);
-      const { data: instData } = await supabase.from("card_installments").select("amount").eq("invoice_id", item.invoiceId);
-      const total = (expData ?? []).reduce((s, e) => s + (e.amount ?? 0), 0)
-                  + (instData ?? []).reduce((s, i) => s + (i.amount ?? 0), 0);
-      await supabase.from("invoices").update({ total_amount: total }).eq("id", item.invoiceId);
-      toast.success("Lançamento atualizado!");
-      onSaved();
-    } catch { toast.error("Erro ao salvar."); }
-    finally { setSaving(false); }
-  }
-
-  function handleDelete() {
-    if (!item || !canEdit) return;
-    // Recorrente ou parcelada: mostrar modal de opções
-    if (item.expense_type === "recurring" || item.expense_type === "installment") {
-      setShowDeleteOptions(true);
-      return;
-    }
-    // Despesa única: confirmar e deletar
-    setConfirmSingle(true);
-  }
-
-  async function deleteSingle() {
-    if (!item) return;
-    try {
-      const table = item.isInstallment ? "card_installments" : "card_expenses";
-      await supabase.from(table).delete().eq("id", item.id);
-      await recalcTotal(item.invoiceId);
-      toast.success("Lançamento excluído.");
-      setShowDeleteOptions(false);
-      onDeleted();
-    } catch { toast.error("Erro ao excluir."); }
-  }
-
-  async function deleteFuture() {
-    if (!item) return;
-    try {
-      const affectedIds = new Set<string>([item.invoiceId]);
-
-      if (item.expense_type === "installment") {
-        if (item.isInstallment && item.parentExpenseId && item.installmentNumber !== undefined) {
-          // Buscar invoices afetados ANTES de deletar
-          const { data: rows } = await supabase
-            .from("card_installments")
-            .select("invoice_id")
-            .eq("parent_expense_id", item.parentExpenseId)
-            .gte("installment_number", item.installmentNumber);
-          rows?.forEach(r => affectedIds.add(r.invoice_id));
-
-          // Deletar parcelas seguintes
-          await supabase
-            .from("card_installments")
-            .delete()
-            .eq("parent_expense_id", item.parentExpenseId)
-            .gte("installment_number", item.installmentNumber);
-
-        } else if (!item.isInstallment) {
-          // Buscar todos os filhos ANTES de deletar
-          const { data: children } = await supabase
-            .from("card_installments")
-            .select("invoice_id")
-            .eq("parent_expense_id", item.id);
-          children?.forEach(r => affectedIds.add(r.invoice_id));
-
-          // Deletar pai + todos os filhos
-          await supabase.from("card_expenses").delete().eq("id", item.id);
-          await supabase.from("card_installments").delete().eq("parent_expense_id", item.id);
-        }
-
-      } else if (item.expense_type === "recurring") {
-        // Buscar invoices afetados ANTES de deletar
-        const { data: rows } = await supabase
-          .from("card_expenses")
-          .select("invoice_id")
-          .eq("description", item.description)
-          .eq("expense_type", "recurring")
-          .gte("purchase_date", item.purchase_date);
-        rows?.forEach(r => affectedIds.add(r.invoice_id));
-
-        // Deletar recorrentes futuras
-        await supabase
-          .from("card_expenses")
-          .delete()
-          .eq("description", item.description)
-          .eq("expense_type", "recurring")
-          .gte("purchase_date", item.purchase_date);
-      }
-
-      // Recalcular TODOS os invoices afetados em paralelo
-      await Promise.all([...affectedIds].map(id => recalcTotal(id)));
-
-      toast.success("Lançamentos excluídos.");
-      setShowDeleteOptions(false);
-      onDeleted();
-    } catch (e) {
-      console.error("deleteFuture error:", e);
-      toast.error("Erro ao excluir.");
-    }
-  }
-
-  if (!item) return null;
-
-  return (
-    <Dialog open={open} onOpenChange={o => !o && onClose()}>
-      <DialogContent className="max-w-sm p-0 overflow-hidden" aria-describedby={undefined}>
-        <div className={cn("px-5 pt-5 pb-4", !canEdit ? "bg-muted/60" : "bg-primary/5")}>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base">
-              {!canEdit && <Lock className="h-4 w-4 text-muted-foreground" />}
-              {canEdit ? "Editar lançamento" : "Detalhes do lançamento"}
-            </DialogTitle>
-          </DialogHeader>
-          {!canEdit && (
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              {invoiceStatus === "paid" ? "🔒 Fatura paga — edição não permitida" : "🔒 Fatura fechada — edição não permitida"}
-            </p>
-          )}
-          <div className="mt-2">
-            <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold", TYPE_CLASS[item.expense_type])}>
-              {TYPE_ICON[item.expense_type]} {TYPE_LABEL[item.expense_type]}
-            </span>
-          </div>
-        </div>
-
-        <div className="space-y-4 px-5 py-4">
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Descrição</Label>
-            {canEdit
-              ? <Input value={description} onChange={e => setDescription(e.target.value)} className="h-10" />
-              : <p className="text-sm font-medium text-foreground">{item.description}</p>}
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Categoria</Label>
-            {canEdit ? (
-              <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto pb-0.5">
-                {categories.map(cat => {
-                  const isSelected = category === cat.name;
-                  const color = cat.color || "#6b7280";
-                  const isEmoji = (cat.icon?.codePointAt(0) ?? 0) > 0x2000;
-                  return (
-                    <button key={cat.id} type="button" onClick={() => setCategory(cat.name)}
-                      className={cn(
-                        "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all",
-                        isSelected ? "border-transparent shadow-sm" : "border-border hover:border-transparent hover:shadow-sm"
-                      )}
-                      style={isSelected
-                        ? { background: color + "22", borderColor: color + "88", color }
-                        : {}
-                      }>
-                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px]"
-                        style={{ background: color + "33" }}>
-                        {isEmoji ? cat.icon : (cat.name[0] ?? "?").toUpperCase()}
-                      </span>
-                      {cat.name}
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-sm font-medium text-foreground">{item.category}</p>
-            )}
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Valor</Label>
-            {canEdit ? (
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
-                <Input type="text" inputMode="decimal" className="h-10 pl-9"
-                  value={amountDisplay} onChange={e => setAmountDisplay(formatCurrencyInput(e.target.value))} />
-              </div>
-            ) : <p className="text-sm font-semibold text-red-500">-{fmt(item.amount)}</p>}
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Data da compra</Label>
-            {canEdit
-              ? <DatePicker value={date} onChange={setDate} />
-              : <p className="text-sm font-medium text-foreground">
-                  {new Date(item.purchase_date + "T12:00:00").toLocaleDateString("pt-BR", { dateStyle: "long" })}
-                </p>}
-          </div>
-        </div>
-
-        <DialogFooter className="flex-row items-center justify-between gap-2 border-t px-5 py-4">
-          {canEdit ? (
-            <>
-              <Button variant="ghost" size="sm" onClick={handleDelete}
-                className="gap-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive">
-                <Trash2 className="h-4 w-4" /> Excluir
-              </Button>
-
-              <DeleteOptionsModal
-                open={showDeleteOptions}
-                item={item}
-                onClose={() => setShowDeleteOptions(false)}
-                onDeleteSingle={deleteSingle}
-                onDeleteFuture={deleteFuture}
-              />
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
-                <Button size="sm" onClick={handleSave} disabled={saving} className="gap-1.5">
-                  <Save className="h-3.5 w-3.5" /> {saving ? "Salvando..." : "Salvar"}
-                </Button>
-              </div>
-            </>
-          ) : (
-            <Button variant="outline" size="sm" className="ml-auto" onClick={onClose}>Fechar</Button>
-          )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 function FaturaDetailPage() {
   const { cardId, invoiceId } = Route.useParams();
@@ -302,13 +26,13 @@ function FaturaDetailPage() {
     getInvoiceExpenses, getInvoiceInstallments,
   } = useCardStore();
 
-  const [paying, setPaying]       = useState(false);
-  const [reversing, setReversing] = useState(false);
-  const [modalItem, setModalItem] = useState<UnifiedItem | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [loading, setLoading]     = useState(true);
-  const [confirmReverse, setConfirmReverse]         = useState(false);
-  const [blockedByInvoice, setBlockedByInvoice]     = useState<typeof invoices[0] | null>(null);
+  const [paying, setPaying]         = useState(false);
+  const [reversing, setReversing]   = useState(false);
+  const [loading, setLoading]       = useState(true);
+  const [modalItem, setModalItem]   = useState<UnifiedItem | null>(null);
+  const [modalOpen, setModalOpen]   = useState(false);
+  const [confirmReverse, setConfirmReverse]     = useState(false);
+  const [blockedByInvoice, setBlockedByInvoice] = useState<typeof invoices[0] | null>(null);
 
   const card    = cards.find(c => c.id === cardId);
   const invoice = invoices.find(i => i.id === invoiceId);
@@ -317,7 +41,6 @@ function FaturaDetailPage() {
     const init = async () => {
       setLoading(true);
       try {
-        // Garante que os cartões estão carregados
         if (useCardStore.getState().cards.length === 0) await fetchCards();
         const c = useCardStore.getState().cards.find(c => c.id === cardId);
         if (!c) return;
@@ -325,9 +48,7 @@ function FaturaDetailPage() {
         await fetchInvoices(cardId);
         await fetchExpenses(invoiceId);
         await fetchInstallments(invoiceId);
-      } finally {
-        setLoading(false);
-      }
+      } finally { setLoading(false); }
     };
     init();
   }, [invoiceId, cardId]);
@@ -340,8 +61,7 @@ function FaturaDetailPage() {
       id: e.id, description: e.description, category: e.category,
       amount: e.amount, purchase_date: e.purchase_date,
       expense_type: e.expense_type, isInstallment: false, invoiceId,
-      cardId,
-      installmentNumber: e.installment_number, // para parceladas (installment_number=1 é o pai)
+      cardId, installmentNumber: e.installment_number,
     })),
     ...rawInstallments.map(i => ({
       id: i.id, description: i.description, category: i.category,
@@ -354,26 +74,16 @@ function FaturaDetailPage() {
 
   const handlePay = () => {
     if (!card || !invoice) return;
-
-    // Verificar faturas anteriores em aberto para o mesmo cartão
     const openPrevious = invoices
       .filter(inv =>
-        inv.card_id === cardId &&
-        inv.id !== invoiceId &&
-        inv.status === "open" &&
-        inv.total_amount > 0 &&
+        inv.card_id === cardId && inv.id !== invoiceId &&
+        inv.status === "open" && inv.total_amount > 0 &&
         new Date(inv.due_date + "T12:00:00") < new Date(invoice.due_date + "T12:00:00")
       )
       .sort((a, b) =>
-        new Date(a.due_date + "T12:00:00").getTime() -
-        new Date(b.due_date + "T12:00:00").getTime()
+        new Date(a.due_date + "T12:00:00").getTime() - new Date(b.due_date + "T12:00:00").getTime()
       );
-
-    if (openPrevious.length > 0) {
-      setBlockedByInvoice(openPrevious[0]);
-      return;
-    }
-
+    if (openPrevious.length > 0) { setBlockedByInvoice(openPrevious[0]); return; }
     doPay();
   };
 
@@ -385,10 +95,6 @@ function FaturaDetailPage() {
     finally { setPaying(false); }
   };
 
-  const handleReverse = async () => {
-    setConfirmReverse(true);
-  };
-
   const doReverse = async () => {
     setReversing(true);
     try { await reverseInvoice(invoiceId); toast.success("Fatura estornada."); }
@@ -397,10 +103,8 @@ function FaturaDetailPage() {
   };
 
   const reloadData = async () => {
-    // Recarrega detalhes da fatura atual
     await fetchExpenses(invoiceId);
     await fetchInstallments(invoiceId);
-    // Recarrega TODAS as faturas do cartão (atualiza totais nos cards)
     await fetchInvoices(cardId);
   };
 
@@ -422,7 +126,7 @@ function FaturaDetailPage() {
   const isPaid   = invoice.status === "paid";
   const isClosed = invoice.status === "closed";
   const isOpen   = invoice.status === "open";
-  const invoiceStatus: "open" | "closed" | "paid" = isPaid ? "paid" : isClosed ? "closed" : "open";
+  const invoiceStatus: InvoiceStatus = isPaid ? "paid" : isClosed ? "closed" : "open";
 
   const categoryTotals = allItems.reduce<Record<string, number>>((acc, e) => {
     acc[e.category] = (acc[e.category] ?? 0) + e.amount; return acc;
@@ -430,19 +134,21 @@ function FaturaDetailPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 px-4 py-6">
+      {/* Header */}
       <div className="flex items-center gap-3">
         <button onClick={() => router.history.back()}
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground hover:bg-accent">
+          className="flex h-9 w-9 items-center justify-center rounded-full border text-muted-foreground hover:bg-accent">
           <ArrowLeft className="h-4 w-4" />
         </button>
         <div>
-          <h1 className="text-xl font-bold text-foreground">{card.name} · {invoice.competence}</h1>
+          <h1 className="text-xl font-bold">{card.name} · {invoice.competence}</h1>
           <p className="text-sm text-muted-foreground">
             {isPaid ? "Fatura paga" : isClosed ? "Fatura fechada" : "Fatura aberta"}
           </p>
         </div>
       </div>
 
+      {/* Resumo */}
       <div className="rounded-2xl border bg-card p-5">
         <div className="grid grid-cols-2 gap-y-3 text-sm">
           <div><p className="text-xs text-muted-foreground">Competência</p><p className="font-medium">{invoice.competence}</p></div>
@@ -460,16 +166,18 @@ function FaturaDetailPage() {
             <div className="flex items-center justify-center gap-2 rounded-xl bg-green-50 py-3 text-sm font-medium text-green-700">
               <CheckCircle2 className="h-4 w-4" /> Fatura paga · Transação registrada
             </div>
-            <Button variant="outline" className="h-10 w-full gap-2 border-destructive/30 text-destructive hover:bg-destructive/5" onClick={handleReverse} disabled={reversing}>
+            <Button variant="outline" className="h-10 w-full gap-2 border-destructive/30 text-destructive hover:bg-destructive/5"
+              onClick={() => setConfirmReverse(true)} disabled={reversing}>
               <Undo2 className="h-4 w-4" /> {reversing ? "Estornando..." : "Estornar fatura"}
             </Button>
           </div>
         )}
       </div>
 
+      {/* Por categoria */}
       {Object.keys(categoryTotals).length > 0 && (
         <div>
-          <h2 className="mb-3 text-sm font-semibold text-foreground">Por categoria</h2>
+          <h2 className="mb-3 text-sm font-semibold">Por categoria</h2>
           <div className="space-y-2">
             {Object.entries(categoryTotals).sort(([,a],[,b]) => b-a).map(([cat, total]) => (
               <div key={cat} className="flex items-center justify-between rounded-xl border bg-card px-4 py-3">
@@ -481,9 +189,10 @@ function FaturaDetailPage() {
         </div>
       )}
 
+      {/* Lançamentos */}
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-foreground">Lançamentos ({allItems.length})</h2>
+          <h2 className="text-sm font-semibold">Lançamentos ({allItems.length})</h2>
           {!isOpen && (
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
               <Lock className="h-3 w-3" />
@@ -500,12 +209,12 @@ function FaturaDetailPage() {
             {allItems.map(item => (
               <button key={item.id} type="button"
                 onClick={() => { setModalItem(item); setModalOpen(true); }}
-                className="flex w-full items-center gap-3 rounded-xl border bg-card px-4 py-3.5 text-left transition-colors hover:bg-muted/40">
+                className="flex w-full items-center gap-3 rounded-xl border bg-card px-4 py-3.5 text-left hover:bg-muted/40 transition-colors">
                 <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
                   {TYPE_ICON[item.expense_type]}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="truncate text-sm font-medium text-foreground">{item.description}</p>
+                  <p className="truncate text-sm font-medium">{item.description}</p>
                   <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
                     <span className="text-xs text-muted-foreground">{item.category}</span>
                     <span className="text-xs text-muted-foreground">·</span>
@@ -531,6 +240,7 @@ function FaturaDetailPage() {
         )}
       </div>
 
+      {/* Modais */}
       <ExpenseDetailModal
         item={modalItem} invoiceStatus={invoiceStatus} open={modalOpen}
         onClose={() => { setModalOpen(false); setModalItem(null); }}
@@ -538,25 +248,6 @@ function FaturaDetailPage() {
         onDeleted={async () => { setModalOpen(false); setModalItem(null); await reloadData(); }}
       />
 
-      {/* Alerta: fatura anterior em aberto */}
-      <ConfirmDialog
-        open={!!blockedByInvoice}
-        title="Fatura anterior em aberto"
-        description={
-          blockedByInvoice ? (
-            <span>
-              Não é possível pagar esta fatura pois a fatura de{" "}
-              <strong className="text-foreground">{blockedByInvoice.competence}</strong>{" "}
-              ainda está em aberto. Quite as faturas anteriores antes de continuar.
-            </span>
-          ) : ""
-        }
-        variant="warning"
-        alertOnly
-        onClose={() => setBlockedByInvoice(null)}
-      />
-
-      {/* Confirm: estornar fatura */}
       <ConfirmDialog
         open={confirmReverse}
         title="Estornar fatura"
@@ -564,6 +255,21 @@ function FaturaDetailPage() {
         confirmLabel="Estornar"
         onConfirm={doReverse}
         onClose={() => setConfirmReverse(false)}
+      />
+
+      <ConfirmDialog
+        open={!!blockedByInvoice}
+        title="Fatura anterior em aberto"
+        description={blockedByInvoice ? (
+          <span>
+            Não é possível pagar esta fatura pois a fatura de{" "}
+            <strong className="text-foreground">{blockedByInvoice.competence}</strong>{" "}
+            ainda está em aberto. Quite as faturas anteriores antes de continuar.
+          </span>
+        ) : ""}
+        variant="warning"
+        alertOnly
+        onClose={() => setBlockedByInvoice(null)}
       />
     </div>
   );

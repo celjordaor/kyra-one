@@ -497,6 +497,7 @@ function InvoiceDetailModal({
   const [editingItem, setEditingItem] = useState<UnifiedItem | null>(null);
 
   return (
+    <>
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
       <DialogContent className="max-w-sm p-0 overflow-hidden">
         <div className="bg-primary px-5 pt-5 pb-4 text-primary-foreground">
@@ -565,6 +566,7 @@ function InvoiceDetailModal({
         await onDataChanged();
       }}
     />
+    </>
   );
 }
 
