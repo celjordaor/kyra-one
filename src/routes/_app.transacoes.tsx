@@ -20,6 +20,7 @@ import {
 import { useCardStore, type Invoice, type CreditCard as CreditCardType } from "@/lib/card-store";
 import { useCategories } from "@/lib/categories-store";
 import { cn } from "@/lib/utils";
+import { DatePicker } from "@/components/cartoes/date-picker";
 import {
   ExpenseDetailModal, ExpenseActionButton,
   TYPE_CLASS, TYPE_LABEL, fmt as fmtExp,
@@ -651,20 +652,32 @@ function EditTransactionDialog({ transaction, onClose }: { transaction: Transact
           </div>
           <div className="space-y-1.5">
             <Label>Categoria</Label>
-            <div className="flex flex-wrap gap-2">
-              {availableCategories.map(cat => (
-                <button key={cat.id} type="button" onClick={() => setCategory(cat.name)}
-                  className={cn("rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-                    category===cat.name ? "border-primary bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
-                  )}>
-                  {cat.name}
-                </button>
-              ))}
+            <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pb-0.5">
+              {availableCategories.map(cat => {
+                const isSel   = category === cat.name;
+                const color   = cat.color || "#6b7280";
+                const isEmoji = (cat.icon?.codePointAt(0) ?? 0) > 0x2000;
+                return (
+                  <button key={cat.id} type="button" onClick={() => setCategory(cat.name)}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-medium transition-all",
+                      isSel ? "border-transparent shadow-sm" : "border-border hover:border-transparent hover:shadow-sm"
+                    )}
+                    style={isSel ? { background: color + "22", borderColor: color + "88", color } : {}}>
+                    <span
+                      className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px]"
+                      style={{ background: color + "33" }}>
+                      {isEmoji ? cat.icon : (cat.name[0] ?? "?").toUpperCase()}
+                    </span>
+                    {cat.name}
+                  </button>
+                );
+              })}
             </div>
           </div>
           <div className="space-y-1.5">
             <Label>Data</Label>
-            <Input type="date" value={dateIso} onChange={e => setDateIso(e.target.value)} />
+            <DatePicker value={dateIso} onChange={setDateIso} />
           </div>
           <div className="flex items-center justify-between rounded-xl border p-3">
             <div>
