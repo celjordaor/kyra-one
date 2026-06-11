@@ -15,7 +15,7 @@ import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_app/cartoes/$cardId/fatura/$invoiceId")({
+export const Route = createFileRoute("/cartoes/$cardId/fatura/$invoiceId")({
   component: FaturaDetailPage,
 });
 
@@ -454,6 +454,7 @@ function FaturaDetailPage() {
   const [modalItem, setModalItem] = useState<UnifiedItem | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [loading, setLoading]     = useState(true);
+  const [activeTab, setActiveTab] = useState<"items" | "cats">("items");
 
   const card    = cards.find(c => c.id === cardId);
   const invoice = invoices.find(i => i.id === invoiceId);
@@ -544,8 +545,6 @@ function FaturaDetailPage() {
   const categoryTotals = allItems.reduce<Record<string, number>>((acc, e) => {
     acc[e.category] = (acc[e.category] ?? 0) + e.amount; return acc;
   }, {});
-
-  const [activeTab, setActiveTab] = useState<"items" | "cats">("items");
 
   // Cor do header por status
   const headerGradient = isPaid
