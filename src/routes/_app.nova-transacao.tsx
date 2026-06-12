@@ -181,8 +181,8 @@ function NovaTransacaoPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-background md:max-w-2xl md:mx-auto">
-      <form onSubmit={handleSubmit(onSubmit)}>
+    <div className="min-h-screen w-full overflow-x-hidden bg-slate-50 dark:bg-background md:max-w-2xl md:mx-auto">
+      <form onSubmit={handleSubmit(onSubmit)} className="w-full">
 
         {/* ── HEADER SLIM ──────────────────────────────────────────────── */}
         <div className={cn(headerBg, "text-white px-4 pb-8")}
@@ -326,8 +326,8 @@ function NovaTransacaoPage() {
       {/* ── MODAL CATEGORIA — bottom sheet ───────────────────────────────── */}
       <Dialog open={openCat} onOpenChange={v => { setOpenCat(v); if (!v) setCatSearch(""); }}>
         <DialogContent
-          className="fixed bottom-0 left-0 right-0 top-auto m-0 w-full max-w-none rounded-t-3xl p-0 border-0"
-          style={{ maxHeight: "78vh" }}
+          className="fixed bottom-0 left-0 right-0 top-auto m-0 w-screen max-w-none rounded-t-3xl p-0 border-0"
+          style={{ maxHeight: "78vh", transform: "none" }}
           onOpenAutoFocus={e => e.preventDefault()}>
           {/* Handle */}
           <div className="flex justify-center pt-3 pb-2">

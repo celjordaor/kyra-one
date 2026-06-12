@@ -54,7 +54,7 @@ function AppLayout() {
 
   return (
     <TooltipProvider>
-      <div className="flex min-h-screen bg-background">
+      <div className="flex min-h-screen bg-background overflow-x-hidden w-full">
         {showBanner && (
           <div className="fixed top-0 left-0 right-0 z-50 md:left-64">
             <GracePeriodBanner subscription={subscription} />
@@ -166,7 +166,7 @@ function AppLayout() {
         {/* ══ CONTEÚDO PRINCIPAL ════════════════════════════════════════ */}
         <div className="flex flex-1 flex-col md:ml-64">
           {showBanner && <div className="h-10 md:block hidden" />}
-          <main className="flex-1 md:pb-8" style={{ paddingBottom: "calc(72px + env(safe-area-inset-bottom, 20px))" }}>
+          <main className="flex-1 md:pb-8 w-full overflow-x-hidden" style={{ paddingBottom: "calc(72px + env(safe-area-inset-bottom, 20px))" }}>
             <Outlet />
           </main>
         </div>
@@ -208,22 +208,17 @@ function AppLayout() {
         {/* Bottom nav — apenas mobile */}
         {/* ══ BOTTOM NAV — PWA / MOBILE ══════════════════════════════════ */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 border-t border-border/60 bg-card/98 backdrop-blur-md">
-          <div className="mx-auto flex max-w-lg items-center justify-around px-1" style={{ height: "64px" }}>
+          <div className="flex w-full items-stretch" style={{ height: "68px" }}>
 
             {navItems.slice(0, 2).map(({ to, label, icon: Icon }) => {
               const isActive = pathname === to || pathname.startsWith(to + "/");
               return (
                 <Link key={to} to={to}
-                  className="flex flex-col items-center gap-0.5 min-w-[60px] py-1.5 transition-colors">
-                  <div className={cn(
-                    "flex h-11 w-11 items-center justify-center rounded-2xl transition-all",
-                    isActive ? "bg-primary/12 scale-105" : "bg-transparent"
-                  )}>
-                    <Icon className={cn("h-6 w-6 transition-colors",
-                      isActive ? "text-primary" : "text-muted-foreground"
-                    )} />
-                  </div>
-                  <span className={cn("text-[11px] font-semibold leading-none",
+                  className="flex flex-1 flex-col items-center justify-center gap-1 h-full">
+                  <Icon className={cn("h-[26px] w-[26px]",
+                    isActive ? "text-primary" : "text-muted-foreground"
+                  )} />
+                  <span className={cn("text-[11px] font-semibold",
                     isActive ? "text-primary" : "text-muted-foreground"
                   )}>{label}</span>
                 </Link>
@@ -232,14 +227,14 @@ function AppLayout() {
 
             {/* Botão central + */}
             <button onClick={() => setAddMenuOpen(!addMenuOpen)}
-              className="flex flex-col items-center gap-0.5 min-w-[60px] py-1.5">
+              className="flex flex-1 flex-col items-center justify-center gap-1 h-full">
               <div className={cn(
-                "flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-all duration-200",
-                addMenuOpen && "rotate-45 shadow-xl shadow-primary/40"
+                "flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition-all duration-200",
+                addMenuOpen && "rotate-45 shadow-lg shadow-primary/30"
               )}>
-                {addMenuOpen ? <X className="h-6 w-6" /> : <PlusCircle className="h-6 w-6" />}
+                {addMenuOpen ? <X className="h-5 w-5" /> : <PlusCircle className="h-5 w-5" />}
               </div>
-              <span className={cn("text-[11px] font-semibold leading-none",
+              <span className={cn("text-[11px] font-semibold",
                 addMenuOpen ? "text-primary" : "text-muted-foreground"
               )}>Adicionar</span>
             </button>
@@ -248,16 +243,11 @@ function AppLayout() {
               const isActive = pathname === to || pathname.startsWith(to + "/");
               return (
                 <Link key={to} to={to}
-                  className="flex flex-col items-center gap-0.5 min-w-[60px] py-1.5 transition-colors">
-                  <div className={cn(
-                    "flex h-11 w-11 items-center justify-center rounded-2xl transition-all",
-                    isActive ? "bg-primary/12 scale-105" : "bg-transparent"
-                  )}>
-                    <Icon className={cn("h-6 w-6 transition-colors",
-                      isActive ? "text-primary" : "text-muted-foreground"
-                    )} />
-                  </div>
-                  <span className={cn("text-[11px] font-semibold leading-none",
+                  className="flex flex-1 flex-col items-center justify-center gap-1 h-full">
+                  <Icon className={cn("h-[26px] w-[26px]",
+                    isActive ? "text-primary" : "text-muted-foreground"
+                  )} />
+                  <span className={cn("text-[11px] font-semibold",
                     isActive ? "text-primary" : "text-muted-foreground"
                   )}>{label}</span>
                 </Link>

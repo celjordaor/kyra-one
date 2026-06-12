@@ -171,8 +171,8 @@ function NovaDespesaPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-background md:max-w-2xl md:mx-auto">
-      <form onSubmit={handleSubmit(onSubmit)}>
+    <div className="min-h-screen w-full overflow-x-hidden bg-slate-50 dark:bg-background md:max-w-2xl md:mx-auto">
+      <form onSubmit={handleSubmit(onSubmit)} className="w-full">
 
         {/* ── HEADER SLIM ─────────────────────────────────────────────── */}
         <div className="bg-indigo-600 text-white px-4 pb-8"
@@ -297,8 +297,8 @@ function NovaDespesaPage() {
 
       {/* ── MODAL CARTÃO ─────────────────────────────────────────────────── */}
       <Dialog open={openCard} onOpenChange={setOpenCard}>
-        <DialogContent className="fixed bottom-0 left-0 right-0 top-auto m-0 w-full max-w-none rounded-t-3xl p-0 border-0"
-          style={{ maxHeight: "60vh" }} onOpenAutoFocus={e => e.preventDefault()}>
+        <DialogContent className="fixed bottom-0 left-0 right-0 top-auto m-0 w-screen max-w-none rounded-t-3xl p-0 border-0"
+          style={{ maxHeight: "60vh", transform: "none" }} onOpenAutoFocus={e => e.preventDefault()}>
           <div className="flex justify-center pt-3 pb-2"><div className="w-10 h-1.5 rounded-full bg-slate-200 dark:bg-muted"/></div>
           <div className="flex items-center justify-between px-5 pb-3">
             <h2 className="text-[18px] font-bold">Cartão</h2>
@@ -329,8 +329,8 @@ function NovaDespesaPage() {
 
       {/* ── MODAL CATEGORIA ──────────────────────────────────────────────── */}
       <Dialog open={openCat} onOpenChange={v => { setOpenCat(v); if (!v) setCatSearch(""); }}>
-        <DialogContent className="fixed bottom-0 left-0 right-0 top-auto m-0 w-full max-w-none rounded-t-3xl p-0 border-0"
-          style={{ maxHeight: "78vh" }} onOpenAutoFocus={e => e.preventDefault()}>
+        <DialogContent className="fixed bottom-0 left-0 right-0 top-auto m-0 w-screen max-w-none rounded-t-3xl p-0 border-0"
+          style={{ maxHeight: "78vh", transform: "none" }} onOpenAutoFocus={e => e.preventDefault()}>
           <div className="flex justify-center pt-3 pb-2"><div className="w-10 h-1.5 rounded-full bg-slate-200 dark:bg-muted"/></div>
           <div className="flex items-center justify-between px-5 pb-3">
             <h2 className="text-[18px] font-bold">Categoria</h2>
@@ -368,8 +368,8 @@ function NovaDespesaPage() {
 
       {/* ── MODAL FATURA ─────────────────────────────────────────────────── */}
       <Dialog open={openBilling} onOpenChange={setOpenBilling}>
-        <DialogContent className="fixed bottom-0 left-0 right-0 top-auto m-0 w-full max-w-none rounded-t-3xl p-0 border-0"
-          style={{ maxHeight: "60vh" }} onOpenAutoFocus={e => e.preventDefault()}>
+        <DialogContent className="fixed bottom-0 left-0 right-0 top-auto m-0 w-screen max-w-none rounded-t-3xl p-0 border-0"
+          style={{ maxHeight: "60vh", transform: "none" }} onOpenAutoFocus={e => e.preventDefault()}>
           <div className="flex justify-center pt-3 pb-2"><div className="w-10 h-1.5 rounded-full bg-slate-200 dark:bg-muted"/></div>
           <div className="flex items-center justify-between px-5 pb-4">
             <h2 className="text-[18px] font-bold">Fatura destino</h2>
