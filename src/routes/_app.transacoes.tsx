@@ -200,7 +200,7 @@ function TransacoesPage() {
   };
 
   return (
-    <div className="space-y-4 p-5">
+    <div className="space-y-4 md:p-8 md:max-w-3xl md:mx-auto" style={{ padding: "1.25rem", paddingTop: "calc(1.25rem + env(safe-area-inset-top))" }}>
       <h1 className="text-xl font-bold text-foreground">Transações</h1>
 
       {/* Seletor de mês */}
@@ -281,7 +281,7 @@ function TransacoesPage() {
             {activeFilter === "Faturas" ? "Total em faturas" : "Total do período"}
           </p>
           <p className={cn("text-lg font-bold", activeFilter === "Faturas" ? "text-blue-500" : "text-foreground")}>
-            {activeFilter === "Faturas" ? `-${fmt(totalFaturas)}` : fmt(totalBalance)}
+            {activeFilter === "Faturas" ? fmt(totalFaturas) : fmt(totalBalance)}
           </p>
         </div>
         <p className="text-xs text-muted-foreground">
@@ -315,22 +315,22 @@ function TransacoesPage() {
                   <div key={t.id}
                     className={`flex items-center justify-between rounded-xl border p-3 shadow-sm ${t.settled ? "bg-settled" : "bg-pending"}`}>
                     <div className="flex items-center gap-3">
-                      <div className={cn("flex h-9 w-9 items-center justify-center rounded-full",
+                      <div className={cn("flex h-10 w-10 items-center justify-center rounded-full",
                         isFatura ? "bg-blue-100" : t.type === "income" ? "bg-emerald-100" : "bg-red-100"
                       )}>
                         {isFatura
-                          ? <CreditCard className="h-4 w-4 text-blue-500" />
+                          ? <CreditCard className="h-5 w-5 text-blue-500" />
                           : isInstallmentTransaction(t)
                           ? (t.type === "income"
-                              ? <Repeat2 className="h-4 w-4 text-emerald-600" />
-                              : <Repeat2 className="h-4 w-4 text-red-500" />)
+                              ? <Repeat2 className="h-5 w-5 text-emerald-600" />
+                              : <Repeat2 className="h-5 w-5 text-red-500" />)
                           : t.type === "income"
-                          ? <TrendingUp className="h-4 w-4 text-emerald-600" />
-                          : <TrendingDown className="h-4 w-4 text-red-500" />}
+                          ? <TrendingUp className="h-5 w-5 text-emerald-600" />
+                          : <TrendingDown className="h-5 w-5 text-red-500" />}
                       </div>
                       <div>
                         <div className="flex items-center gap-1.5">
-                          <p className="text-sm font-medium text-foreground">{getDisplayTitle(t)}</p>
+                          <p className="text-[15px] font-semibold text-foreground">{getDisplayTitle(t)}</p>
                           {t.recurring && !isFatura && (
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -345,7 +345,7 @@ function TransacoesPage() {
                     </div>
                     <div className="flex flex-col items-end gap-0.5">
                       <div className="flex items-center gap-2">
-                        <p className={cn("text-sm font-semibold",
+                        <p className={cn("text-[15px] font-bold",
                           isFatura ? "text-blue-500" : t.type === "income" ? "text-emerald-600" : "text-red-500"
                         )}>
                           {t.type === "income" ? "+" : ""}{fmt(Math.abs(t.amount))}
@@ -353,7 +353,7 @@ function TransacoesPage() {
                         {isFatura ? (
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground/50 cursor-default">
+                              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground/50 cursor-default">
                                 <Lock className="h-3.5 w-3.5" />
                               </span>
                             </TooltipTrigger>
@@ -364,7 +364,7 @@ function TransacoesPage() {
                         ) : (
                           <>
                             <button onClick={() => !isFuture && toggleSettled(t.id)} disabled={isFuture}
-                              className={cn("flex h-7 w-7 items-center justify-center rounded-full transition-colors",
+                              className={cn("flex h-8 w-8 items-center justify-center rounded-full transition-colors",
                                 isFuture ? "cursor-not-allowed text-muted-foreground/40"
                                 : t.settled ? "bg-emerald-100 text-emerald-600 hover:bg-emerald-200"
                                 : "border border-dashed border-muted-foreground/40 text-muted-foreground hover:bg-muted"
@@ -379,7 +379,7 @@ function TransacoesPage() {
                                   setEditingId(t.id);
                                 }
                               }}
-                              className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground">
+                              className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground">
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
                             <button
@@ -392,7 +392,7 @@ function TransacoesPage() {
                                 }
                               }}
                               disabled={t.settled}
-                              className={cn("flex h-7 w-7 items-center justify-center rounded-full transition-colors",
+                              className={cn("flex h-8 w-8 items-center justify-center rounded-full transition-colors",
                                 t.settled ? "cursor-not-allowed text-muted-foreground/30" : "text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                               )}>
                               <Trash2 className="h-3.5 w-3.5" />
@@ -441,7 +441,7 @@ function TransacoesPage() {
                     )}>
                     <div className="flex min-w-0 items-center gap-3">
                       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-100">
-                        <CreditCard className="h-4 w-4 text-blue-500" />
+                        <CreditCard className="h-5 w-5 text-blue-500" />
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5">
@@ -485,6 +485,15 @@ function TransacoesPage() {
           const cardId = detailCard?.id;
           setDetailInvoice(null); setDetailCard(null);
           router.navigate({ to: "/cartoes/nova-despesa", search: { cardId } });
+        }}
+        onDataChanged={async () => {
+          if (detailInvoice) {
+            // Recarregar despesas e parcelas da fatura
+            await fetchExpenses(detailInvoice.id);
+            await fetchInstallments(detailInvoice.id);
+            // Recarregar faturas do cartão para atualizar totais
+            await fetchInvoices(detailInvoice.card_id);
+          }
         }}
       />
 
@@ -889,7 +898,10 @@ function EditTransactionDialog({ transaction, onClose, bulkEdit = false, allTran
 
   return (
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
+      <DialogContent
+        className="w-[95vw] max-w-lg sm:max-w-md max-h-[90dvh] overflow-y-auto"
+        onOpenAutoFocus={e => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             Editar transação
@@ -916,16 +928,16 @@ function EditTransactionDialog({ transaction, onClose, bulkEdit = false, allTran
             <Label>Valor</Label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
-              <Input inputMode="decimal" className="h-11 pl-9 font-semibold" value={amountDisplay} onChange={e => handleAmountChange(e.target.value)} />
+              <Input inputMode="decimal" className="h-12 pl-9 text-base font-semibold" value={amountDisplay} onChange={e => handleAmountChange(e.target.value)} />
             </div>
           </div>
           <div className="space-y-1.5">
             <Label>Descrição</Label>
-            <Input value={title} onChange={e => setTitle(e.target.value)} />
+            <Input value={title} onChange={e => setTitle(e.target.value)} className="h-12 text-base" />
           </div>
           <div className="space-y-1.5">
             <Label>Categoria</Label>
-            <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pb-0.5">
+            <div className="flex flex-wrap gap-2 max-h-44 overflow-y-auto pb-1">
               {availableCategories.map(cat => {
                 const isSel   = category === cat.name;
                 const color   = cat.color || "#6b7280";
@@ -933,12 +945,12 @@ function EditTransactionDialog({ transaction, onClose, bulkEdit = false, allTran
                 return (
                   <button key={cat.id} type="button" onClick={() => setCategory(cat.name)}
                     className={cn(
-                      "flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-medium transition-all",
+                      "flex items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium transition-all",
                       isSel ? "border-transparent shadow-sm" : "border-border hover:border-transparent hover:shadow-sm"
                     )}
                     style={isSel ? { background: color + "22", borderColor: color + "88", color } : {}}>
                     <span
-                      className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px]"
+                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs"
                       style={{ background: color + "33" }}>
                       {isEmoji ? cat.icon : (cat.name[0] ?? "?").toUpperCase()}
                     </span>
@@ -967,8 +979,8 @@ function EditTransactionDialog({ transaction, onClose, bulkEdit = false, allTran
           {error && <p className="text-xs text-destructive">{error}</p>}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleSave}>Salvar</Button>
+          <Button variant="outline" className="h-11" onClick={onClose}>Cancelar</Button>
+          <Button className="h-11" onClick={handleSave}>Salvar</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

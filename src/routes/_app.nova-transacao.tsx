@@ -65,11 +65,11 @@ function FieldRow({
   );
   const inner = (
     <>
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-muted text-slate-500 dark:text-muted-foreground">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-muted text-slate-500 dark:text-muted-foreground">
         {icon}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-muted-foreground mb-0.5">{label}</p>
+        <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-muted-foreground mb-0.5">{label}</p>
         {children}
         {error && <p className="text-[11px] text-destructive mt-0.5">{error}</p>}
       </div>
@@ -94,12 +94,12 @@ function SwitchRow({
       !last && "border-b border-slate-100 dark:border-border",
       disabled && "opacity-50"
     )}>
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-muted text-slate-500 dark:text-muted-foreground">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-muted text-slate-500 dark:text-muted-foreground">
         {icon}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-[15px] font-medium text-slate-800 dark:text-foreground leading-snug">{label}</p>
-        <p className="text-[12px] text-slate-400 dark:text-muted-foreground mt-0.5">{description}</p>
+        <p className="text-base font-medium text-slate-800 dark:text-foreground leading-snug">{label}</p>
+        <p className="text-[13px] text-slate-400 dark:text-muted-foreground mt-0.5">{description}</p>
       </div>
       <Switch checked={checked} onCheckedChange={onCheckedChange} disabled={disabled} />
     </div>
@@ -239,7 +239,7 @@ function NovaTransacaoPage() {
                 type="text" inputMode="decimal"
                 value={amountDisplay}
                 onChange={e => handleAmountChange(e.target.value)}
-                className="flex-1 bg-transparent text-white outline-none border-none text-4xl font-bold placeholder-white/40 min-w-0"
+                className="flex-1 bg-transparent text-white outline-none border-none text-4xl font-bold placeholder-white/40 min-w-0" style={{ fontSize: "clamp(2rem, 8vw, 2.5rem)" }}
                 placeholder="0,00"
               />
             </div>
@@ -260,7 +260,7 @@ function NovaTransacaoPage() {
             <FieldRow icon={<FileText className="h-5 w-5" />} label="Descrição" error={errors.title?.message}>
               <input
                 {...register("title")}
-                className="text-[15px] font-medium text-slate-800 dark:text-foreground bg-transparent outline-none w-full placeholder-slate-400 dark:placeholder-muted-foreground"
+                className="text-base font-medium text-slate-800 dark:text-foreground bg-transparent outline-none w-full placeholder-slate-400 dark:placeholder-muted-foreground"
                 placeholder="Ex: Supermercado, Salário..."
                 autoComplete="off"
               />
@@ -321,7 +321,7 @@ function NovaTransacaoPage() {
               repeat && "bg-slate-50/80 dark:bg-muted/20"
             )}>
               <div className="flex items-center gap-3.5 px-4 py-3.5">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-muted text-slate-500 dark:text-muted-foreground">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-muted text-slate-500 dark:text-muted-foreground">
                   <Repeat2 className="h-5 w-5" />
                 </div>
                 <div className="flex-1">
@@ -361,7 +361,7 @@ function NovaTransacaoPage() {
 
             {/* Recorrente info (quando selecionada) */}
             <div className="flex items-center gap-3.5 px-4 py-3.5">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-muted text-slate-500 dark:text-muted-foreground">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-muted text-slate-500 dark:text-muted-foreground">
                 <Layers className="h-5 w-5" />
               </div>
               <div className="flex-1">
@@ -378,7 +378,7 @@ function NovaTransacaoPage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full h-14 rounded-2xl text-white font-bold text-base shadow-lg transition-all active:scale-95 disabled:opacity-70"
+              className="w-full h-16 rounded-2xl text-white font-bold text-[17px] shadow-lg transition-all active:scale-95 disabled:opacity-70"
               style={{ backgroundColor: accentColor, boxShadow: `0 8px 24px ${accentColor}55` }}>
               {isSubmitting ? "Salvando..." : isIncome ? "Registrar receita" : "Registrar despesa"}
             </button>

@@ -166,7 +166,7 @@ function AppLayout() {
         {/* ══ CONTEÚDO PRINCIPAL ════════════════════════════════════════ */}
         <div className="flex flex-1 flex-col md:ml-64">
           {showBanner && <div className="h-10 md:block hidden" />}
-          <main className="flex-1 pb-20 md:pb-8">
+          <main className="flex-1 md:pb-8" style={{ paddingBottom: "max(88px, calc(68px + env(safe-area-inset-bottom)))" }}>
             <Outlet />
           </main>
         </div>
@@ -180,7 +180,7 @@ function AppLayout() {
         )}
 
         {addMenuOpen && (
-          <div className="md:hidden fixed bottom-24 left-1/2 z-50 flex -translate-x-1/2 items-end gap-6">
+          <div className="md:hidden fixed z-50 flex items-end gap-6 left-1/2 -translate-x-1/2" style={{ bottom: "calc(80px + env(safe-area-inset-bottom))" }}>
             <button onClick={() => handleAddTransaction("income")}
               className="flex flex-col items-center gap-1.5 transition-transform active:scale-95">
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-500 shadow-lg shadow-green-500/40">
@@ -206,44 +206,66 @@ function AppLayout() {
         )}
 
         {/* Bottom nav — apenas mobile */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-card/95 backdrop-blur-sm">
-          <div className="mx-auto flex max-w-lg items-center justify-around px-2 py-2">
+        {/* ══ BOTTOM NAV — PWA / MOBILE ══════════════════════════════════ */}
+        <nav
+          className="md:hidden fixed bottom-0 left-0 right-0 z-30 border-t border-border/60 bg-card/98 backdrop-blur-md"
+          style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+          <div className="mx-auto flex max-w-lg items-center justify-around px-1 pt-1.5 pb-1">
+
             {navItems.slice(0, 2).map(({ to, label, icon: Icon }) => {
               const isActive = pathname === to || pathname.startsWith(to + "/");
               return (
                 <Link key={to} to={to}
-                  className={cn("flex flex-col items-center gap-0.5 px-3 py-1 transition-colors",
-                    isActive ? "text-primary" : "text-muted-foreground"
+                  className="flex flex-col items-center gap-0.5 min-w-[60px] py-1.5 transition-colors">
+                  <div className={cn(
+                    "flex h-11 w-11 items-center justify-center rounded-2xl transition-all",
+                    isActive ? "bg-primary/12 scale-105" : "bg-transparent"
                   )}>
-                  <Icon className="h-5 w-5" />
-                  <span className="text-[10px] font-medium">{label}</span>
+                    <Icon className={cn("h-6 w-6 transition-colors",
+                      isActive ? "text-primary" : "text-muted-foreground"
+                    )} />
+                  </div>
+                  <span className={cn("text-[11px] font-semibold leading-none",
+                    isActive ? "text-primary" : "text-muted-foreground"
+                  )}>{label}</span>
                 </Link>
               );
             })}
+
+            {/* Botão central + */}
             <button onClick={() => setAddMenuOpen(!addMenuOpen)}
-              className="flex flex-col items-center gap-0.5 px-3 py-1">
+              className="flex flex-col items-center gap-0.5 min-w-[60px] py-1.5">
               <div className={cn(
-                "flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition-all duration-200",
-                addMenuOpen && "rotate-45 shadow-lg shadow-primary/30"
+                "flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-all duration-200",
+                addMenuOpen && "rotate-45 shadow-xl shadow-primary/40"
               )}>
-                {addMenuOpen ? <X className="h-5 w-5" /> : <PlusCircle className="h-5 w-5" />}
+                {addMenuOpen ? <X className="h-6 w-6" /> : <PlusCircle className="h-6 w-6" />}
               </div>
-              <span className={cn("text-[10px] font-medium",
+              <span className={cn("text-[11px] font-semibold leading-none",
                 addMenuOpen ? "text-primary" : "text-muted-foreground"
               )}>Adicionar</span>
             </button>
+
             {navItems.slice(2).map(({ to, label, icon: Icon }) => {
               const isActive = pathname === to || pathname.startsWith(to + "/");
               return (
                 <Link key={to} to={to}
-                  className={cn("flex flex-col items-center gap-0.5 px-3 py-1 transition-colors",
-                    isActive ? "text-primary" : "text-muted-foreground"
+                  className="flex flex-col items-center gap-0.5 min-w-[60px] py-1.5 transition-colors">
+                  <div className={cn(
+                    "flex h-11 w-11 items-center justify-center rounded-2xl transition-all",
+                    isActive ? "bg-primary/12 scale-105" : "bg-transparent"
                   )}>
-                  <Icon className="h-5 w-5" />
-                  <span className="text-[10px] font-medium">{label}</span>
+                    <Icon className={cn("h-6 w-6 transition-colors",
+                      isActive ? "text-primary" : "text-muted-foreground"
+                    )} />
+                  </div>
+                  <span className={cn("text-[11px] font-semibold leading-none",
+                    isActive ? "text-primary" : "text-muted-foreground"
+                  )}>{label}</span>
                 </Link>
               );
             })}
+
           </div>
         </nav>
       </div>
