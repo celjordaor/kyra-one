@@ -1,6 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { useSubscription } from "@/lib/subscription-store";
-import { UpgradeGate } from "@/components/upgrade-gate";
+import { toast } from "sonner";
 import { useMemo, useState } from "react";
 import { Target, Plus, TrendingDown, Pencil, Trash2, PiggyBank, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -104,35 +105,27 @@ function AmountInput({
 
 export const Route = createFileRoute("/_app/metas")({
   head: () => ({ meta: [{ title: "Metas — Finanças Pessoais" }] }),
-  component: MetasWrapper,
+  component: MetasPage,
 });
 
 type Tab = "budgets" | "goals";
 
-function MetasWrapper() {
-  const { subscription, loading: subLoading } = useSubscription();
-
-  if (subLoading) {
-    return (
-      <div className="flex min-h-[calc(100vh-5rem)] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
-  }
-
-  if (!subscription?.isAdvancado) {
-    return (
-      <UpgradeGate
-        featureName="Metas e Orçamentos"
-        description="Defina metas de economia, crie orçamentos por categoria e acompanhe seu progresso financeiro."
-      />
-    );
-  }
-
-  return <MetasPage />;
-}
-
 function MetasPage() {
+  const router = useRouter();
+  const { subscription } = useSubscription();
+
+  useEffect(() => {
+    if (subscription && !subscription.isAdvancado) {
+      toast.error("Metas e Orçamentos é exclusivo do plano Avançado", {
+        description: "Faça upgrade para acessar esse recurso.",
+        duration: 4000,
+      });
+      router.navigate({ to: "/planos" });
+    }
+  }, [subscription]);
+
+  if (subscription && !subscription.isAdvancado) return null;
+
   const [tab, setTab] = useState<Tab>("budgets");
 
   return (

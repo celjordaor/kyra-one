@@ -22,6 +22,7 @@ import { Route as AppTransacoesRouteImport } from './routes/_app.transacoes'
 import { Route as AppPerfilRouteImport } from './routes/_app.perfil'
 import { Route as AppNovaTransacaoRouteImport } from './routes/_app.nova-transacao'
 import { Route as AppMetasRouteImport } from './routes/_app.metas'
+import { Route as AppMaisRouteImport } from './routes/_app.mais'
 import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
 import { Route as AppCategoriasRouteImport } from './routes/_app.categorias'
 import { Route as AppCartoesIndexRouteImport } from './routes/_app/cartoes/index'
@@ -94,6 +95,11 @@ const AppMetasRoute = AppMetasRouteImport.update({
   path: '/metas',
   getParentRoute: () => AppRoute,
 } as any)
+const AppMaisRoute = AppMaisRouteImport.update({
+  id: '/mais',
+  path: '/mais',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppDashboardRoute = AppDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -142,6 +148,7 @@ export interface FileRoutesByFullPath {
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/categorias': typeof AppCategoriasRoute
   '/dashboard': typeof AppDashboardRoute
+  '/mais': typeof AppMaisRoute
   '/metas': typeof AppMetasRoute
   '/nova-transacao': typeof AppNovaTransacaoRoute
   '/perfil': typeof AppPerfilRoute
@@ -163,6 +170,7 @@ export interface FileRoutesByTo {
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/categorias': typeof AppCategoriasRoute
   '/dashboard': typeof AppDashboardRoute
+  '/mais': typeof AppMaisRoute
   '/metas': typeof AppMetasRoute
   '/nova-transacao': typeof AppNovaTransacaoRoute
   '/perfil': typeof AppPerfilRoute
@@ -186,6 +194,7 @@ export interface FileRoutesById {
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/_app/categorias': typeof AppCategoriasRoute
   '/_app/dashboard': typeof AppDashboardRoute
+  '/_app/mais': typeof AppMaisRoute
   '/_app/metas': typeof AppMetasRoute
   '/_app/nova-transacao': typeof AppNovaTransacaoRoute
   '/_app/perfil': typeof AppPerfilRoute
@@ -209,6 +218,7 @@ export interface FileRouteTypes {
     | '/recuperar-senha'
     | '/categorias'
     | '/dashboard'
+    | '/mais'
     | '/metas'
     | '/nova-transacao'
     | '/perfil'
@@ -230,6 +240,7 @@ export interface FileRouteTypes {
     | '/recuperar-senha'
     | '/categorias'
     | '/dashboard'
+    | '/mais'
     | '/metas'
     | '/nova-transacao'
     | '/perfil'
@@ -252,6 +263,7 @@ export interface FileRouteTypes {
     | '/recuperar-senha'
     | '/_app/categorias'
     | '/_app/dashboard'
+    | '/_app/mais'
     | '/_app/metas'
     | '/_app/nova-transacao'
     | '/_app/perfil'
@@ -368,6 +380,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppMetasRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/mais': {
+      id: '/_app/mais'
+      path: '/mais'
+      fullPath: '/mais'
+      preLoaderRoute: typeof AppMaisRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/dashboard': {
       id: '/_app/dashboard'
       path: '/dashboard'
@@ -434,6 +453,7 @@ const AppCartoesCardIdRouteWithChildren =
 interface AppRouteChildren {
   AppCategoriasRoute: typeof AppCategoriasRoute
   AppDashboardRoute: typeof AppDashboardRoute
+  AppMaisRoute: typeof AppMaisRoute
   AppMetasRoute: typeof AppMetasRoute
   AppNovaTransacaoRoute: typeof AppNovaTransacaoRoute
   AppPerfilRoute: typeof AppPerfilRoute
@@ -447,6 +467,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppCategoriasRoute: AppCategoriasRoute,
   AppDashboardRoute: AppDashboardRoute,
+  AppMaisRoute: AppMaisRoute,
   AppMetasRoute: AppMetasRoute,
   AppNovaTransacaoRoute: AppNovaTransacaoRoute,
   AppPerfilRoute: AppPerfilRoute,
