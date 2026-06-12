@@ -7,7 +7,7 @@ import {
   ArrowLeft, ChevronRight, CheckCircle2, Search,
   CreditCard, Tag, Calendar, FileText, Receipt, Repeat, StickyNote,
 } from "lucide-react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+
 import { Switch } from "@/components/ui/switch";
 import { useCardStore, type Invoice } from "@/lib/card-store";
 import { supabase } from "@/lib/supabase";
@@ -17,6 +17,35 @@ import { DatePicker } from "@/components/cartoes/date-picker";
 import { InstallmentPicker } from "@/components/cartoes/installment-picker";
 import { useCategories } from "@/lib/categories-store";
 import { cn } from "@/lib/utils";
+import { X } from "lucide-react";
+
+// ── Bottom Sheet sem Radix Dialog ─────────────────────────────────────────
+function BottomSheet({
+  open, onClose, title, maxHeight = "75vh", children,
+}: {
+  open: boolean; onClose: () => void; title: string;
+  maxHeight?: string; children: React.ReactNode;
+}) {
+  if (!open) return null;
+  return (
+    <>
+      <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 z-[201] flex flex-col bg-white dark:bg-card rounded-t-3xl overflow-hidden"
+        style={{ maxHeight }}>
+        <div className="flex justify-center pt-3 pb-1 shrink-0">
+          <div className="w-10 h-1.5 rounded-full bg-slate-200 dark:bg-muted" />
+        </div>
+        <div className="flex items-center justify-between px-5 py-3 shrink-0 border-b border-slate-100 dark:border-border">
+          <h2 className="text-[18px] font-bold text-slate-800 dark:text-foreground">{title}</h2>
+          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 dark:bg-muted">
+            <X className="h-4 w-4 text-slate-500" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto overscroll-contain">{children}</div>
+      </div>
+    </>
+  );
+}
 
 function isEmoji(s: string) { return (s?.codePointAt(0) ?? 0) > 0x2000; }
 
@@ -171,8 +200,8 @@ function NovaDespesaPage() {
   };
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden bg-slate-50 dark:bg-background md:max-w-2xl md:mx-auto">
-      <form onSubmit={handleSubmit(onSubmit)} className="w-full">
+    <div className="w-full min-h-screen bg-slate-50 dark:bg-background md:max-w-2xl md:mx-auto">
+      <form onSubmit={handleSubmit(onSubmit)}>
 
         {/* ── HEADER SLIM ─────────────────────────────────────────────── */}
         <div className="bg-indigo-600 text-white px-4 pb-8"
@@ -297,8 +326,8 @@ function NovaDespesaPage() {
 
       {/* ── MODAL CARTÃO ─────────────────────────────────────────────────── */}
       <Dialog open={openCard} onOpenChange={setOpenCard}>
-        <DialogContent className="fixed bottom-0 left-0 right-0 top-auto m-0 w-screen max-w-none rounded-t-3xl p-0 border-0"
-          style={{ maxHeight: "60vh", transform: "none" }} onOpenAutoFocus={e => e.preventDefault()}>
+        <DialogContent className="fixed bottom-0 left-0 right-0 top-auto m-0 w-full max-w-none rounded-t-3xl p-0 border-0"
+          style={{ maxHeight: "60vh" }} onOpenAutoFocus={e => e.preventDefault()}>
           <div className="flex justify-center pt-3 pb-2"><div className="w-10 h-1.5 rounded-full bg-slate-200 dark:bg-muted"/></div>
           <div className="flex items-center justify-between px-5 pb-3">
             <h2 className="text-[18px] font-bold">Cartão</h2>
@@ -324,13 +353,11 @@ function NovaDespesaPage() {
               );
             })}
           </div>
-        </DialogContent>
-      </Dialog>
 
-      {/* ── MODAL CATEGORIA ──────────────────────────────────────────────── */}
+      {/* ── BOTTOM SHEET: CATEGORIA ──────────────────────────────────────────────── */}
       <Dialog open={openCat} onOpenChange={v => { setOpenCat(v); if (!v) setCatSearch(""); }}>
-        <DialogContent className="fixed bottom-0 left-0 right-0 top-auto m-0 w-screen max-w-none rounded-t-3xl p-0 border-0"
-          style={{ maxHeight: "78vh", transform: "none" }} onOpenAutoFocus={e => e.preventDefault()}>
+        <DialogContent className="fixed bottom-0 left-0 right-0 top-auto m-0 w-full max-w-none rounded-t-3xl p-0 border-0"
+          style={{ maxHeight: "78vh" }} onOpenAutoFocus={e => e.preventDefault()}>
           <div className="flex justify-center pt-3 pb-2"><div className="w-10 h-1.5 rounded-full bg-slate-200 dark:bg-muted"/></div>
           <div className="flex items-center justify-between px-5 pb-3">
             <h2 className="text-[18px] font-bold">Categoria</h2>
@@ -342,8 +369,8 @@ function NovaDespesaPage() {
               onChange={e => setCatSearch(e.target.value)}
               className="h-12 w-full rounded-2xl bg-slate-100 dark:bg-muted pl-11 pr-4 text-base outline-none placeholder-slate-400" />
           </div>
-          <div className="overflow-y-auto pb-6 px-4" style={{ maxHeight: "calc(78vh - 140px)" }}>
-            <div className="grid grid-cols-3 gap-3">
+          </div>
+          <div className="grid grid-cols-3 gap-3 px-4 pb-8">
               {categories.filter(c => c.name.toLowerCase().includes(catSearch.toLowerCase())).map(cat => {
                 const isSel = selectedCatName === cat.name;
                 const color = cat.color || "#6b7280";
@@ -361,15 +388,12 @@ function NovaDespesaPage() {
                   </button>
                 );
               })}
-            </div>
           </div>
-        </DialogContent>
-      </Dialog>
 
-      {/* ── MODAL FATURA ─────────────────────────────────────────────────── */}
+      {/* ── BOTTOM SHEET: FATURA ─────────────────────────────────────────────────── */}
       <Dialog open={openBilling} onOpenChange={setOpenBilling}>
-        <DialogContent className="fixed bottom-0 left-0 right-0 top-auto m-0 w-screen max-w-none rounded-t-3xl p-0 border-0"
-          style={{ maxHeight: "60vh", transform: "none" }} onOpenAutoFocus={e => e.preventDefault()}>
+        <DialogContent className="fixed bottom-0 left-0 right-0 top-auto m-0 w-full max-w-none rounded-t-3xl p-0 border-0"
+          style={{ maxHeight: "60vh" }} onOpenAutoFocus={e => e.preventDefault()}>
           <div className="flex justify-center pt-3 pb-2"><div className="w-10 h-1.5 rounded-full bg-slate-200 dark:bg-muted"/></div>
           <div className="flex items-center justify-between px-5 pb-4">
             <h2 className="text-[18px] font-bold">Fatura destino</h2>
@@ -397,8 +421,7 @@ function NovaDespesaPage() {
               );
             })}
           </div>
-        </DialogContent>
-      </Dialog>
+      </BottomSheet>
     </div>
   );
 }
