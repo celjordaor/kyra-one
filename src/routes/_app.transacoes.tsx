@@ -200,7 +200,7 @@ function TransacoesPage() {
   };
 
   return (
-    <div className="space-y-4 md:p-8 md:max-w-3xl md:mx-auto" style={{ padding: "1.25rem", paddingTop: "calc(1.25rem + env(safe-area-inset-top))" }}>
+    <div className="space-y-4 md:p-8 md:max-w-3xl md:mx-auto" style={{ padding: "1.25rem", paddingTop: "calc(1.5rem + env(safe-area-inset-top, 0px))" }}>
       <h1 className="text-xl font-bold text-foreground">Transações</h1>
 
       {/* Seletor de mês */}
@@ -315,22 +315,22 @@ function TransacoesPage() {
                   <div key={t.id}
                     className={`flex items-center justify-between rounded-xl border p-3 shadow-sm ${t.settled ? "bg-settled" : "bg-pending"}`}>
                     <div className="flex items-center gap-3">
-                      <div className={cn("flex h-10 w-10 items-center justify-center rounded-full",
+                      <div className={cn("flex h-9 w-9 items-center justify-center rounded-full",
                         isFatura ? "bg-blue-100" : t.type === "income" ? "bg-emerald-100" : "bg-red-100"
                       )}>
                         {isFatura
-                          ? <CreditCard className="h-5 w-5 text-blue-500" />
+                          ? <CreditCard className="h-4 w-4 text-blue-500" />
                           : isInstallmentTransaction(t)
                           ? (t.type === "income"
-                              ? <Repeat2 className="h-5 w-5 text-emerald-600" />
-                              : <Repeat2 className="h-5 w-5 text-red-500" />)
+                              ? <Repeat2 className="h-4 w-4 text-emerald-600" />
+                              : <Repeat2 className="h-4 w-4 text-red-500" />)
                           : t.type === "income"
-                          ? <TrendingUp className="h-5 w-5 text-emerald-600" />
-                          : <TrendingDown className="h-5 w-5 text-red-500" />}
+                          ? <TrendingUp className="h-4 w-4 text-emerald-600" />
+                          : <TrendingDown className="h-4 w-4 text-red-500" />}
                       </div>
                       <div>
                         <div className="flex items-center gap-1.5">
-                          <p className="text-[15px] font-semibold text-foreground">{getDisplayTitle(t)}</p>
+                          <p className="text-sm font-medium text-foreground">{getDisplayTitle(t)}</p>
                           {t.recurring && !isFatura && (
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -345,7 +345,7 @@ function TransacoesPage() {
                     </div>
                     <div className="flex flex-col items-end gap-0.5">
                       <div className="flex items-center gap-2">
-                        <p className={cn("text-[15px] font-bold",
+                        <p className={cn("text-sm font-semibold",
                           isFatura ? "text-blue-500" : t.type === "income" ? "text-emerald-600" : "text-red-500"
                         )}>
                           {t.type === "income" ? "+" : ""}{fmt(Math.abs(t.amount))}
@@ -353,7 +353,7 @@ function TransacoesPage() {
                         {isFatura ? (
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground/50 cursor-default">
+                              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground/50 cursor-default">
                                 <Lock className="h-3.5 w-3.5" />
                               </span>
                             </TooltipTrigger>
@@ -364,7 +364,7 @@ function TransacoesPage() {
                         ) : (
                           <>
                             <button onClick={() => !isFuture && toggleSettled(t.id)} disabled={isFuture}
-                              className={cn("flex h-8 w-8 items-center justify-center rounded-full transition-colors",
+                              className={cn("flex h-7 w-7 items-center justify-center rounded-full transition-colors",
                                 isFuture ? "cursor-not-allowed text-muted-foreground/40"
                                 : t.settled ? "bg-emerald-100 text-emerald-600 hover:bg-emerald-200"
                                 : "border border-dashed border-muted-foreground/40 text-muted-foreground hover:bg-muted"
@@ -379,7 +379,7 @@ function TransacoesPage() {
                                   setEditingId(t.id);
                                 }
                               }}
-                              className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground">
+                              className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground">
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
                             <button
@@ -392,7 +392,7 @@ function TransacoesPage() {
                                 }
                               }}
                               disabled={t.settled}
-                              className={cn("flex h-8 w-8 items-center justify-center rounded-full transition-colors",
+                              className={cn("flex h-7 w-7 items-center justify-center rounded-full transition-colors",
                                 t.settled ? "cursor-not-allowed text-muted-foreground/30" : "text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                               )}>
                               <Trash2 className="h-3.5 w-3.5" />
@@ -441,7 +441,7 @@ function TransacoesPage() {
                     )}>
                     <div className="flex min-w-0 items-center gap-3">
                       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-100">
-                        <CreditCard className="h-5 w-5 text-blue-500" />
+                        <CreditCard className="h-4 w-4 text-blue-500" />
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5">
@@ -700,7 +700,7 @@ function InvoiceDetailModal({
           <Button variant="outline" size="sm" onClick={onClose}>Fechar</Button>
           {!isPaid && (
             <button onClick={onAddExpense}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md shadow-primary/25 hover:-translate-y-0.5 transition-all">
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md shadow-primary/25 hover:-translate-y-0.5 transition-all">
               <Plus className="h-5 w-5" />
             </button>
           )}

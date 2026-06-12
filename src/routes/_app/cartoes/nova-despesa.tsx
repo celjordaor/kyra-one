@@ -5,9 +5,9 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   ArrowLeft, ChevronRight, CheckCircle2, Search,
-  CreditCard, Tag, Calendar, FileText, Receipt, Repeat, StickyNote, Layers,
+  CreditCard, Tag, Calendar, FileText, Receipt, Repeat, StickyNote,
 } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { useCardStore, type Invoice } from "@/lib/card-store";
 import { supabase } from "@/lib/supabase";
@@ -18,10 +18,7 @@ import { InstallmentPicker } from "@/components/cartoes/installment-picker";
 import { useCategories } from "@/lib/categories-store";
 import { cn } from "@/lib/utils";
 
-function isValidEmoji(s: string): boolean {
-  if (!s) return false;
-  return (s.codePointAt(0) ?? 0) > 0x2000;
-}
+function isEmoji(s: string) { return (s?.codePointAt(0) ?? 0) > 0x2000; }
 
 export const Route = createFileRoute("/_app/cartoes/nova-despesa")({
   validateSearch: z.object({ cardId: z.string().optional() }),
@@ -41,38 +38,33 @@ const schema = z.object({
 });
 type FormData = z.infer<typeof schema>;
 
-function formatCurrencyInput(digits: string): string {
-  const nums = digits.replace(/\D/g, "");
-  if (!nums) return "";
-  return (parseInt(nums, 10) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function fmtInput(digits: string): string {
+  const n = digits.replace(/\D/g, "");
+  if (!n) return "";
+  return (parseInt(n, 10) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 });
 }
-function parseCurrencyInput(value: string): number {
-  return parseFloat(value.replace(/\./g, "").replace(",", ".")) || 0;
+function parseInput(v: string): number {
+  return parseFloat(v.replace(/\./g, "").replace(",", ".")) || 0;
 }
-function competenceToSortKey(c: string): string { const [mm, yyyy] = c.split("/"); return `${yyyy}-${mm}`; }
-function sortInvoicesByCompetence(invoices: Invoice[]): Invoice[] {
-  return [...invoices].sort((a, b) => competenceToSortKey(a.competence).localeCompare(competenceToSortKey(b.competence)));
+function toSortKey(c: string) { const [mm, yyyy] = c.split("/"); return `${yyyy}-${mm}`; }
+function sortedOpen(invs: Invoice[], cardId: string) {
+  return [...invs.filter(i => i.card_id === cardId && i.status === "open")]
+    .sort((a, b) => toSortKey(a.competence).localeCompare(toSortKey(b.competence)));
 }
-function resolveDefaultInvoice(invoices: Invoice[], cardId: string, purchaseDate: string): Invoice | null {
-  const today = startOfDay(new Date());
-  const pDate = purchaseDate ? startOfDay(parseISO(purchaseDate)) : today;
-  const open  = sortInvoicesByCompetence(invoices.filter(i => i.card_id === cardId && i.status === "open"));
+function defaultInvoice(invs: Invoice[], cardId: string, date: string): Invoice | null {
+  const pDate = date ? startOfDay(parseISO(date)) : startOfDay(new Date());
+  const open  = sortedOpen(invs, cardId);
   for (const inv of open) {
-    const closing = startOfDay(parseISO(inv.closing_date));
-    if (!isAfter(pDate, closing)) return inv;
+    if (!isAfter(pDate, startOfDay(parseISO(inv.closing_date)))) return inv;
   }
   return open[0] ?? null;
 }
 
-// ── Componentes visuais ────────────────────────────────────────────────────
+// ── Componentes ────────────────────────────────────────────────────────────
 function TxSection({ title, children }: { title?: string; children: React.ReactNode }) {
   return (
-    <div className="mx-4 mb-3">
-      {title && (
-        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-muted-foreground mb-1.5 px-1">
-          {title}
-        </p>
-      )}
+    <div className="mx-4 mb-4">
+      {title && <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 px-1">{title}</p>}
       <div className="rounded-2xl bg-white dark:bg-card shadow-sm border border-slate-100 dark:border-border overflow-hidden">
         {children}
       </div>
@@ -86,27 +78,21 @@ function FieldRow({
   icon: React.ReactNode; label: string; children: React.ReactNode;
   last?: boolean; onClick?: () => void; error?: string;
 }) {
-  const cls = cn(
-    "flex items-center gap-3.5 px-4 py-3.5 w-full text-left",
+  const cls = cn("flex items-center gap-4 px-5 w-full text-left",
     !last && "border-b border-slate-100 dark:border-border",
-    onClick && "hover:bg-slate-50 dark:hover:bg-muted/30 transition-colors"
-  );
+    onClick && "active:bg-slate-50 dark:active:bg-muted/30");
   const inner = (
     <>
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-muted text-slate-500 dark:text-muted-foreground">
-        {icon}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-muted-foreground mb-0.5">{label}</p>
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 dark:bg-muted text-slate-500">{icon}</div>
+      <div className="flex-1 min-w-0 py-4">
+        <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">{label}</p>
         {children}
-        {error && <p className="text-[11px] text-destructive mt-0.5">{error}</p>}
+        {error && <p className="text-[12px] text-destructive mt-1">{error}</p>}
       </div>
-      {onClick && <ChevronRight className="h-4 w-4 text-slate-400 shrink-0" />}
+      {onClick && <ChevronRight className="h-5 w-5 text-slate-300 shrink-0" />}
     </>
   );
-  return onClick
-    ? <button type="button" onClick={onClick} className={cls}>{inner}</button>
-    : <div className={cls}>{inner}</div>;
+  return onClick ? <button type="button" onClick={onClick} className={cls}>{inner}</button> : <div className={cls}>{inner}</div>;
 }
 
 // ── Página ─────────────────────────────────────────────────────────────────
@@ -114,25 +100,23 @@ function NovaDespesaPage() {
   const router = useRouter();
   const { cardId: preselectedCardId } = Route.useSearch();
   const { cards, invoices, fetchCards, ensureInvoices, fetchInvoices, addExpense } = useCardStore();
-  const allCategories = useCategories();
-  const categories    = allCategories.filter(c => c.active && c.type === "expense");
+  const allCats    = useCategories();
+  const categories = allCats.filter(c => c.active && c.type === "expense");
 
-  const [displayValue, setDisplayValue]   = useState("");
-  const [openCard, setOpenCard]           = useState(false);
-  const [openCat, setOpenCat]             = useState(false);
-  const [openBilling, setOpenBilling]     = useState(false);
-  const [catSearch, setCatSearch]         = useState("");
+  const [displayValue, setDisplayValue]       = useState("");
+  const [openCard, setOpenCard]               = useState(false);
+  const [openCat, setOpenCat]                 = useState(false);
+  const [openBilling, setOpenBilling]         = useState(false);
+  const [catSearch, setCatSearch]             = useState("");
   const [loadingInvoices, setLoadingInvoices] = useState(false);
 
-  const { register, handleSubmit, setValue, watch, control,
-    formState: { errors, isSubmitting } } = useForm<FormData>({
-    resolver: zodResolver(schema),
-    defaultValues: {
-      card_id: "", category: "", description: "", amount_raw: "",
-      purchase_date: new Date().toISOString().split("T")[0],
-      installments: 1, is_recurring: false, invoice_id: "", observations: "",
-    },
-  });
+  const { register, handleSubmit, setValue, watch, control, formState: { errors, isSubmitting } } =
+    useForm<FormData>({
+      resolver: zodResolver(schema),
+      defaultValues: { card_id: "", category: "", description: "", amount_raw: "",
+        purchase_date: new Date().toISOString().split("T")[0],
+        installments: 1, is_recurring: false, invoice_id: "", observations: "" },
+    });
 
   const selectedCardId  = watch("card_id");
   const purchaseDate    = watch("purchase_date");
@@ -143,23 +127,18 @@ function NovaDespesaPage() {
 
   const selectedCard    = cards.find(c => c.id === selectedCardId);
   const selectedCat     = categories.find(c => c.name === selectedCatName);
-  const cardInvoices    = sortInvoicesByCompetence(invoices.filter(i => i.card_id === selectedCardId && i.status === "open")).slice(0, 6);
+  const cardInvoices    = sortedOpen(invoices, selectedCardId).slice(0, 6);
   const selectedInvoice = cardInvoices.find(i => i.id === selectedInvId);
-  const parsedAmount    = parseCurrencyInput(displayValue);
+  const parsedAmount    = parseInput(displayValue);
 
+  useEffect(() => { if (cards.length === 0) fetchCards(); }, []);
   useEffect(() => {
-    if (cards.length === 0) fetchCards();
-  }, []);
-
-  useEffect(() => {
-    if (cards.length === 0) return;
-    const current = watch("card_id");
-    if (!current) {
+    if (!cards.length) return;
+    if (!watch("card_id")) {
       const def = cards.find(c => c.is_default && c.active) ?? cards.find(c => c.active);
       if (def) setValue("card_id", def.id);
     }
   }, [cards]);
-
   useEffect(() => {
     if (!selectedCardId) return;
     const c = cards.find(c => c.id === selectedCardId);
@@ -167,177 +146,126 @@ function NovaDespesaPage() {
     setLoadingInvoices(true);
     Promise.all([ensureInvoices(c), fetchInvoices(selectedCardId)]).finally(() => setLoadingInvoices(false));
   }, [selectedCardId]);
-
   useEffect(() => {
     if (!selectedCardId || !purchaseDate) return;
-    const def = resolveDefaultInvoice(invoices, selectedCardId, purchaseDate);
+    const def = defaultInvoice(invoices, selectedCardId, purchaseDate);
     if (def) setValue("invoice_id", def.id, { shouldValidate: true });
   }, [selectedCardId, purchaseDate, invoices.length]);
 
   function handleAmountChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const formatted = formatCurrencyInput(e.target.value);
-    setDisplayValue(formatted);
-    setValue("amount_raw", formatted, { shouldValidate: true });
+    const f = fmtInput(e.target.value);
+    setDisplayValue(f);
+    setValue("amount_raw", f, { shouldValidate: true });
   }
 
   const onSubmit = async (data: FormData) => {
     if (!selectedCard) return;
-    const amount = parseCurrencyInput(data.amount_raw);
     try {
-      await addExpense({
-        card: selectedCard, invoiceId: data.invoice_id, category: data.category,
-        description: data.description, amount, purchaseDate: data.purchase_date,
-        installments: data.installments, isRecurring: data.is_recurring,
-        observations: data.observations,
-      });
-      toast.success("Despesa lançada com sucesso!");
+      await addExpense({ card: selectedCard, invoiceId: data.invoice_id, category: data.category,
+        description: data.description, amount: parseInput(data.amount_raw),
+        purchaseDate: data.purchase_date, installments: data.installments,
+        isRecurring: data.is_recurring, observations: data.observations });
+      toast.success("Despesa lançada!");
       router.navigate({ to: "/cartoes/$cardId", params: { cardId: selectedCard.id } });
     } catch { toast.error("Erro ao lançar despesa."); }
   };
-
-  const HEADER_BG = "bg-indigo-600";
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-background md:max-w-2xl md:mx-auto">
       <form onSubmit={handleSubmit(onSubmit)}>
 
-        {/* ── HEADER COLORIDO ─────────────────────────────────────────── */}
-        <div className={cn(HEADER_BG, "px-5 pt-5 pb-10 text-white")}>
-          <div className="flex items-center justify-between mb-5">
+        {/* ── HEADER SLIM ─────────────────────────────────────────────── */}
+        <div className="bg-indigo-600 text-white px-4 pb-8"
+          style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 1rem)" }}>
+          <div className="flex items-center justify-between">
             <button type="button" onClick={() => router.history.back()}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors">
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 active:bg-white/30">
               <ArrowLeft className="h-5 w-5" />
             </button>
-            <span className="font-semibold text-base">Nova despesa cartão</span>
-            <div className="w-9" />
-          </div>
-
-          <div>
-            <p className="text-white/70 text-sm mb-1">Valor da despesa</p>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-white/70">R$</span>
-              <input
-                type="text" inputMode="numeric"
-                value={displayValue}
-                onChange={handleAmountChange}
-                className="flex-1 bg-transparent text-white outline-none border-none font-bold placeholder-white/40 min-w-0" style={{ fontSize: "clamp(2rem, 8vw, 2.5rem)" }}
-                placeholder="0,00"
-              />
-            </div>
-            {errors.amount_raw && (
-              <p className="text-white/80 text-xs mt-1 bg-white/10 rounded-lg px-2 py-1">
-                {errors.amount_raw.message}
-              </p>
-            )}
+            <span className="font-bold text-[17px]">Nova despesa cartão</span>
+            <div className="w-10" />
           </div>
         </div>
 
-        <div className="-mt-6 pb-6">
+        {/* ── VALOR — card flutuante ─────────────────────────────────── */}
+        <div className="mx-4 -mt-5 mb-5 rounded-3xl bg-white dark:bg-card shadow-xl border border-indigo-100 dark:border-border overflow-hidden">
+          <div className="px-5 pt-5 pb-4">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-indigo-400 mb-2">VALOR DA DESPESA</p>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-bold text-slate-400">R$</span>
+              <input type="text" inputMode="numeric" value={displayValue} onChange={handleAmountChange}
+                className="flex-1 font-bold text-slate-800 dark:text-foreground bg-transparent outline-none placeholder-slate-200"
+                style={{ fontSize: "clamp(2.5rem, 10vw, 3.5rem)", lineHeight: 1.1 }}
+                placeholder="0,00" />
+            </div>
+            {errors.amount_raw && <p className="text-[12px] text-destructive mt-2">{errors.amount_raw.message}</p>}
+          </div>
+          <div className="h-1.5" style={{ background: "linear-gradient(to right, #4f46e533, #4f46e5)" }} />
+        </div>
 
-          {/* ── Informações ──────────────────────────────────────────── */}
+        <div className="pb-4">
+          {/* ── INFORMAÇÕES ──────────────────────────────────────────── */}
           <TxSection title="Informações">
-            {/* Descrição */}
             <FieldRow icon={<FileText className="h-5 w-5" />} label="Descrição" error={errors.description?.message}>
-              <input
-                {...register("description")}
-                className="text-base font-medium text-slate-800 dark:text-foreground bg-transparent outline-none w-full placeholder-slate-400"
-                placeholder="Ex: Netflix, Supermercado Extra"
-                autoComplete="off"
-              />
+              <input {...register("description")}
+                className="text-[17px] font-medium text-slate-800 dark:text-foreground bg-transparent outline-none w-full placeholder-slate-300"
+                placeholder="Ex: Netflix, Supermercado..." autoComplete="off" />
             </FieldRow>
-
-            {/* Cartão */}
-            <FieldRow
-              icon={<CreditCard className="h-5 w-5" />}
-              label="Cartão"
-              onClick={() => setOpenCard(true)}
-              error={errors.card_id?.message}
-            >
+            <FieldRow icon={<CreditCard className="h-5 w-5" />} label="Cartão"
+              onClick={() => setOpenCard(true)} error={errors.card_id?.message}>
               {selectedCard ? (
                 <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-[10px] font-bold text-indigo-600 border border-indigo-300 rounded px-1.5 py-0.5">
-                    {selectedCard.flag}
-                  </span>
-                  <span className="text-[15px] font-medium text-slate-800 dark:text-foreground">{selectedCard.name}</span>
-                  {selectedCard.is_default && (
-                    <span className="text-[10px] font-bold text-indigo-500">⭐ Padrão</span>
-                  )}
+                  <span className="text-[11px] font-bold text-indigo-600 border border-indigo-300 rounded-md px-1.5 py-0.5">{selectedCard.flag}</span>
+                  <span className="text-[17px] font-medium text-slate-800 dark:text-foreground">{selectedCard.name}</span>
                 </div>
-              ) : (
-                <p className="text-[15px] text-slate-400 dark:text-muted-foreground">Selecione o cartão</p>
-              )}
+              ) : <p className="text-[17px] text-slate-300">Selecione o cartão</p>}
             </FieldRow>
-
-            {/* Categoria */}
             <FieldRow
-              icon={
-                selectedCat
-                  ? <div className="h-9 w-9 rounded-xl flex items-center justify-center text-xl"
-                      style={{ background: (selectedCat.color || "#6b7280") + "22" }}>
-                      {isValidEmoji(selectedCat.icon || "") ? selectedCat.icon : <Tag className="h-5 w-5" />}
-                    </div>
-                  : <Tag className="h-5 w-5" />
-              }
-              label="Categoria"
-              onClick={() => setOpenCat(true)}
-              error={errors.category?.message}
-              last
-            >
-              <p className={cn("text-[15px] font-medium", selectedCatName ? "text-slate-800 dark:text-foreground" : "text-slate-400")}>
+              icon={selectedCat
+                ? <div className="h-11 w-11 rounded-2xl flex items-center justify-center text-2xl" style={{ background: (selectedCat.color || "#6b7280") + "22" }}>
+                    {isEmoji(selectedCat.icon || "") ? selectedCat.icon : <Tag className="h-5 w-5" />}
+                  </div>
+                : <Tag className="h-5 w-5" />}
+              label="Categoria" onClick={() => setOpenCat(true)} last error={errors.category?.message}>
+              <p className={cn("text-[17px] font-medium", selectedCatName ? "text-slate-800 dark:text-foreground" : "text-slate-300")}>
                 {selectedCatName || "Selecione a categoria"}
               </p>
             </FieldRow>
           </TxSection>
 
-          {/* ── Data e fatura ────────────────────────────────────────── */}
+          {/* ── DATA E FATURA ─────────────────────────────────────────── */}
           <TxSection title="Data e fatura">
             <FieldRow icon={<Calendar className="h-5 w-5" />} label="Data da compra">
-              <DatePicker
-                value={purchaseDate}
-                onChange={v => setValue("purchase_date", v)}
-              />
+              <DatePicker value={purchaseDate} onChange={v => setValue("purchase_date", v)} />
             </FieldRow>
-            <FieldRow
-              icon={<Receipt className="h-5 w-5" />}
-              label="Fatura destino"
-              onClick={() => setOpenBilling(true)}
-              last
-              error={errors.invoice_id?.message}
-            >
-              {loadingInvoices ? (
-                <p className="text-[15px] text-slate-400">Carregando faturas...</p>
-              ) : selectedInvoice ? (
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-[15px] font-medium text-slate-800 dark:text-foreground">{selectedInvoice.competence}</span>
-                  <span className="text-xs text-slate-400">
-                    • vence {new Date(selectedInvoice.due_date + "T12:00:00").toLocaleDateString("pt-BR")}
-                  </span>
-                </div>
-              ) : (
-                <p className="text-[15px] text-slate-400">Selecione a fatura</p>
-              )}
+            <FieldRow icon={<Receipt className="h-5 w-5" />} label="Fatura destino"
+              onClick={() => setOpenBilling(true)} last error={errors.invoice_id?.message}>
+              {loadingInvoices
+                ? <p className="text-[17px] text-slate-300">Carregando...</p>
+                : selectedInvoice
+                ? <div className="flex items-center gap-2">
+                    <span className="text-[17px] font-semibold text-slate-800 dark:text-foreground">{selectedInvoice.competence}</span>
+                    <span className="text-[13px] text-slate-400">• vence {new Date(selectedInvoice.due_date + "T12:00:00").toLocaleDateString("pt-BR")}</span>
+                  </div>
+                : <p className="text-[17px] text-slate-300">Selecione a fatura</p>}
             </FieldRow>
           </TxSection>
 
-          {/* ── Parcelamento ─────────────────────────────────────────── */}
+          {/* ── PARCELAMENTO ─────────────────────────────────────────── */}
           {!isRecurring && parsedAmount > 0 && (
             <TxSection title="Parcelamento">
-              <div className="px-4 py-3.5 border-b border-slate-100 dark:border-border">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Número de parcelas</p>
-                <InstallmentPicker
-                  amount={parsedAmount}
-                  value={installments}
-                  onChange={n => setValue("installments", n)}
-                />
+              <div className="px-5 py-4 border-b border-slate-100 dark:border-border">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-3">Número de parcelas</p>
+                <InstallmentPicker amount={parsedAmount} value={installments}
+                  onChange={n => setValue("installments", n)} />
               </div>
-              {/* Recorrente toggle */}
-              <div className="flex items-center gap-3.5 px-4 py-3.5">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-muted text-slate-500">
+              <div className="flex items-center gap-4 px-5 py-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 dark:bg-muted text-slate-500">
                   <Repeat className="h-5 w-5" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-[15px] font-medium text-slate-800 dark:text-foreground">Despesa recorrente</p>
-                  <p className="text-[12px] text-slate-400 dark:text-muted-foreground mt-0.5">Lançada nas próximas 12 faturas</p>
+                  <p className="text-[17px] font-medium text-slate-800 dark:text-foreground">Despesa recorrente</p>
+                  <p className="text-[13px] text-slate-400 mt-0.5">Lançada nas próximas 12 faturas</p>
                 </div>
                 <Controller name="is_recurring" control={control} render={({ field }) => (
                   <Switch checked={!!field.value}
@@ -347,54 +275,51 @@ function NovaDespesaPage() {
             </TxSection>
           )}
 
-          {/* ── Observações ──────────────────────────────────────────── */}
+          {/* ── OBSERVAÇÕES ──────────────────────────────────────────── */}
           <TxSection title="Observações">
             <FieldRow icon={<StickyNote className="h-5 w-5" />} label="Nota (opcional)" last>
-              <input
-                {...register("observations")}
-                className="text-base font-medium text-slate-800 dark:text-foreground bg-transparent outline-none w-full placeholder-slate-400"
-                placeholder="Alguma nota sobre esta despesa"
-              />
+              <input {...register("observations")}
+                className="text-[17px] font-medium text-slate-800 dark:text-foreground bg-transparent outline-none w-full placeholder-slate-300"
+                placeholder="Alguma nota sobre esta despesa" />
             </FieldRow>
           </TxSection>
 
-          {/* ── Botão ────────────────────────────────────────────────── */}
-          <div className="mx-4 mt-1">
+          {/* ── BOTÃO ─────────────────────────────────────────────────── */}
+          <div className="mx-4 mt-2">
             <button type="submit" disabled={isSubmitting}
-              className="w-full h-16 rounded-2xl bg-indigo-600 text-white font-bold text-[17px] transition-all active:scale-95 disabled:opacity-70"
-              style={{ boxShadow: "0 8px 24px #4f46e555" }}>
-              {isSubmitting ? "Salvando..." : "Lançar despesa"}
+              className="w-full rounded-2xl bg-indigo-600 text-white font-bold transition-all active:scale-95 disabled:opacity-70"
+              style={{ height: "64px", fontSize: "18px", boxShadow: "0 8px 28px #4f46e555" }}>
+              {isSubmitting ? "Salvando..." : "✓  Lançar despesa"}
             </button>
           </div>
         </div>
       </form>
 
-      {/* ── Modais ────────────────────────────────────────────────────────── */}
-
-      {/* Cartão */}
+      {/* ── MODAL CARTÃO ─────────────────────────────────────────────────── */}
       <Dialog open={openCard} onOpenChange={setOpenCard}>
-        <DialogContent className="max-w-xs" onOpenAutoFocus={e => e.preventDefault()}>
-          <DialogHeader><DialogTitle>Selecionar cartão</DialogTitle></DialogHeader>
-          <div className="space-y-2 pb-1">
+        <DialogContent className="fixed bottom-0 left-0 right-0 top-auto m-0 w-full max-w-none rounded-t-3xl p-0 border-0"
+          style={{ maxHeight: "60vh" }} onOpenAutoFocus={e => e.preventDefault()}>
+          <div className="flex justify-center pt-3 pb-2"><div className="w-10 h-1.5 rounded-full bg-slate-200 dark:bg-muted"/></div>
+          <div className="flex items-center justify-between px-5 pb-3">
+            <h2 className="text-[18px] font-bold">Cartão</h2>
+            <button onClick={() => setOpenCard(false)} className="text-[13px] font-semibold text-primary">Fechar</button>
+          </div>
+          <div className="overflow-y-auto px-4 pb-6 space-y-2">
             {cards.filter(c => c.active).map(card => {
               const isSel = selectedCardId === card.id;
               return (
                 <button key={card.id} type="button"
                   onClick={() => { setValue("card_id", card.id, { shouldValidate: true }); setOpenCard(false); }}
-                  className={cn("flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors",
-                    isSel ? "border-primary bg-primary/5" : "hover:bg-muted/50"
-                  )}>
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-                    <span className="text-sm font-bold text-primary">{card.flag[0]}</span>
+                  className={cn("flex w-full items-center gap-3 rounded-2xl border-2 p-4 text-left transition-all active:scale-95",
+                    isSel ? "border-indigo-400 bg-indigo-50 dark:bg-indigo-950/20" : "border-transparent bg-slate-50 dark:bg-muted/40")}>
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-indigo-100 dark:bg-indigo-950/30">
+                    <span className="text-base font-bold text-indigo-600">{card.flag?.[0]}</span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-sm font-semibold truncate">{card.name}</p>
-                      {card.is_default && <span className="text-[10px] font-bold text-primary">Padrão</span>}
-                    </div>
-                    <p className="text-xs text-muted-foreground">{card.bank} · {card.flag}</p>
+                    <p className="text-[16px] font-semibold text-slate-800 dark:text-foreground">{card.name}</p>
+                    <p className="text-[13px] text-slate-400">{card.bank} · {card.flag}</p>
                   </div>
-                  {isSel && <CheckCircle2 className="h-5 w-5 shrink-0 text-primary" />}
+                  {isSel && <CheckCircle2 className="h-6 w-6 shrink-0 text-indigo-500" />}
                 </button>
               );
             })}
@@ -402,64 +327,73 @@ function NovaDespesaPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Categoria */}
+      {/* ── MODAL CATEGORIA ──────────────────────────────────────────────── */}
       <Dialog open={openCat} onOpenChange={v => { setOpenCat(v); if (!v) setCatSearch(""); }}>
-        <DialogContent className="max-w-sm p-0 gap-0" onOpenAutoFocus={e => e.preventDefault()}>
-          <DialogHeader className="px-4 pt-4 pb-0">
-            <DialogTitle>Selecionar categoria</DialogTitle>
-          </DialogHeader>
-          <div className="relative mx-4 mt-3 mb-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input type="text" placeholder="Pesquisar categoria..."
-              value={catSearch} onChange={e => setCatSearch(e.target.value)}
-              className="h-10 w-full rounded-lg border bg-muted pl-9 pr-3 text-sm outline-none" />
+        <DialogContent className="fixed bottom-0 left-0 right-0 top-auto m-0 w-full max-w-none rounded-t-3xl p-0 border-0"
+          style={{ maxHeight: "78vh" }} onOpenAutoFocus={e => e.preventDefault()}>
+          <div className="flex justify-center pt-3 pb-2"><div className="w-10 h-1.5 rounded-full bg-slate-200 dark:bg-muted"/></div>
+          <div className="flex items-center justify-between px-5 pb-3">
+            <h2 className="text-[18px] font-bold">Categoria</h2>
+            <button onClick={() => setOpenCat(false)} className="text-[13px] font-semibold text-primary">Fechar</button>
           </div>
-          <div className="max-h-80 overflow-y-auto px-2 pb-3">
-            {categories.filter(c => c.name.toLowerCase().includes(catSearch.toLowerCase())).map(cat => {
-              const isSel = selectedCatName === cat.name;
-              return (
-                <button key={cat.name} type="button"
-                  onClick={() => { setValue("category", cat.name, { shouldValidate: true }); setOpenCat(false); setCatSearch(""); }}
-                  className="flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left hover:bg-muted/60 transition-colors">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-base text-white"
-                    style={{ background: cat.color || "#6b7280" }}>
-                    {cat.icon || "📦"}
-                  </div>
-                  <span className="flex-1 text-sm font-medium">{cat.name}</span>
-                  <div className={cn("flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
-                    isSel ? "border-primary bg-primary" : "border-muted-foreground/30"
-                  )}>
-                    {isSel && <CheckCircle2 className="h-3.5 w-3.5 text-white" />}
-                  </div>
-                </button>
-              );
-            })}
+          <div className="relative mx-4 mb-3">
+            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input type="text" placeholder="Buscar categoria..." value={catSearch}
+              onChange={e => setCatSearch(e.target.value)}
+              className="h-12 w-full rounded-2xl bg-slate-100 dark:bg-muted pl-11 pr-4 text-base outline-none placeholder-slate-400" />
+          </div>
+          <div className="overflow-y-auto pb-6 px-4" style={{ maxHeight: "calc(78vh - 140px)" }}>
+            <div className="grid grid-cols-3 gap-3">
+              {categories.filter(c => c.name.toLowerCase().includes(catSearch.toLowerCase())).map(cat => {
+                const isSel = selectedCatName === cat.name;
+                const color = cat.color || "#6b7280";
+                return (
+                  <button key={cat.name} type="button"
+                    onClick={() => { setValue("category", cat.name, { shouldValidate: true }); setOpenCat(false); setCatSearch(""); }}
+                    className={cn("flex flex-col items-center gap-2 rounded-2xl border-2 py-4 px-2 transition-all active:scale-95",
+                      isSel ? "border-transparent shadow-md" : "border-transparent bg-slate-50 dark:bg-muted/40")}
+                    style={isSel ? { background: color + "18", borderColor: color + "66" } : {}}>
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl text-2xl"
+                      style={{ background: color + "22" }}>
+                      {cat.icon || "📦"}
+                    </div>
+                    <span className="text-[13px] font-semibold text-slate-700 dark:text-foreground leading-tight text-center">{cat.name}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Fatura */}
+      {/* ── MODAL FATURA ─────────────────────────────────────────────────── */}
       <Dialog open={openBilling} onOpenChange={setOpenBilling}>
-        <DialogContent className="max-w-xs" onOpenAutoFocus={e => e.preventDefault()}>
-          <DialogHeader><DialogTitle>Fatura destino</DialogTitle></DialogHeader>
-          <div className="space-y-2 pb-1">
+        <DialogContent className="fixed bottom-0 left-0 right-0 top-auto m-0 w-full max-w-none rounded-t-3xl p-0 border-0"
+          style={{ maxHeight: "60vh" }} onOpenAutoFocus={e => e.preventDefault()}>
+          <div className="flex justify-center pt-3 pb-2"><div className="w-10 h-1.5 rounded-full bg-slate-200 dark:bg-muted"/></div>
+          <div className="flex items-center justify-between px-5 pb-4">
+            <h2 className="text-[18px] font-bold">Fatura destino</h2>
+            <button onClick={() => setOpenBilling(false)} className="text-[13px] font-semibold text-primary">Fechar</button>
+          </div>
+          <div className="overflow-y-auto px-4 pb-6 space-y-2">
             {cardInvoices.map(inv => {
-              const isSel     = selectedInvId === inv.id;
-              const dueLabel  = new Date(inv.due_date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+              const isSel    = selectedInvId === inv.id;
+              const dueLabel = new Date(inv.due_date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
               return (
-                <div key={inv.id} className="flex items-center gap-3">
-                  <button type="button"
-                    onClick={() => { setValue("invoice_id", inv.id, { shouldValidate: true }); setOpenBilling(false); }}
-                    className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all"
-                    style={{
-                      background: isSel ? "hsl(var(--primary))" : "hsl(var(--muted))",
-                      color: isSel ? "hsl(var(--primary-foreground))" : "hsl(var(--muted-foreground))",
-                    }}>
-                    {inv.competence}
-                    {isSel && <CheckCircle2 className="h-3.5 w-3.5" />}
-                  </button>
-                  <span className="text-xs text-muted-foreground">vence {dueLabel}</span>
-                </div>
+                <button key={inv.id} type="button"
+                  onClick={() => { setValue("invoice_id", inv.id, { shouldValidate: true }); setOpenBilling(false); }}
+                  className={cn("flex w-full items-center gap-3 rounded-2xl border-2 p-4 text-left transition-all active:scale-95",
+                    isSel ? "border-indigo-400 bg-indigo-50 dark:bg-indigo-950/20" : "border-transparent bg-slate-50 dark:bg-muted/40")}>
+                  <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-950/30">
+                    <span className="text-[10px] font-bold uppercase text-indigo-400">{inv.competence.split("/")[0].slice(0,3)}</span>
+                    <span className="text-sm font-bold text-indigo-700 dark:text-indigo-300">/{inv.competence.split("/")[1].slice(2)}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[16px] font-semibold text-slate-800 dark:text-foreground">{inv.competence}</p>
+                    <p className="text-[13px] text-slate-400">Vence {dueLabel}</p>
+                  </div>
+                  {isSel && <CheckCircle2 className="h-6 w-6 shrink-0 text-indigo-500" />}
+                </button>
               );
             })}
           </div>

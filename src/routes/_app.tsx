@@ -166,7 +166,7 @@ function AppLayout() {
         {/* ══ CONTEÚDO PRINCIPAL ════════════════════════════════════════ */}
         <div className="flex flex-1 flex-col md:ml-64">
           {showBanner && <div className="h-10 md:block hidden" />}
-          <main className="flex-1 md:pb-8" style={{ paddingBottom: "max(88px, calc(68px + env(safe-area-inset-bottom)))" }}>
+          <main className="flex-1 md:pb-8" style={{ paddingBottom: "calc(72px + env(safe-area-inset-bottom, 20px))" }}>
             <Outlet />
           </main>
         </div>
@@ -180,7 +180,7 @@ function AppLayout() {
         )}
 
         {addMenuOpen && (
-          <div className="md:hidden fixed z-50 flex items-end gap-6 left-1/2 -translate-x-1/2" style={{ bottom: "calc(80px + env(safe-area-inset-bottom))" }}>
+          <div className="md:hidden fixed z-50 flex items-end gap-6 left-1/2 -translate-x-1/2" style={{ bottom: "calc(72px + env(safe-area-inset-bottom, 20px))" }}>
             <button onClick={() => handleAddTransaction("income")}
               className="flex flex-col items-center gap-1.5 transition-transform active:scale-95">
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-500 shadow-lg shadow-green-500/40">
@@ -207,10 +207,8 @@ function AppLayout() {
 
         {/* Bottom nav — apenas mobile */}
         {/* ══ BOTTOM NAV — PWA / MOBILE ══════════════════════════════════ */}
-        <nav
-          className="md:hidden fixed bottom-0 left-0 right-0 z-30 border-t border-border/60 bg-card/98 backdrop-blur-md"
-          style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-          <div className="mx-auto flex max-w-lg items-center justify-around px-1 pt-1.5 pb-1">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 border-t border-border/60 bg-card/98 backdrop-blur-md">
+          <div className="mx-auto flex max-w-lg items-center justify-around px-1" style={{ height: "64px" }}>
 
             {navItems.slice(0, 2).map(({ to, label, icon: Icon }) => {
               const isActive = pathname === to || pathname.startsWith(to + "/");
@@ -267,6 +265,8 @@ function AppLayout() {
             })}
 
           </div>
+          {/* Safe area spacer */}
+          <div style={{ height: "env(safe-area-inset-bottom, 0px)", backgroundColor: "transparent" }} />
         </nav>
       </div>
     </TooltipProvider>

@@ -101,7 +101,7 @@ function MaisPage() {
     <div className="min-h-screen bg-slate-50 dark:bg-background md:max-w-2xl md:mx-auto">
 
       {/* ── Header ─────────────────────────────────────────────────── */}
-      <div className="bg-gradient-to-br from-slate-700 to-slate-900 px-5 pb-10 text-white" style={{ paddingTop: "calc(2.5rem + env(safe-area-inset-top))" }}>
+      <div className="bg-gradient-to-br from-slate-700 to-slate-900 px-5 pt-10 pb-10 text-white">
         <p className="text-[11px] uppercase tracking-widest text-white/50 mb-1">JadeOne</p>
         <h1 className="text-2xl font-bold">Mais</h1>
         <p className="text-sm text-white/60 mt-1">Configurações e recursos do app</p>
