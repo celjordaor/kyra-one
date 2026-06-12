@@ -213,7 +213,7 @@ function NovaTransacaoPage() {
   };
 
   return (
-    <div className="w-full min-h-screen bg-slate-50 dark:bg-background md:max-w-2xl md:mx-auto">
+    <div className="bg-slate-50 dark:bg-background md:max-w-2xl md:mx-auto" style={{ width: "100%", maxWidth: "min(100%, 672px)", minHeight: "100dvh" }}>
       <form onSubmit={handleSubmit(onSubmit)} className="w-full">
 
         {/* ── HEADER ────────────────────────────────────────────────── */}

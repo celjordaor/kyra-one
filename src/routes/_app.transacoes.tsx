@@ -200,7 +200,7 @@ function TransacoesPage() {
   };
 
   return (
-    <div className="space-y-4 w-full overflow-x-hidden md:p-8 md:max-w-3xl md:mx-auto" style={{ padding: "1.25rem", paddingTop: "calc(1.5rem + env(safe-area-inset-top, 0px))" }}>
+    <div className="space-y-4 md:p-8 md:max-w-3xl md:mx-auto" style={{ width: "100%", maxWidth: "100%", overflowX: "hidden" }} style={{ padding: "1.25rem", paddingTop: "calc(1.5rem + env(safe-area-inset-top, 0px))" }}>
       <h1 className="text-xl font-bold text-foreground">Transações</h1>
 
       {/* Seletor de mês */}

@@ -3,7 +3,6 @@ import { Home, Receipt, User, PlusCircle, CreditCard, TrendingUp, TrendingDown, 
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/lib/auth";
 import { useSubscription } from "@/lib/subscription-store";
-import { useSubscription } from "@/lib/subscription-store";
 import { GracePeriodBanner } from "@/components/grace-period-banner";
 import { PaymentRequired } from "@/components/payment-required";
 import { useState } from "react";
@@ -54,7 +53,7 @@ function AppLayout() {
 
   return (
     <TooltipProvider>
-      <div className="flex min-h-screen bg-background overflow-x-hidden w-full">
+      <div className="flex bg-background" style={{ width: "100vw", maxWidth: "100vw", minHeight: "100dvh", overflowX: "hidden" }}>
         {showBanner && (
           <div className="fixed top-0 left-0 right-0 z-50 md:left-64">
             <GracePeriodBanner subscription={subscription} />
@@ -166,7 +165,7 @@ function AppLayout() {
         {/* ══ CONTEÚDO PRINCIPAL ════════════════════════════════════════ */}
         <div className="flex flex-1 flex-col md:ml-64">
           {showBanner && <div className="h-10 md:block hidden" />}
-          <main className="flex-1 md:pb-8 w-full" style={{ paddingBottom: "calc(72px + env(safe-area-inset-bottom, 20px))" }}>
+          <main className="flex-1 md:pb-8" style={{ width: "100%", maxWidth: "100%", overflowX: "hidden", paddingBottom: "calc(72px + env(safe-area-inset-bottom, 20px))" }}>
             <Outlet />
           </main>
         </div>
