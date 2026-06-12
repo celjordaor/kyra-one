@@ -190,7 +190,18 @@ function TransacoesPage() {
   const showCardSection = activeFilter === "Todas" || activeFilter === "Faturas";
   const showRegularSection = activeFilter !== "Faturas";
 
-  const totalBalance = filteredRegular.reduce((s, t) => s + t.amount, 0);
+  // Realizado: apenas transações quitadas/recebidas
+  const settledBalance = filteredRegular
+    .filter(t => t.settled)
+    .reduce((s, t) => s + t.amount, 0);
+
+  // Previsto: transações não quitadas ainda
+  const pendingBalance = filteredRegular
+    .filter(t => !t.settled)
+    .reduce((s, t) => s + t.amount, 0);
+
+  // Para compatibilidade com o código existente
+  const totalBalance = settledBalance;
   const totalFaturas = cardInvoices.reduce((s, i) => s + i.invoice.total_amount, 0);
 
   const openDetail = async (invoice: Invoice, card: CreditCardType) => {
@@ -200,7 +211,7 @@ function TransacoesPage() {
   };
 
   return (
-    <div className="space-y-4 md:p-8 md:max-w-3xl md:mx-auto" style={{ width: "100%", maxWidth: "100%", overflowX: "hidden" }} style={{ padding: "1.25rem", paddingTop: "calc(1.5rem + env(safe-area-inset-top, 0px))" }}>
+    <div className="space-y-4 md:p-8 md:max-w-3xl md:mx-auto" style={{ width: "100%", maxWidth: "100%", overflowX: "hidden", padding: "1.25rem", paddingTop: "calc(1.5rem + env(safe-area-inset-top, 0px))" }}>
       <h1 className="text-xl font-bold text-foreground">Transações</h1>
 
       {/* Seletor de mês */}
@@ -275,20 +286,36 @@ function TransacoesPage() {
       </div>
 
       {/* Resumo dinâmico */}
-      <div className="flex items-center justify-between rounded-xl border bg-card p-4 shadow-sm">
-        <div>
-          <p className="text-xs text-muted-foreground">
-            {activeFilter === "Faturas" ? "Total em faturas" : "Total do período"}
-          </p>
-          <p className={cn("text-lg font-bold", activeFilter === "Faturas" ? "text-blue-500" : "text-foreground")}>
-            {activeFilter === "Faturas" ? fmt(totalFaturas) : fmt(totalBalance)}
-          </p>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          {activeFilter === "Faturas"
-            ? `${cardInvoices.length} fatura(s)`
-            : `${filteredRegular.length} transações`}
-        </p>
+      <div className="rounded-xl border bg-card p-4 shadow-sm">
+        {activeFilter === "Faturas" ? (
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground">Total em faturas</p>
+              <p className="text-lg font-bold text-blue-500">{fmt(totalFaturas)}</p>
+            </div>
+            <p className="text-xs text-muted-foreground">{cardInvoices.length} fatura(s)</p>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Realizado</p>
+              <p className={cn(
+                "text-lg font-bold",
+                settledBalance >= 0 ? "text-foreground" : "text-red-500"
+              )}>
+                {fmt(settledBalance)}
+              </p>
+              {pendingBalance !== 0 && (
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  {fmt(Math.abs(pendingBalance))} pendente{pendingBalance < 0 ? " a pagar" : " a receber"}
+                </p>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground shrink-0">
+              {filteredRegular.length} transações
+            </p>
+          </div>
+        )}
       </div>
 
       {/* ══ SEÇÃO 1: Receitas e Despesas ══ */}
