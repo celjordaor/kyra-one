@@ -91,9 +91,9 @@ function BottomSheet({ open, onClose, title, maxHeight = "75vh", children }: {
 // ── Componentes ─────────────────────────────────────────────────────────
 function TxSection({ title, children }: { title?: string; children: React.ReactNode }) {
   return (
-    <div className="mx-4 mb-4">
+    <div className="mx-4 mb-4 overflow-hidden">
       {title && <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 px-1">{title}</p>}
-      <div className="rounded-2xl bg-white dark:bg-card shadow-sm border border-slate-100 dark:border-border overflow-hidden">
+      <div className="w-full rounded-2xl bg-white dark:bg-card shadow-sm border border-slate-100 dark:border-border overflow-hidden">
         {children}
       </div>
     </div>
@@ -110,7 +110,7 @@ function FieldRow({ icon, label, children, last = false, onClick, error }: {
   const inner = (
     <>
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-muted text-slate-500">{icon}</div>
-      <div className="flex-1 min-w-0 py-4">
+      <div className="flex-1 min-w-0 py-4 overflow-hidden">
         <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">{label}</p>
         {children}
         {error && <p className="text-[12px] text-destructive mt-1">{error}</p>}

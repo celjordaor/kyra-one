@@ -53,7 +53,7 @@ function AppLayout() {
 
   return (
     <TooltipProvider>
-      <div className="flex min-h-screen w-full max-w-full overflow-x-hidden bg-background">
+      <div className="bg-background" style={{ minHeight: "100dvh" }}>
         {showBanner && (
           <div className="fixed top-0 left-0 right-0 z-50 md:left-64">
             <GracePeriodBanner subscription={subscription} />
@@ -165,7 +165,7 @@ function AppLayout() {
         {/* ══ CONTEÚDO PRINCIPAL ════════════════════════════════════════ */}
         <div className="flex flex-1 flex-col md:ml-64">
           {showBanner && <div className="h-10 md:block hidden" />}
-          <main className="flex-1 min-w-0 md:pb-8" style={{ paddingBottom: "calc(72px + env(safe-area-inset-bottom, 20px))" }}>
+          <main className="md:pb-8" style={{ paddingBottom: "calc(72px + env(safe-area-inset-bottom, 20px))" }}>
             <Outlet />
           </main>
         </div>
