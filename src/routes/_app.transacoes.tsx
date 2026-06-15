@@ -15,7 +15,8 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   useTransactions, toggleSettled, updateTransaction, deleteTransaction,
-  deleteTransactionSeries, isInstallmentTransaction, getDisplayTitle,
+  deleteTransactionSeries, deleteRecurringFuture,
+  isInstallmentTransaction, getDisplayTitle,
   parseBrDate, formatBrDate, isTodayOrPast, type Transaction,
 } from "@/lib/transactions-store";
 import { useCardStore, type Invoice, type CreditCard as CreditCardType } from "@/lib/card-store";
@@ -411,16 +412,21 @@ function TransacoesPage() {
                             </button>
                             <button
                               onClick={() => {
-                                if (t.settled) return;
-                                if (isInstallmentTransaction(t)) {
+                                // Recorrente ou parcelada: sempre abre modal de confirmação
+                                if (t.recurring || isInstallmentTransaction(t)) {
                                   setDeleteTarget(t);
-                                } else {
-                                  deleteTransaction(t.id);
+                                  return;
                                 }
+                                // Não recorrente quitada: bloqueado (preservar histórico)
+                                if (t.settled) return;
+                                // Não recorrente pendente: exclui diretamente
+                                deleteTransaction(t.id);
                               }}
-                              disabled={t.settled}
+                              disabled={t.settled && !t.recurring && !isInstallmentTransaction(t)}
                               className={cn("flex h-7 w-7 items-center justify-center rounded-full transition-colors",
-                                t.settled ? "cursor-not-allowed text-muted-foreground/30" : "text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                                (t.settled && !t.recurring && !isInstallmentTransaction(t))
+                                  ? "cursor-not-allowed text-muted-foreground/30"
+                                  : "text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                               )}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
@@ -556,8 +562,13 @@ function TransacoesPage() {
           setDeleteTarget(null);
         }}
         onDeleteFuture={() => {
-          if (deleteTarget?.recurrence_id && deleteTarget.installment_number) {
-            deleteTransactionSeries(deleteTarget.recurrence_id, deleteTarget.installment_number);
+          if (!deleteTarget) { setDeleteTarget(null); return; }
+          if (isInstallmentTransaction(deleteTarget)) {
+            // Série de N meses: exclui a partir da parcela atual
+            deleteTransactionSeries(deleteTarget.recurrence_id!, deleteTarget.installment_number!);
+          } else if (deleteTarget.recurring) {
+            // Recorrente: exclui todas com mesmo título/tipo a partir desta data
+            deleteRecurringFuture(deleteTarget.title, deleteTarget.type, deleteTarget.date);
           }
           setDeleteTarget(null);
         }}
@@ -581,7 +592,41 @@ function TransactionDeleteModal({
   useEffect(() => { if (open) setSelected("single"); }, [open]);
   if (!transaction) return null;
 
-  const remaining = (transaction.installments_total ?? 0) - (transaction.installment_number ?? 0);
+  const isInstallment  = isInstallmentTransaction(transaction);
+  const isRecurring    = !!transaction.recurring;
+  const remaining      = (transaction.installments_total ?? 0) - (transaction.installment_number ?? 0);
+
+  const opts = isInstallment
+    ? [
+        {
+          key: "single" as const,
+          title: "Excluir apenas essa parcela",
+          description: `Remove somente a parcela ${transaction.installment_number}/${transaction.installments_total}`,
+          danger: false,
+        },
+        {
+          key: "future" as const,
+          title: "Excluir essa e as próximas",
+          description: remaining > 0
+            ? `Remove esta parcela e as ${remaining} seguintes`
+            : "Remove esta última e última parcela",
+          danger: true,
+        },
+      ]
+    : [
+        {
+          key: "single" as const,
+          title: "Excluir apenas esta recorrência",
+          description: "Remove somente o lançamento deste mês",
+          danger: false,
+        },
+        {
+          key: "future" as const,
+          title: "Excluir esta e todas as futuras",
+          description: "Remove este lançamento e todas as recorrências futuras",
+          danger: true,
+        },
+      ];
 
   return (
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
@@ -589,26 +634,13 @@ function TransactionDeleteModal({
         <div className="px-5 pt-5 pb-2">
           <h3 className="text-base font-semibold text-foreground">Excluir transação</h3>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            Como deseja excluir <span className="font-medium text-foreground">"{transaction.title}"</span>?
+            <span className="font-medium text-foreground">"{transaction.title}"</span>{" "}
+            é uma {isInstallment ? "transação parcelada" : "transação recorrente"}.
+            Como deseja excluir?
           </p>
         </div>
         <div className="flex flex-col gap-2 px-5 py-3">
-          {[
-            {
-              key: "single" as const,
-              title: "Excluir apenas essa parcela",
-              description: `Remove somente a parcela ${transaction.installment_number}/${transaction.installments_total}`,
-              danger: false,
-            },
-            {
-              key: "future" as const,
-              title: "Excluir essa e as próximas",
-              description: remaining > 0
-                ? `Remove esta parcela e as ${remaining} seguintes`
-                : "Remove esta última parcela",
-              danger: true,
-            },
-          ].map(opt => {
+          {opts.map(opt => {
             const isSel = selected === opt.key;
             return (
               <button key={opt.key} type="button" onClick={() => setSelected(opt.key)}

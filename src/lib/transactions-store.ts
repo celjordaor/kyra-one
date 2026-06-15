@@ -6,7 +6,7 @@ export type TransactionType = "income" | "expense";
 export type Transaction = {
   id: string;
   title: string;
-  amount: number;           // positivo = receita, negativo = despesa
+  amount: number;
   type: TransactionType;
   date: string;             // dd/mm/yyyy
   category: string;
@@ -14,17 +14,16 @@ export type Transaction = {
   paidAt?: string;          // dd/mm/yyyy
   recurring?: boolean;
   source?: string;          // "manual" | "invoice"
-  // ── Campos de série (Repetir N meses) ─────────────────────────────
-  installment_number?: number;  // 1, 2, 3 ...
-  installments_total?: number;  // total de parcelas
-  recurrence_id?: string;       // UUID que agrupa a série
+  installment_number?: number;
+  installments_total?: number;
+  recurrence_id?: string;
 };
 
 // ── Cache em memória ──────────────────────────────────────────────────────
-let cache: Transaction[]    = [];
-let initialized             = false;
+let cache: Transaction[]         = [];
+let loadingPromise: Promise<void> | null = null;
 let currentUserId: string | null = null;
-const listeners             = new Set<() => void>();
+const listeners = new Set<() => void>();
 
 function notify() { listeners.forEach(l => l()); }
 
@@ -33,68 +32,129 @@ function subscribe(cb: () => void) {
   return () => listeners.delete(cb);
 }
 
-// ── Mapeamento de linha do Supabase → Transaction ─────────────────────────
 function mapRow(row: Record<string, unknown>): Transaction {
   return {
-    id:                  row.id                  as string,
-    title:               row.title               as string,
-    amount:              row.amount              as number,
-    type:                row.type                as TransactionType,
-    date:                row.date                as string,
-    category:            row.category            as string,
-    settled:             row.settled             as boolean,
-    paidAt:              (row.paid_at            as string | null) ?? undefined,
-    recurring:           (row.recurring          as boolean | null) ?? false,
-    source:              (row.source             as string | null) ?? undefined,
-    installment_number:  (row.installment_number as number | null) ?? undefined,
-    installments_total:  (row.installments_total as number | null) ?? undefined,
-    recurrence_id:       (row.recurrence_id      as string | null) ?? undefined,
+    id:                 row.id                  as string,
+    title:              row.title               as string,
+    amount:             row.amount              as number,
+    type:               row.type                as TransactionType,
+    date:               row.date                as string,
+    category:           row.category            as string,
+    settled:            row.settled             as boolean,
+    paidAt:             (row.paid_at            as string | null) ?? undefined,
+    recurring:          (row.recurring          as boolean | null) ?? false,
+    source:             (row.source             as string | null) ?? undefined,
+    installment_number: (row.installment_number as number | null) ?? undefined,
+    installments_total: (row.installments_total as number | null) ?? undefined,
+    recurrence_id:      (row.recurrence_id      as string | null) ?? undefined,
   };
 }
 
-// ── Carregamento do Supabase ──────────────────────────────────────────────
-async function loadFromSupabase() {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
-  if (initialized && currentUserId === user.id) return;
+// ── Carregamento (sem guard de "já inicializado") ─────────────────────────
+async function loadFromSupabase(): Promise<void> {
+  // Evita chamadas simultâneas, mas permite re-fetch quando chamado novamente
+  if (loadingPromise) return loadingPromise;
 
-  const { data, error } = await supabase
-    .from("transactions")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
+  loadingPromise = (async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { loadingPromise = null; return; }
+      currentUserId = user.id;
 
-  if (!error && data) {
-    cache         = data.map(mapRow);
-    initialized   = true;
-    currentUserId = user.id;
-    notify();
-  }
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (!error && data) {
+        cache = data.map(mapRow);
+        notify();
+      }
+    } finally {
+      loadingPromise = null;
+    }
+  })();
+
+  return loadingPromise;
 }
 
-// Recarrega quando o usuário muda
+// ── Realtime: atualiza o cache automaticamente ────────────────────────────
+let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
+
+async function setupRealtime() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user || realtimeChannel) return;
+
+  realtimeChannel = supabase
+    .channel("transactions-realtime")
+    .on(
+      "postgres_changes",
+      {
+        event:  "*",
+        schema: "public",
+        table:  "transactions",
+        filter: `user_id=eq.${user.id}`,
+      },
+      (payload) => {
+        switch (payload.eventType) {
+          case "INSERT": {
+            const newTx = mapRow(payload.new as Record<string, unknown>);
+            // Evita duplicatas (pode já estar no cache por update otimista)
+            if (!cache.find(t => t.id === newTx.id)) {
+              cache = [newTx, ...cache];
+              notify();
+            }
+            break;
+          }
+          case "UPDATE": {
+            const updated = mapRow(payload.new as Record<string, unknown>);
+            cache = cache.map(t => t.id === updated.id ? updated : t);
+            notify();
+            break;
+          }
+          case "DELETE": {
+            const deletedId = (payload.old as { id: string }).id;
+            if (cache.find(t => t.id === deletedId)) {
+              cache = cache.filter(t => t.id !== deletedId);
+              notify();
+            }
+            break;
+          }
+        }
+      }
+    )
+    .subscribe();
+}
+
+// ── Auth state change ─────────────────────────────────────────────────────
 supabase.auth.onAuthStateChange((event) => {
   if (event === "SIGNED_OUT") {
     cache         = [];
-    initialized   = false;
     currentUserId = null;
+    loadingPromise = null;
+    realtimeChannel?.unsubscribe();
+    realtimeChannel = null;
     notify();
   }
   if (event === "SIGNED_IN") {
-    initialized = false;   // força reload na próxima chamada
     loadFromSupabase();
+    setupRealtime();
   }
 });
 
 // ── Hook principal ────────────────────────────────────────────────────────
 export function useTransactions(): Transaction[] {
-  useEffect(() => { loadFromSupabase(); }, []);
+  useEffect(() => {
+    loadFromSupabase();
+    setupRealtime();
+  }, []);
   return useSyncExternalStore(subscribe, () => cache, () => []);
 }
 
-// ── Forçar recarregamento (útil após criação em lote) ─────────────────────
+// ── Forçar recarregamento ─────────────────────────────────────────────────
 export async function refreshTransactions() {
-  initialized = false;
+  loadingPromise = null;   // limpa guarda para forçar novo fetch
   await loadFromSupabase();
 }
 
@@ -103,12 +163,13 @@ export async function addTransaction(t: Omit<Transaction, "id">) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
 
-  const newItem: Transaction = { ...t, id: crypto.randomUUID() };
-  cache = [newItem, ...cache];
+  const id = crypto.randomUUID();
+  // Atualização otimista
+  cache = [{ ...t, id }, ...cache];
   notify();
 
-  await supabase.from("transactions").insert([{
-    id:                  newItem.id,
+  const { error } = await supabase.from("transactions").insert([{
+    id,
     user_id:             user.id,
     title:               t.title,
     amount:              t.amount,
@@ -123,9 +184,15 @@ export async function addTransaction(t: Omit<Transaction, "id">) {
     installments_total:  t.installments_total  ?? null,
     recurrence_id:       t.recurrence_id       ?? null,
   }]);
+
+  if (error) {
+    // Reverte se falhou
+    cache = cache.filter(tx => tx.id !== id);
+    notify();
+  }
 }
 
-// ── Adicionar múltiplas transações (série parcelada / recorrente) ──────────
+// ── Adicionar múltiplas transações ────────────────────────────────────────
 export async function addTransactions(items: Omit<Transaction, "id">[]) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
@@ -147,16 +214,25 @@ export async function addTransactions(items: Omit<Transaction, "id">[]) {
     recurrence_id:       t.recurrence_id       ?? null,
   }));
 
-  // Atualiza cache otimisticamente
-  cache = [...rows.map(r => mapRow(r as Record<string, unknown>)), ...cache];
+  const newItems = rows.map(r => mapRow(r as Record<string, unknown>));
+  cache = [...newItems, ...cache];
   notify();
 
-  // Persiste no Supabase
-  await supabase.from("transactions").insert(rows);
+  const { error } = await supabase.from("transactions").insert(rows);
+  if (error) {
+    const ids = new Set(rows.map(r => r.id));
+    cache = cache.filter(t => !ids.has(t.id));
+    notify();
+  }
 }
 
 // ── Atualizar transação ───────────────────────────────────────────────────
-export async function updateTransaction(id: string, patch: Partial<Omit<Transaction, "id">>) {
+export async function updateTransaction(
+  id: string,
+  patch: Partial<Omit<Transaction, "id">>
+) {
+  const prev = cache.find(t => t.id === id);
+  // Atualização otimista
   cache = cache.map(t => (t.id === id ? { ...t, ...patch } : t));
   notify();
 
@@ -173,34 +249,51 @@ export async function updateTransaction(id: string, patch: Partial<Omit<Transact
   if (patch.installments_total  !== undefined) update.installments_total  = patch.installments_total;
   if (patch.recurrence_id       !== undefined) update.recurrence_id       = patch.recurrence_id;
 
-  await supabase.from("transactions").update(update).eq("id", id);
+  const { error } = await supabase.from("transactions").update(update).eq("id", id);
+  if (error && prev) {
+    cache = cache.map(t => (t.id === id ? prev : t));
+    notify();
+  }
 }
 
-// ── Marcar como pago/recebido ─────────────────────────────────────────────
+// ── Toggle pago/recebido ──────────────────────────────────────────────────
 export async function toggleSettled(id: string) {
-  const todayStr   = formatBrDate(new Date());
-  const transaction = cache.find(t => t.id === id);
-  if (!transaction) return;
+  const tx = cache.find(t => t.id === id);
+  if (!tx) return;
 
-  const nextSettled = !transaction.settled;
-  const paidAt      = nextSettled ? (transaction.paidAt ?? todayStr) : undefined;
+  const todayStr    = formatBrDate(new Date());
+  const nextSettled = !tx.settled;
+  const paidAt      = nextSettled ? (tx.paidAt ?? todayStr) : undefined;
 
+  // Atualização otimista imediata
   cache = cache.map(t =>
     t.id === id ? { ...t, settled: nextSettled, paidAt } : t
   );
   notify();
 
-  await supabase.from("transactions").update({
-    settled:  nextSettled,
-    paid_at:  paidAt ?? null,
+  const { error } = await supabase.from("transactions").update({
+    settled: nextSettled,
+    paid_at: paidAt ?? null,
   }).eq("id", id);
+
+  if (error) {
+    // Reverte
+    cache = cache.map(t => (t.id === id ? tx : t));
+    notify();
+  }
 }
 
-// ── Deletar transação única ───────────────────────────────────────────────
+// ── Deletar transação ─────────────────────────────────────────────────────
 export async function deleteTransaction(id: string) {
+  const prev = cache.find(t => t.id === id);
   cache = cache.filter(t => t.id !== id);
   notify();
-  await supabase.from("transactions").delete().eq("id", id);
+
+  const { error } = await supabase.from("transactions").delete().eq("id", id);
+  if (error && prev) {
+    cache = [...cache, prev];
+    notify();
+  }
 }
 
 // ── Deletar série a partir de uma parcela (inclusive) ────────────────────
@@ -208,32 +301,63 @@ export async function deleteTransactionSeries(
   recurrenceId: string,
   fromInstallment: number
 ) {
-  // IDs a deletar
-  const toDelete = cache
-    .filter(t =>
-      t.recurrence_id === recurrenceId &&
-      (t.installment_number ?? 0) >= fromInstallment
-    )
-    .map(t => t.id);
-
-  cache = cache.filter(t => !toDelete.includes(t.id));
+  const prevCache = cache;
+  cache = cache.filter(
+    t => !(t.recurrence_id === recurrenceId && (t.installment_number ?? 0) >= fromInstallment)
+  );
   notify();
 
-  await supabase
+  const { error } = await supabase
     .from("transactions")
     .delete()
     .eq("recurrence_id", recurrenceId)
     .gte("installment_number", fromInstallment);
+
+  if (error) {
+    cache = prevCache;
+    notify();
+  }
+}
+
+
+// ── Deletar recorrências futuras (a partir de uma data inclusiva) ─────────
+export async function deleteRecurringFuture(
+  title: string,
+  type: TransactionType,
+  fromDateBr: string   // dd/mm/yyyy
+) {
+  const fromMs = parseBrDate(fromDateBr).getTime();
+
+  const toDelete = cache.filter(t =>
+    t.recurring === true &&
+    t.title === title &&
+    t.type  === type &&
+    parseBrDate(t.date).getTime() >= fromMs
+  );
+
+  if (toDelete.length === 0) return;
+
+  const ids     = toDelete.map(t => t.id);
+  const prevCache = cache;
+  cache = cache.filter(t => !ids.includes(t.id));
+  notify();
+
+  const { error } = await supabase
+    .from("transactions")
+    .delete()
+    .in("id", ids);
+
+  if (error) {
+    cache = prevCache;
+    notify();
+  }
 }
 
 // ── Helpers de série ──────────────────────────────────────────────────────
-
-/** Verifica se a transação pertence a uma série de N meses */
 export function isInstallmentTransaction(t: Transaction): boolean {
   return !!(t.recurrence_id && t.installments_total && t.installments_total > 1);
 }
 
-/** Título de exibição — adiciona (N/M) para parcelas */
 export function getDisplayTitle(t: Transaction): string {
   if (isInstallmentTransaction(t)) {
     return `${t.title} (${t.installment_number}/${t.installments_total})`;
@@ -241,39 +365,28 @@ export function getDisplayTitle(t: Transaction): string {
   return t.title;
 }
 
-/**
- * Calcula a data de uma parcela mantendo o dia original,
- * com cap no último dia do mês (ex: 31/jan → 28/fev em ano não-bissexto).
- */
 export function calcInstallmentDate(
-  baseYear: number,
-  baseMonth: number,
-  baseDay: number,
-  offset: number
+  baseYear: number, baseMonth: number, baseDay: number, offset: number
 ): Date {
-  const targetTotal = baseMonth - 1 + offset;
-  const targetYear  = baseYear + Math.floor(targetTotal / 12);
-  const targetMonth = ((targetTotal % 12) + 12) % 12;
-  const lastDay     = new Date(targetYear, targetMonth + 1, 0).getDate();
-  return new Date(targetYear, targetMonth, Math.min(baseDay, lastDay));
+  const total     = baseMonth - 1 + offset;
+  const yr        = baseYear + Math.floor(total / 12);
+  const mo        = ((total % 12) + 12) % 12;
+  const lastDay   = new Date(yr, mo + 1, 0).getDate();
+  return new Date(yr, mo, Math.min(baseDay, lastDay));
 }
 
 // ── Utilitários de data ───────────────────────────────────────────────────
-
-/** Parse dd/mm/yyyy → Date */
 export function parseBrDate(d: string): Date {
   const [dd, mm, yyyy] = d.split("/").map(Number);
   return new Date(yyyy, mm - 1, dd);
 }
 
-/** Date → dd/mm/yyyy */
 export function formatBrDate(d: Date): string {
   const dd = String(d.getDate()).padStart(2, "0");
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   return `${dd}/${mm}/${d.getFullYear()}`;
 }
 
-/** Verifica se uma data yyyy-mm-dd é hoje ou anterior */
 export function isTodayOrPast(iso: string): boolean {
   const [y, m, d] = iso.split("-").map(Number);
   const date  = new Date(y, m - 1, d);
