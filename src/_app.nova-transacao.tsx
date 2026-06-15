@@ -69,8 +69,8 @@ function BottomSheet({
 // ── Seção visual ─────────────────────────────────────────────────────────
 function TxSection({ title, children }: { title?: string; children: React.ReactNode }) {
   return (
-    <div className="mx-4 mb-4 overflow-hidden">
-      {title && <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 px-1">{title}</p>}
+    <div style={{ paddingLeft:"1rem", paddingRight:"1rem", marginBottom:"0.75rem" }}>
+      {title && <p style={{ fontSize:"0.6875rem", fontWeight:"700", textTransform:"uppercase", letterSpacing:"0.1em", color:"#94a3b8", marginBottom:"0.375rem" }}>{title}</p>}
       <div className="w-full rounded-2xl bg-white dark:bg-card shadow-sm border border-slate-100 dark:border-border overflow-hidden">
         {children}
       </div>
@@ -85,7 +85,7 @@ function FieldRow({
   last?: boolean; onClick?: () => void; error?: string;
 }) {
   const base = cn(
-    "flex items-center gap-3 px-4 w-full text-left",
+    "flex items-center gap-3 px-4 text-left w-full",
     !last && "border-b border-slate-100 dark:border-border",
     onClick && "active:bg-slate-50"
   );
@@ -214,7 +214,7 @@ function NovaTransacaoPage() {
 
   return (
     <div className="w-full bg-slate-50 dark:bg-background md:max-w-2xl md:mx-auto" >
-      <form onSubmit={handleSubmit(onSubmit)} className="w-full">
+      <form onSubmit={handleSubmit(onSubmit)} style={{ display:"block", width:"100%", margin:0 }}>
 
         {/* ── HEADER ────────────────────────────────────────────────── */}
         <div className={cn(headerBg, "w-full text-white px-4 pb-8")}
@@ -257,7 +257,8 @@ function NovaTransacaoPage() {
             </div>
             {errors.amount && <p className="text-[12px] text-destructive mt-1">{errors.amount.message}</p>}
           </div>
-          <div className="h-1" style={{ background: accentHex }} />
+          <div style={{ height:"4px", background: accentHex }} />
+        </div>
         </div>
 
         {/* ── INFORMAÇÕES ───────────────────────────────────────────── */}

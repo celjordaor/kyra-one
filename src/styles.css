@@ -186,17 +186,27 @@
   }
 }
 
-/* ── Fora do @layer para maior especificidade ──────────────────────── */
-/* Fix de overflow horizontal para iOS Safari e PWA */
+/* ── Fix overflow horizontal — iOS Safari / PWA ──────────────────── */
+/* Abordagem: #root como scroll container, não o body */
 html {
-  overflow-x: hidden;
+  overflow: hidden;
+  height: 100%;
   width: 100%;
 }
 
 body {
-  overflow-x: hidden;
+  overflow: hidden;
+  height: 100%;
   width: 100%;
-  max-width: 100%;
-  /* overscroll-behavior-x impede scroll horizontal no iOS PWA */
+}
+
+#root {
+  overflow-y: auto;
+  overflow-x: hidden;
+  height: 100%;
+  width: 100%;
+  max-width: 100vw;
   overscroll-behavior-x: none;
+  /* Permite scroll vertical, bloqueia horizontal em todos os browsers */
+  -webkit-overflow-scrolling: touch;
 }

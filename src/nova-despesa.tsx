@@ -91,8 +91,8 @@ function BottomSheet({ open, onClose, title, maxHeight = "75vh", children }: {
 // ── Componentes ─────────────────────────────────────────────────────────
 function TxSection({ title, children }: { title?: string; children: React.ReactNode }) {
   return (
-    <div className="mx-4 mb-4 overflow-hidden">
-      {title && <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 px-1">{title}</p>}
+    <div style={{ paddingLeft:"1rem", paddingRight:"1rem", marginBottom:"0.75rem" }}>
+      {title && <p style={{ fontSize:"0.6875rem", fontWeight:"700", textTransform:"uppercase", letterSpacing:"0.1em", color:"#94a3b8", marginBottom:"0.375rem" }}>{title}</p>}
       <div className="w-full rounded-2xl bg-white dark:bg-card shadow-sm border border-slate-100 dark:border-border overflow-hidden">
         {children}
       </div>
@@ -104,7 +104,7 @@ function FieldRow({ icon, label, children, last = false, onClick, error }: {
   icon: React.ReactNode; label: string; children: React.ReactNode;
   last?: boolean; onClick?: () => void; error?: string;
 }) {
-  const cls = cn("flex items-center gap-3 px-4 w-full text-left",
+  const cls = cn("flex items-center gap-3 px-4 text-left w-full",
     !last && "border-b border-slate-100 dark:border-border",
     onClick && "active:bg-slate-50");
   const inner = (
@@ -195,7 +195,7 @@ function NovaDespesaPage() {
 
   return (
     <div className="w-full bg-slate-50 dark:bg-background md:max-w-2xl md:mx-auto" >
-      <form onSubmit={handleSubmit(onSubmit)} className="w-full">
+      <form onSubmit={handleSubmit(onSubmit)} style={{ display:"block", width:"100%", margin:0 }}>
 
         {/* HEADER */}
         <div className="w-full bg-indigo-600 text-white px-4 pb-8"
@@ -211,7 +211,8 @@ function NovaDespesaPage() {
         </div>
 
         {/* VALOR */}
-        <div className="mx-4 -mt-4 mb-5 rounded-3xl bg-white dark:bg-card shadow-xl overflow-hidden">
+        <div style={{ paddingLeft:"1rem", paddingRight:"1rem", marginTop:"-1rem", marginBottom:"1.25rem" }}>
+      <div style={{ borderRadius:"1.5rem", background:"white", overflow:"hidden", boxShadow:"0 10px 25px rgba(0,0,0,0.1)" }}>
           <div className="px-5 pt-5 pb-3">
             <p className="text-[11px] font-bold uppercase tracking-widest text-indigo-400 mb-2">VALOR DA DESPESA</p>
             <div className="flex items-baseline gap-2">
@@ -224,7 +225,8 @@ function NovaDespesaPage() {
             </div>
             {errors.amount_raw && <p className="text-[12px] text-destructive mt-2">{errors.amount_raw.message}</p>}
           </div>
-          <div className="h-1" style={{ background: "linear-gradient(to right,#4f46e544,#4f46e5)" }} />
+          <div style={{ height:"4px", background: "linear-gradient(to right,#4f46e533,#4f46e5)" }} />
+        </div>
         </div>
 
         <div className="pb-4">

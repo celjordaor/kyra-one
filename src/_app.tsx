@@ -53,7 +53,7 @@ function AppLayout() {
 
   return (
     <TooltipProvider>
-      <div className="bg-background" style={{ minHeight: "100dvh" }}>
+      <div style={{ display:"block", background:"var(--color-background)", minHeight:"100dvh", width:"100%", maxWidth:"100vw", overflowX:"hidden" }}>
         {showBanner && (
           <div className="fixed top-0 left-0 right-0 z-50 md:left-64">
             <GracePeriodBanner subscription={subscription} />
