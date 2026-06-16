@@ -212,7 +212,7 @@ function TransacoesPage() {
   };
 
   return (
-    <div className="space-y-4 md:p-8 md:max-w-3xl md:mx-auto" style={{ width: "100%", maxWidth: "100%", overflowX: "hidden", padding: "1.25rem", paddingTop: "calc(1.5rem + env(safe-area-inset-top, 0px))" }}>
+    <div className="space-y-4 md:p-8 md:max-w-3xl md:mx-auto" style={{ width:"100vw", maxWidth:"100vw", overflowX:"hidden", padding:"1.25rem", paddingTop:"calc(1.5rem + env(safe-area-inset-top, 0px))", boxSizing:"border-box" }}>
       <h1 className="text-xl font-bold text-foreground">Transações</h1>
 
       {/* Seletor de mês */}
@@ -1033,7 +1033,8 @@ function EditTransactionDialog({ transaction, onClose, bulkEdit = false, allTran
               <p className="text-sm font-medium">{type==="income"?"Recebida":"Paga"}</p>
               <p className="text-xs text-muted-foreground">{isFuture?"Antecipar efetivação":"Marca como concluída na data de hoje"}</p>
             </div>
-            <Switch checked={settled} onCheckedChange={setSettled} />
+            <Switch checked={settled} onCheckedChange={setSettled}
+                className="data-[state=unchecked]:bg-slate-300 data-[state=checked]:bg-emerald-500 border-2 border-slate-300 data-[state=checked]:border-emerald-500" />
           </div>
           {error && <p className="text-xs text-destructive">{error}</p>}
         </div>

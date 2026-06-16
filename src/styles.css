@@ -92,7 +92,7 @@
   --destructive: oklch(0.6368 0.2078 25.33);
   --destructive-foreground: oklch(1 0 0);
   --border: oklch(0.9288 0.0126 255.51);
-  --input: oklch(0.9288 0.0126 255.51);
+  --input: oklch(0.75 0.02 255.51); /* Fix: contraste adequado para Switch */
   --ring: oklch(0.7038 0.1230 182.50);
   --chart-1: oklch(0.7038 0.1230 182.50);
   --chart-2: oklch(0.7845 0.1325 181.91);

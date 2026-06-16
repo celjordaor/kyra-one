@@ -334,7 +334,8 @@ function NovaDespesaPage() {
                   <p style={{ fontSize:"0.75rem", color:"#94a3b8", marginTop:"0.125rem" }}>Lançada nas próximas 12 faturas</p>
                 </div>
                 <Controller name="is_recurring" control={control} render={({ field }) => (
-                  <Switch checked={!!field.value} onCheckedChange={v => { field.onChange(v); if (v) setValue("installments", 1); }} />
+                  <Switch checked={!!field.value} onCheckedChange={v => { field.onChange(v); if (v) setValue("installments", 1); }}
+                  className="data-[state=unchecked]:bg-slate-300 data-[state=checked]:bg-indigo-500 border-2 border-slate-300 data-[state=checked]:border-indigo-500" />
                 )} />
               </div>
             </TxSection>
