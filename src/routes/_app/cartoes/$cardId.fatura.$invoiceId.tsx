@@ -5,9 +5,6 @@ import {
   Eye, Pencil, Lock, Save, Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useCardStore, type ExpenseType } from "@/lib/card-store";
 import { DatePicker } from "@/components/cartoes/date-picker";
 import { useCategories } from "@/lib/categories-store";
@@ -15,7 +12,7 @@ import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_app/cartoes/$cardId/fatura/$invoiceId")({
+export const Route = createFileRoute("/cartoes/$cardId/fatura/$invoiceId")({
   component: FaturaDetailPage,
 });
 
@@ -55,11 +52,7 @@ function formatCurrencyInput(digits: string): string {
 function parseCurrencyInput(v: string): number {
   return parseFloat(v.replace(/\./g, "").replace(",", ".")) || 0;
 }
-
-// ── Modal de opções de exclusão (recorrente / parcelada) ──────────────────
-function DeleteOptionsModal({
-  open, item, onClose, onDeleteSingle, onDeleteFuture,
-}: {
+: {
   open: boolean;
   item: UnifiedItem | null;
   onClose: () => void;
@@ -176,11 +169,7 @@ function DeleteOptionsModal({
     </Dialog>
   );
 }
-
-
-function ExpenseDetailModal({
-  item, invoiceStatus, open, onClose, onSaved, onDeleted,
-}: {
+: {
   item: UnifiedItem | null;
   invoiceStatus: "open" | "closed" | "paid";
   open: boolean; onClose: () => void;
@@ -264,67 +253,25 @@ function ExpenseDetailModal({
   async function deleteFuture() {
     if (!item) return;
     try {
-      const affectedIds = new Set<string>([item.invoiceId]);
-
-      if (item.expense_type === "installment") {
-        if (item.isInstallment && item.parentExpenseId && item.installmentNumber !== undefined) {
-          // Buscar invoices afetados ANTES de deletar
-          const { data: rows } = await supabase
-            .from("card_installments")
-            .select("invoice_id")
-            .eq("parent_expense_id", item.parentExpenseId)
-            .gte("installment_number", item.installmentNumber);
-          rows?.forEach(r => affectedIds.add(r.invoice_id));
-
-          // Deletar parcelas seguintes
-          await supabase
-            .from("card_installments")
-            .delete()
-            .eq("parent_expense_id", item.parentExpenseId)
-            .gte("installment_number", item.installmentNumber);
-
-        } else if (!item.isInstallment) {
-          // Buscar todos os filhos ANTES de deletar
-          const { data: children } = await supabase
-            .from("card_installments")
-            .select("invoice_id")
-            .eq("parent_expense_id", item.id);
-          children?.forEach(r => affectedIds.add(r.invoice_id));
-
-          // Deletar pai + todos os filhos
-          await supabase.from("card_expenses").delete().eq("id", item.id);
-          await supabase.from("card_installments").delete().eq("parent_expense_id", item.id);
-        }
-
+      if (item.expense_type === "installment" && item.parentExpenseId && item.installmentNumber !== undefined) {
+        // Deletar esta parcela e as seguintes (mesmo parent)
+        await supabase.from("card_installments")
+          .delete()
+          .eq("parent_expense_id", item.parentExpenseId)
+          .gte("installment_number", item.installmentNumber);
       } else if (item.expense_type === "recurring") {
-        // Buscar invoices afetados ANTES de deletar
-        const { data: rows } = await supabase
-          .from("card_expenses")
-          .select("invoice_id")
-          .eq("description", item.description)
-          .eq("expense_type", "recurring")
-          .gte("purchase_date", item.purchase_date);
-        rows?.forEach(r => affectedIds.add(r.invoice_id));
-
-        // Deletar recorrentes futuras
-        await supabase
-          .from("card_expenses")
+        // Deletar esta e futuras recorrentes (mesmo nome + cartão)
+        await supabase.from("card_expenses")
           .delete()
           .eq("description", item.description)
           .eq("expense_type", "recurring")
           .gte("purchase_date", item.purchase_date);
       }
-
-      // Recalcular TODOS os invoices afetados em paralelo
-      await Promise.all([...affectedIds].map(id => recalcTotal(id)));
-
+      // Recarregar dados completos (vários meses podem ser afetados)
       toast.success("Lançamentos excluídos.");
       setShowDeleteOptions(false);
       onDeleted();
-    } catch (e) {
-      console.error("deleteFuture error:", e);
-      toast.error("Erro ao excluir.");
-    }
+    } catch { toast.error("Erro ao excluir."); }
   }
 
   if (!item) return null;
@@ -451,10 +398,7 @@ function FaturaDetailPage() {
 
   const [paying, setPaying]       = useState(false);
   const [reversing, setReversing] = useState(false);
-  const [modalItem, setModalItem] = useState<UnifiedItem | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
   const [loading, setLoading]     = useState(true);
-  const [activeTab, setActiveTab] = useState<"items" | "cats">("items");
 
   const card    = cards.find(c => c.id === cardId);
   const invoice = invoices.find(i => i.id === invoiceId);
@@ -487,7 +431,6 @@ function FaturaDetailPage() {
       amount: e.amount, purchase_date: e.purchase_date,
       expense_type: e.expense_type, isInstallment: false, invoiceId,
       cardId,
-      installmentNumber: e.installment_number, // para parceladas (installment_number=1 é o pai)
     })),
     ...rawInstallments.map(i => ({
       id: i.id, description: i.description, category: i.category,
@@ -515,11 +458,8 @@ function FaturaDetailPage() {
   };
 
   const reloadData = async () => {
-    // Recarrega detalhes da fatura atual
     await fetchExpenses(invoiceId);
     await fetchInstallments(invoiceId);
-    // Recarrega TODAS as faturas do cartão (atualiza totais nos cards)
-    await fetchInvoices(cardId);
   };
 
   if (loading) return (
@@ -546,201 +486,119 @@ function FaturaDetailPage() {
     acc[e.category] = (acc[e.category] ?? 0) + e.amount; return acc;
   }, {});
 
-  // Cor do header por status
-  const headerGradient = isPaid
-    ? "from-emerald-500 to-teal-600"
-    : isClosed
-    ? "from-slate-500 to-slate-700"
-    : "from-emerald-400 to-emerald-600";
-
-  const statusLabel = isPaid ? "Paga" : isClosed ? "Fechada" : "Em aberto";
-  const statusDot   = isPaid ? "bg-emerald-200" : isClosed ? "bg-slate-300" : "bg-amber-300";
-
-  const catEntries = Object.entries(categoryTotals).sort(([,a],[,b]) => b - a);
-  const totalForPct = catEntries.reduce((s, [,v]) => s + v, 0);
-
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-background md:max-w-2xl md:mx-auto">
-
-      {/* ── HEADER VERDE ─────────────────────────────────────────────── */}
-      <div className={cn("bg-gradient-to-br px-5 pt-5 pb-12 text-white", headerGradient)}>
-        <div className="flex items-center gap-3 mb-5">
-          <button onClick={() => router.history.back()}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors">
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <div className="flex-1 min-w-0">
-            <p className="text-[11px] uppercase tracking-widest text-white/60">{card.name} · {card.flag ?? ""}</p>
-            <p className="text-lg font-bold">Fatura {invoice.competence}</p>
-          </div>
-          <div className="flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 shrink-0">
-            <span className={cn("h-2 w-2 rounded-full", statusDot)} />
-            <span className="text-xs font-bold">{statusLabel}</span>
-          </div>
+    <div className="mx-auto max-w-2xl space-y-6 px-4 py-6">
+      <div className="flex items-center gap-3">
+        <button onClick={() => router.history.back()}
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground hover:bg-accent">
+          <ArrowLeft className="h-4 w-4" />
+        </button>
+        <div>
+          <h1 className="text-xl font-bold text-foreground">{card.name} · {invoice.competence}</h1>
+          <p className="text-sm text-muted-foreground">
+            {isPaid ? "Fatura paga" : isClosed ? "Fatura fechada" : "Fatura aberta"}
+          </p>
         </div>
+      </div>
 
-        {/* Total + datas */}
-        <div className="rounded-2xl bg-white/10 p-4">
-          <p className="text-white/60 text-xs mb-1">Total da fatura</p>
-          <p className="text-4xl font-bold mb-3">{fmt(invoice.total_amount)}</p>
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { label: "Competência", value: invoice.competence },
-              { label: "Fechamento",  value: new Date(invoice.closing_date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }) },
-              { label: "Vencimento",  value: new Date(invoice.due_date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }) },
-            ].map(({ label, value }) => (
-              <div key={label} className="rounded-xl bg-white/10 px-2 py-2">
-                <p className="text-[10px] text-white/50 mb-0.5">{label}</p>
-                <p className="text-xs font-bold">{value}</p>
+      <div className="rounded-2xl border bg-card p-5">
+        <div className="grid grid-cols-2 gap-y-3 text-sm">
+          <div><p className="text-xs text-muted-foreground">Competência</p><p className="font-medium">{invoice.competence}</p></div>
+          <div><p className="text-xs text-muted-foreground">Fechamento</p><p className="font-medium">{new Date(invoice.closing_date+"T12:00:00").toLocaleDateString("pt-BR")}</p></div>
+          <div><p className="text-xs text-muted-foreground">Vencimento</p><p className="font-medium">{new Date(invoice.due_date+"T12:00:00").toLocaleDateString("pt-BR")}</p></div>
+          <div><p className="text-xs text-muted-foreground">Total</p><p className="text-lg font-bold">{fmt(invoice.total_amount)}</p></div>
+        </div>
+        {!isPaid && invoice.total_amount > 0 && (
+          <Button className="mt-4 h-11 w-full gap-2 bg-green-600 font-semibold hover:bg-green-700" onClick={handlePay} disabled={paying}>
+            <CheckCircle2 className="h-4 w-4" /> {paying ? "Processando..." : "Marcar como paga"}
+          </Button>
+        )}
+        {isPaid && (
+          <div className="mt-4 space-y-3">
+            <div className="flex items-center justify-center gap-2 rounded-xl bg-green-50 py-3 text-sm font-medium text-green-700">
+              <CheckCircle2 className="h-4 w-4" /> Fatura paga · Transação registrada
+            </div>
+            <Button variant="outline" className="h-10 w-full gap-2 border-destructive/30 text-destructive hover:bg-destructive/5" onClick={handleReverse} disabled={reversing}>
+              <Undo2 className="h-4 w-4" /> {reversing ? "Estornando..." : "Estornar fatura"}
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {Object.keys(categoryTotals).length > 0 && (
+        <div>
+          <h2 className="mb-3 text-sm font-semibold text-foreground">Por categoria</h2>
+          <div className="space-y-2">
+            {Object.entries(categoryTotals).sort(([,a],[,b]) => b-a).map(([cat, total]) => (
+              <div key={cat} className="flex items-center justify-between rounded-xl border bg-card px-4 py-3">
+                <span className="text-sm">{cat}</span>
+                <span className="text-sm font-semibold">{fmt(total)}</span>
               </div>
             ))}
           </div>
         </div>
-      </div>
+      )}
 
-      {/* ── Ações ────────────────────────────────────────────────────── */}
-      <div className="px-4 -mt-5 mb-4 space-y-2">
-        {isOpen && invoice.total_amount > 0 && (
-          <button onClick={handlePay} disabled={paying}
-            className="flex w-full h-12 items-center justify-center gap-2 rounded-2xl bg-emerald-500 text-white font-semibold text-sm shadow-lg transition-all active:scale-95 disabled:opacity-70"
-            style={{ boxShadow: "0 8px 20px #10b98144" }}>
-            <CheckCircle2 className="h-4 w-4" />
-            {paying ? "Processando..." : "Marcar como paga"}
-          </button>
-        )}
-        {isPaid && (
-          <>
-            <div className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/30 py-3 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
-              <CheckCircle2 className="h-4 w-4" /> Fatura paga · Transação registrada
-            </div>
-            <button onClick={handleReverse} disabled={reversing}
-              className="flex w-full h-11 items-center justify-center gap-2 rounded-2xl border border-red-200 bg-white dark:bg-card text-red-500 font-medium text-sm transition-all hover:bg-red-50 active:scale-95 disabled:opacity-70">
-              <Undo2 className="h-4 w-4" /> {reversing ? "Estornando..." : "Estornar fatura"}
-            </button>
-          </>
-        )}
-      </div>
-
-      {/* ── Tabs ─────────────────────────────────────────────────────── */}
-      <div className="px-4 mb-3">
-        <div className="flex rounded-2xl bg-white dark:bg-card border border-slate-100 dark:border-border shadow-sm p-1 gap-1">
-          {([["items", `Lançamentos (${allItems.length})`], ["cats", "Por categoria"]] as const).map(([key, label]) => (
-            <button key={key} onClick={() => setActiveTab(key)}
-              className={cn(
-                "flex-1 py-2.5 rounded-xl text-xs font-semibold transition-all",
-                activeTab === key
-                  ? "bg-emerald-500 text-white shadow-sm"
-                  : "text-slate-500 dark:text-muted-foreground hover:text-slate-700"
-              )}>
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Lançamentos ──────────────────────────────────────────────── */}
-      {activeTab === "items" && (
-        <div className="px-4 pb-8">
-          {allItems.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-200 dark:border-border py-10 text-center text-sm text-slate-400">
-              Nenhuma despesa nesta fatura.
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {allItems.map(item => {
-                const installLabel = item.installmentNumber !== undefined
-                  ? ` · ${item.installmentNumber}ª parcela`
-                  : "";
-                return (
-                  <button key={item.id} type="button"
-                    onClick={() => { setModalItem(item); setModalOpen(true); }}
-                    className="flex w-full items-center gap-3 rounded-2xl bg-white dark:bg-card border border-slate-100 dark:border-border px-4 py-3.5 text-left shadow-sm hover:shadow-md transition-shadow">
-                    {/* Ícone tipo */}
-                    <div className={cn(
-                      "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm",
-                      item.expense_type === "installment" ? "bg-blue-50 dark:bg-blue-950/30 text-blue-600" :
-                      item.expense_type === "recurring"   ? "bg-purple-50 dark:bg-purple-950/30 text-purple-600" :
-                      "bg-slate-100 dark:bg-muted text-slate-500"
-                    )}>
-                      {TYPE_ICON[item.expense_type]}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[14px] font-semibold text-slate-800 dark:text-foreground truncate">
-                        {item.description}
-                      </p>
-                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                        <span className={cn(
-                          "text-[10px] font-semibold rounded-full px-2 py-0.5",
-                          item.expense_type === "installment" ? "bg-blue-50 text-blue-600" :
-                          item.expense_type === "recurring"   ? "bg-purple-50 text-purple-600" :
-                          "bg-slate-100 text-slate-600"
-                        )}>
-                          {TYPE_LABEL[item.expense_type]}{installLabel}
-                        </span>
-                        <span className="text-[11px] text-slate-400 dark:text-muted-foreground">{item.category}</span>
-                        <span className="text-[11px] text-slate-300 dark:text-muted-foreground/40">·</span>
-                        <span className="text-[11px] text-slate-400 dark:text-muted-foreground">
-                          {new Date(item.purchase_date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <p className="text-[14px] font-bold text-slate-800 dark:text-foreground">{fmt(item.amount)}</p>
-                      <div className={cn(
-                        "flex h-8 w-8 items-center justify-center rounded-full",
-                        isOpen ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600" : "bg-muted text-muted-foreground"
-                      )}>
-                        {isOpen ? <Pencil className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+      <div>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-foreground">Lançamentos ({allItems.length})</h2>
+          {!isOpen && (
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Lock className="h-3 w-3" />
+              {isPaid ? "Paga · somente leitura" : "Fechada · somente leitura"}
+            </span>
           )}
         </div>
-      )}
-
-      {/* ── Por categoria ─────────────────────────────────────────────── */}
-      {activeTab === "cats" && (
-        <div className="px-4 pb-8 space-y-2">
-          {catEntries.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-200 dark:border-border py-10 text-center text-sm text-slate-400">
-              Nenhuma categoria registrada.
-            </div>
-          ) : catEntries.map(([cat, total], idx) => {
-            const pct = totalForPct > 0 ? (total / totalForPct) * 100 : 0;
-            const colors = ["#10b981","#3b82f6","#8b5cf6","#f97316","#ef4444","#6b7280","#14b8a6","#f59e0b"];
-            const color  = colors[idx % colors.length];
-            return (
-              <div key={cat} className="rounded-2xl bg-white dark:bg-card border border-slate-100 dark:border-border px-4 py-3.5 shadow-sm">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: color }}/>
-                    <span className="text-[14px] font-medium text-slate-800 dark:text-foreground">{cat}</span>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[14px] font-bold text-slate-800 dark:text-foreground">{fmt(total)}</p>
-                    <p className="text-[11px] text-slate-400 dark:text-muted-foreground">{pct.toFixed(0)}%</p>
+        {allItems.length === 0 ? (
+          <div className="rounded-xl border border-dashed py-10 text-center text-sm text-muted-foreground">
+            Nenhuma despesa nesta fatura.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {allItems.map(item => (
+              <button key={item.id} type="button"
+                onClick={() => router.navigate({
+                  to: "/cartoes/editar-despesa",
+                  search: {
+                    expenseId:     item.id,
+                    isInstallment: item.isInstallment,
+                    invoiceId:     item.invoiceId,
+                    cardId:        cardId,
+                    invoiceStatus: invoiceStatus,
+                  }
+                })}
+                className="flex w-full items-center gap-3 rounded-xl border bg-card px-4 py-3.5 text-left transition-colors hover:bg-muted/40">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  {TYPE_ICON[item.expense_type]}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="truncate text-sm font-medium text-foreground">{item.description}</p>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs text-muted-foreground">{item.category}</span>
+                    <span className="text-xs text-muted-foreground">·</span>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(item.purchase_date+"T12:00:00").toLocaleDateString("pt-BR")}
+                    </span>
+                    <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] font-medium", TYPE_CLASS[item.expense_type])}>
+                      {TYPE_LABEL[item.expense_type]}
+                    </span>
                   </div>
                 </div>
-                <div className="h-1.5 rounded-full bg-slate-100 dark:bg-muted overflow-hidden">
-                  <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }}/>
+                <div className="flex shrink-0 items-center gap-2">
+                  <p className="text-sm font-semibold">{fmt(item.amount)}</p>
+                  <div className={cn("flex h-7 w-7 items-center justify-center rounded-full",
+                    isOpen ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                  )}>
+                    {isOpen ? <Pencil className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
-      <ExpenseDetailModal
-        item={modalItem} invoiceStatus={invoiceStatus} open={modalOpen}
-        onClose={() => { setModalOpen(false); setModalItem(null); }}
-        onSaved={async () => { setModalOpen(false); setModalItem(null); await reloadData(); }}
-        onDeleted={async () => { setModalOpen(false); setModalItem(null); await reloadData(); }}
-      />
+
     </div>
   );
 }
