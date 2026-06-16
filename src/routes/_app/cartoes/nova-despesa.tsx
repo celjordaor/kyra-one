@@ -88,30 +88,18 @@ function BottomSheet({ open, onClose, title, maxHeight = "75vh", children }: {
   );
 }
 
-// ── Seção ─────────────────────────────────────────────────────────────────
-const S: React.CSSProperties = {
-  display: "block",
-  marginLeft: "1rem",
-  marginRight: "1rem",
-  marginBottom: "0.75rem",
-  borderRadius: "1rem",
-  background: "white",
-  border: "1px solid #f1f5f9",
-  overflow: "hidden",
-  boxShadow: "0 1px 3px rgba(0,0,0,0.07)",
-};
-
+// ── Seção — idêntica à nova-transacao ────────────────────────────────────
 function TxSection({ title, children }: { title?: string; children: React.ReactNode }) {
   return (
-    <div style={{ display: "block" }}>
+    <div style={{ paddingLeft:"1rem", paddingRight:"1rem", marginBottom:"0.75rem" }}>
       {title && (
-        <p style={{ display:"block", fontSize:"0.6875rem", fontWeight:700,
-          textTransform:"uppercase", letterSpacing:"0.1em", color:"#94a3b8",
-          marginLeft:"1rem", marginBottom:"0.375rem" }}>
+        <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 px-0.5">
           {title}
         </p>
       )}
-      <div style={S}>{children}</div>
+      <div className="w-full rounded-2xl bg-white dark:bg-card shadow-sm border border-slate-100 dark:border-border overflow-hidden">
+        {children}
+      </div>
     </div>
   );
 }
@@ -120,32 +108,27 @@ function FieldRow({ icon, label, children, last = false, onClick, error }: {
   icon: React.ReactNode; label: string; children: React.ReactNode;
   last?: boolean; onClick?: () => void; error?: string;
 }) {
+  const base = cn(
+    "flex items-center gap-3 px-4 text-left w-full",
+    !last && "border-b border-slate-100 dark:border-border",
+    onClick && "active:bg-slate-50"
+  );
   const inner = (
     <>
-      <div style={{ flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center",
-        width:"2.5rem", height:"2.5rem", borderRadius:"0.75rem",
-        background:"#f1f5f9", color:"#64748b" }}>
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-muted text-slate-500">
         {icon}
       </div>
-      <div style={{ flex:1, minWidth:0, paddingTop:"1rem", paddingBottom:"1rem", overflow:"hidden" }}>
-        <p style={{ fontSize:"0.6875rem", fontWeight:700, textTransform:"uppercase",
-          letterSpacing:"0.06em", color:"#94a3b8", marginBottom:"0.25rem" }}>{label}</p>
+      <div className="flex-1 min-w-0 py-4 overflow-hidden">
+        <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">{label}</p>
         {children}
-        {error && <p style={{ fontSize:"0.75rem", color:"#ef4444", marginTop:"0.25rem" }}>{error}</p>}
+        {error && <p className="text-[12px] text-destructive mt-1">{error}</p>}
       </div>
-      {onClick && <ChevronRight style={{ flexShrink:0, width:"1.25rem", height:"1.25rem", color:"#cbd5e1" }} />}
+      {onClick && <ChevronRight className="h-5 w-5 text-slate-300 shrink-0" />}
     </>
   );
-  const baseStyle: React.CSSProperties = {
-    display:"flex", alignItems:"center", gap:"0.75rem",
-    paddingLeft:"1rem", paddingRight:"1rem", width:"100%",
-    borderBottom: last ? "none" : "1px solid #f1f5f9",
-    background:"transparent", cursor: onClick ? "pointer" : "default",
-    textAlign:"left",
-  };
   return onClick
-    ? <button type="button" onClick={onClick} style={baseStyle}>{inner}</button>
-    : <div style={baseStyle}>{inner}</div>;
+    ? <button type="button" onClick={onClick} className={base}>{inner}</button>
+    : <div className={base}>{inner}</div>;
 }
 
 // ── Página ─────────────────────────────────────────────────────────────────
@@ -219,8 +202,9 @@ function NovaDespesaPage() {
   };
 
   return (
-    <div style={{ display:"block", background:"#f8fafc" }}>
-      <form onSubmit={handleSubmit(onSubmit)} style={{ display:"block" }}>
+    <div style={{ width:"100vw", maxWidth:"100vw", overflowX:"hidden", boxSizing:"border-box" }}
+      className="bg-slate-50 dark:bg-background md:max-w-2xl md:mx-auto">
+      <form onSubmit={handleSubmit(onSubmit)} style={{ display:"block", width:"100%", margin:0 }}>
 
         {/* HEADER */}
         <div style={{ display:"block", background:"#4f46e5", color:"white",
