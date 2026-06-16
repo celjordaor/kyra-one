@@ -135,12 +135,39 @@ export const useCardStore = create<CardStore>((set, get) => ({
   payInvoice: async (invoiceId, card) => {
     const { data: { user } } = await supabase.auth.getUser(); if (!user) return;
     const invoice = get().invoices.find(i => i.id === invoiceId); if (!invoice) return;
-    const { addTransaction } = await import("./transactions-store");
-    await addTransaction({ title: `Fatura ${card.name} – ${invoice.competence}`, amount: invoice.total_amount, type: "expense", date: toTransactionDate(invoice.due_date), category: "Cartão de Crédito", settled: true, paidAt: toTransactionDate(format(new Date(), "yyyy-MM-dd")), recurring: false });
-    const { data: txRow } = await supabase.from("transactions").select("id").eq("user_id", user.id).eq("category", "Cartão de Crédito").eq("title", `Fatura ${card.name} – ${invoice.competence}`).order("created_at", { ascending: false }).limit(1).single();
-    const txId = txRow?.id ?? null;
-    await supabase.from("invoices").update({ status: "paid", transaction_id: txId }).eq("id", invoiceId);
-    set(s => ({ invoices: s.invoices.map(i => i.id === invoiceId ? { ...i, status: "paid", transaction_id: txId } : i) }));
+
+    let txId: string | null = null;
+
+    // Só cria transação se a fatura tiver valor (> 0)
+    // Fatura zerada: apenas atualiza status, sem gerar lançamento R$ 0,00
+    if (invoice.total_amount > 0) {
+      const { addTransaction } = await import("./transactions-store");
+      await addTransaction({
+        title: `Fatura ${card.name} – ${invoice.competence}`,
+        amount: invoice.total_amount,
+        type: "expense",
+        date: toTransactionDate(invoice.due_date),
+        category: "Cartão de Crédito",
+        settled: true,
+        paidAt: toTransactionDate(format(new Date(), "yyyy-MM-dd")),
+        recurring: false,
+      });
+      const { data: txRow } = await supabase
+        .from("transactions").select("id")
+        .eq("user_id", user.id)
+        .eq("category", "Cartão de Crédito")
+        .eq("title", `Fatura ${card.name} – ${invoice.competence}`)
+        .order("created_at", { ascending: false }).limit(1).single();
+      txId = txRow?.id ?? null;
+    }
+
+    await supabase.from("invoices")
+      .update({ status: "paid", transaction_id: txId }).eq("id", invoiceId);
+    set(s => ({
+      invoices: s.invoices.map(i =>
+        i.id === invoiceId ? { ...i, status: "paid", transaction_id: txId } : i
+      ),
+    }));
   },
 
   reverseInvoice: async (invoiceId) => {

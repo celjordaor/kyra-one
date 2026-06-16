@@ -508,10 +508,21 @@ function FaturaDetailPage() {
           <div><p className="text-xs text-muted-foreground">Vencimento</p><p className="font-medium">{new Date(invoice.due_date+"T12:00:00").toLocaleDateString("pt-BR")}</p></div>
           <div><p className="text-xs text-muted-foreground">Total</p><p className="text-lg font-bold">{fmt(invoice.total_amount)}</p></div>
         </div>
-        {!isPaid && invoice.total_amount > 0 && (
-          <Button className="mt-4 h-11 w-full gap-2 bg-green-600 font-semibold hover:bg-green-700" onClick={handlePay} disabled={paying}>
-            <CheckCircle2 className="h-4 w-4" /> {paying ? "Processando..." : "Marcar como paga"}
-          </Button>
+        {!isPaid && (
+          <div className="mt-4 space-y-2">
+            {invoice.total_amount === 0 && (
+              <div className="flex items-center gap-2 rounded-xl bg-amber-50 border border-amber-200 px-4 py-2.5 text-[13px] text-amber-700">
+                <span className="text-base">ℹ️</span>
+                Fatura zerada — nenhum lançamento registrado neste período.
+              </div>
+            )}
+            <Button
+              className="h-11 w-full gap-2 bg-green-600 font-semibold hover:bg-green-700"
+              onClick={handlePay} disabled={paying}>
+              <CheckCircle2 className="h-4 w-4" />
+              {paying ? "Processando..." : invoice.total_amount === 0 ? "Marcar como quitada" : "Marcar como paga"}
+            </Button>
+          </div>
         )}
         {isPaid && (
           <div className="mt-4 space-y-3">
