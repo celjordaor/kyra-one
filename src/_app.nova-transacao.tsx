@@ -70,7 +70,7 @@ function BottomSheet({
 function TxSection({ title, children }: { title?: string; children: React.ReactNode }) {
   return (
     <div style={{ paddingLeft:"1rem", paddingRight:"1rem", marginBottom:"0.75rem" }}>
-      {title && <p style={{ fontSize:"0.6875rem", fontWeight:"700", textTransform:"uppercase", letterSpacing:"0.1em", color:"#94a3b8", marginBottom:"0.375rem" }}>{title}</p>}
+      {title && <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 px-0.5">{title}</p>}
       <div className="w-full rounded-2xl bg-white dark:bg-card shadow-sm border border-slate-100 dark:border-border overflow-hidden">
         {children}
       </div>
@@ -116,7 +116,7 @@ function SwitchRow({
 }) {
   return (
     <div className={cn(
-      "flex items-center gap-3 px-4 py-4",
+      "flex w-full items-center gap-3 px-4 py-4 [box-sizing:border-box]",
       !last && "border-b border-slate-100 dark:border-border",
       disabled && "opacity-50"
     )}>
@@ -213,7 +213,7 @@ function NovaTransacaoPage() {
   };
 
   return (
-    <div className="w-full bg-slate-50 dark:bg-background md:max-w-2xl md:mx-auto" >
+    <div style={{ width:"100vw", maxWidth:"100vw", overflowX:"hidden", boxSizing:"border-box" }} className="bg-slate-50 dark:bg-background md:max-w-2xl md:mx-auto">
       <form onSubmit={handleSubmit(onSubmit)} style={{ display:"block", width:"100%", margin:0 }}>
 
         {/* ── HEADER ────────────────────────────────────────────────── */}
@@ -244,7 +244,8 @@ function NovaTransacaoPage() {
         </div>
 
         {/* ── VALOR ─────────────────────────────────────────────────── */}
-        <div className="mx-4 -mt-4 mb-5 rounded-3xl bg-white dark:bg-card shadow-xl border border-white/50 overflow-hidden">
+        <div style={{ paddingLeft:"1rem", paddingRight:"1rem", marginTop:"-1rem", marginBottom:"1.25rem" }}>
+          <div style={{ borderRadius:"1.5rem", background:"white", overflow:"hidden", boxShadow:"0 10px 25px rgba(0,0,0,.1)", border:"1px solid rgba(255,255,255,.5)" }}>
           <div className="px-5 pt-5 pb-3">
             <p className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color: accentHex }}>VALOR</p>
             <div className="flex items-baseline gap-2">
@@ -340,7 +341,7 @@ function NovaTransacaoPage() {
         </TxSection>
 
         {/* ── BOTÃO ─────────────────────────────────────────────────── */}
-        <div className="mx-4 mt-2 mb-4">
+        <div style={{ paddingLeft:"1rem", paddingRight:"1rem", marginTop:"0.5rem", marginBottom:"1rem" }}>
           <button type="submit" disabled={isSubmitting}
             className="w-full rounded-2xl text-white font-bold transition-all active:scale-95 disabled:opacity-70"
             style={{ height: "60px", fontSize: "17px", backgroundColor: accentHex, boxShadow: `0 6px 20px ${accentHex}44` }}>

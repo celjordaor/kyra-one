@@ -92,7 +92,7 @@ function BottomSheet({ open, onClose, title, maxHeight = "75vh", children }: {
 function TxSection({ title, children }: { title?: string; children: React.ReactNode }) {
   return (
     <div style={{ paddingLeft:"1rem", paddingRight:"1rem", marginBottom:"0.75rem" }}>
-      {title && <p style={{ fontSize:"0.6875rem", fontWeight:"700", textTransform:"uppercase", letterSpacing:"0.1em", color:"#94a3b8", marginBottom:"0.375rem" }}>{title}</p>}
+      {title && <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 px-0.5">{title}</p>}
       <div className="w-full rounded-2xl bg-white dark:bg-card shadow-sm border border-slate-100 dark:border-border overflow-hidden">
         {children}
       </div>
@@ -104,7 +104,7 @@ function FieldRow({ icon, label, children, last = false, onClick, error }: {
   icon: React.ReactNode; label: string; children: React.ReactNode;
   last?: boolean; onClick?: () => void; error?: string;
 }) {
-  const cls = cn("flex items-center gap-3 px-4 text-left w-full",
+  const cls = cn("flex items-center gap-3 px-4 w-full text-left [box-sizing:border-box]",
     !last && "border-b border-slate-100 dark:border-border",
     onClick && "active:bg-slate-50");
   const inner = (
@@ -194,7 +194,7 @@ function NovaDespesaPage() {
   };
 
   return (
-    <div className="w-full bg-slate-50 dark:bg-background md:max-w-2xl md:mx-auto" >
+    <div style={{ width:"100vw", maxWidth:"100vw", overflowX:"hidden", boxSizing:"border-box" }} className="bg-slate-50 dark:bg-background md:max-w-2xl md:mx-auto">
       <form onSubmit={handleSubmit(onSubmit)} style={{ display:"block", width:"100%", margin:0 }}>
 
         {/* HEADER */}
@@ -212,7 +212,7 @@ function NovaDespesaPage() {
 
         {/* VALOR */}
         <div style={{ paddingLeft:"1rem", paddingRight:"1rem", marginTop:"-1rem", marginBottom:"1.25rem" }}>
-      <div style={{ borderRadius:"1.5rem", background:"white", overflow:"hidden", boxShadow:"0 10px 25px rgba(0,0,0,0.1)" }}>
+          <div style={{ borderRadius:"1.5rem", background:"white", overflow:"hidden", boxShadow:"0 10px 25px rgba(0,0,0,.1)" }}>
           <div className="px-5 pt-5 pb-3">
             <p className="text-[11px] font-bold uppercase tracking-widest text-indigo-400 mb-2">VALOR DA DESPESA</p>
             <div className="flex items-baseline gap-2">
@@ -307,7 +307,7 @@ function NovaDespesaPage() {
           </TxSection>
 
           {/* BOTÃO */}
-          <div className="mx-4 mt-2">
+          <div style={{ paddingLeft:"1rem", paddingRight:"1rem", marginTop:"0.5rem" }}>
             <button type="submit" disabled={isSubmitting}
               className="w-full rounded-2xl bg-indigo-600 text-white font-bold transition-all active:scale-95 disabled:opacity-70"
               style={{ height: "60px", fontSize: "17px", boxShadow: "0 6px 20px #4f46e544" }}>

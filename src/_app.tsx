@@ -163,7 +163,7 @@ function AppLayout() {
         </aside>
 
         {/* ══ CONTEÚDO PRINCIPAL ════════════════════════════════════════ */}
-        <div className="flex flex-1 flex-col md:ml-64">
+        <div className="md:ml-64">
           {showBanner && <div className="h-10 md:block hidden" />}
           <main className="md:pb-8" style={{ paddingBottom: "calc(72px + env(safe-area-inset-bottom, 20px))" }}>
             <Outlet />
