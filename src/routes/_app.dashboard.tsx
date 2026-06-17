@@ -161,9 +161,9 @@ function DashboardPage() {
   },[monthTx]);
 
   const categories=useMemo(()=>{
-    const totals=new Map<string,number>();let total=0;
-    for(const t of monthTx){if(t.type!=="expense")continue;const v=Math.abs(t.amount);totals.set(t.category,(totals.get(t.category)??0)+v);total+=v;}
-    return[...totals.entries()].sort((a,b)=>b[1]-a[1]).map(([name,value],i)=>({name,value:total>0?Math.round((value/total)*100):0,color:CATEGORY_COLORS[i%CATEGORY_COLORS.length]}));
+    const totals: any = {};let total=0;
+    for(const t of monthTx){if(t.type!=="expense")continue;const v=Math.abs(t.amount);totals[t.category]=(totals[t.category]||0)+v;total+=v;}
+    return Object.entries(totals).sort((a,b)=>b[1]-a[1]).map(([name,value],i)=>({name,value:total>0?Math.round((value/total)*100):0,color:CATEGORY_COLORS[i%CATEGORY_COLORS.length]}));
   },[monthTx]);
 
   // ── Itens unificados para "Últimas transações" ────────────────────────
@@ -187,12 +187,12 @@ function DashboardPage() {
       const ttl=e.description.replace(/ 1\/\d+$/,"");
       return{id:e.id,title:ttl,amount:-Math.abs(e.amount),totalAmount:tot,type:"expense" as const,category:e.category,_d:new Date(e.purchase_date+"T12:00:00"),isCardExpense:true,cardName:card?.name,expenseType:"installment",installmentsTotal:(e.installments_total??1)};
     });
-    // 4. Recorrentes deduplicadas — sem Map<>, sem inline type
-    const seen=new Set<string>();
+    // 4. Recorrentes deduplicadas — sem genéricos problemáticos em .tsx
+    const seenKeys: any = {};
     const cardRecurring:RecentItem[]=expenses
       .filter(e=>e.expense_type==="recurring")
       .sort((a,b)=>b.purchase_date.localeCompare(a.purchase_date))
-      .filter(e=>{const k=e.description+"|||"+e.card_id;if(seen.has(k))return false;seen.add(k);return true;})
+      .filter(e=>{const k=e.description+"|||"+e.card_id;if(seenKeys[k])return false;seenKeys[k]=true;return true;})
       .map(e=>{
         const card=cards.find(c=>c.id===e.card_id);
         return{id:e.id,title:e.description,amount:-Math.abs(e.amount),type:"expense" as const,category:e.category,_d:new Date(e.purchase_date+"T12:00:00"),isCardExpense:true,cardName:card?.name,expenseType:"recurring"};
