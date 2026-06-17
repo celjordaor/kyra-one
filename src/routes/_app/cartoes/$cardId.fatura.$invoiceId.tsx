@@ -12,7 +12,7 @@ import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/cartoes/$cardId/fatura/$invoiceId")({
+export const Route = createFileRoute("/_app/cartoes/$cardId/fatura/$invoiceId")({
   component: FaturaDetailPage,
 });
 

@@ -23,11 +23,13 @@ import { Route as AppPerfilRouteImport } from './routes/_app.perfil'
 import { Route as AppNovaTransacaoRouteImport } from './routes/_app.nova-transacao'
 import { Route as AppMetasRouteImport } from './routes/_app.metas'
 import { Route as AppMaisRouteImport } from './routes/_app.mais'
+import { Route as AppFaturasCartaoRouteImport } from './routes/_app.faturas-cartao'
 import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
 import { Route as AppCategoriasRouteImport } from './routes/_app.categorias'
 import { Route as AppCartoesIndexRouteImport } from './routes/_app/cartoes/index'
 import { Route as AppCartoesNovoRouteImport } from './routes/_app/cartoes/novo'
 import { Route as AppCartoesNovaDespesaRouteImport } from './routes/_app/cartoes/nova-despesa'
+import { Route as AppCartoesEditarDespesaRouteImport } from './routes/_app/cartoes/editar-despesa'
 import { Route as AppCartoesCardIdRouteImport } from './routes/_app/cartoes/$cardId'
 import { Route as AppCartoesCardIdFaturaInvoiceIdRouteImport } from './routes/_app/cartoes/$cardId.fatura.$invoiceId'
 
@@ -100,6 +102,11 @@ const AppMaisRoute = AppMaisRouteImport.update({
   path: '/mais',
   getParentRoute: () => AppRoute,
 } as any)
+const AppFaturasCartaoRoute = AppFaturasCartaoRouteImport.update({
+  id: '/faturas-cartao',
+  path: '/faturas-cartao',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppDashboardRoute = AppDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -125,6 +132,11 @@ const AppCartoesNovaDespesaRoute = AppCartoesNovaDespesaRouteImport.update({
   path: '/cartoes/nova-despesa',
   getParentRoute: () => AppRoute,
 } as any)
+const AppCartoesEditarDespesaRoute = AppCartoesEditarDespesaRouteImport.update({
+  id: '/cartoes/editar-despesa',
+  path: '/cartoes/editar-despesa',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppCartoesCardIdRoute = AppCartoesCardIdRouteImport.update({
   id: '/cartoes/$cardId',
   path: '/cartoes/$cardId',
@@ -148,12 +160,14 @@ export interface FileRoutesByFullPath {
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/categorias': typeof AppCategoriasRoute
   '/dashboard': typeof AppDashboardRoute
+  '/faturas-cartao': typeof AppFaturasCartaoRoute
   '/mais': typeof AppMaisRoute
   '/metas': typeof AppMetasRoute
   '/nova-transacao': typeof AppNovaTransacaoRoute
   '/perfil': typeof AppPerfilRoute
   '/transacoes': typeof AppTransacoesRoute
   '/cartoes/$cardId': typeof AppCartoesCardIdRouteWithChildren
+  '/cartoes/editar-despesa': typeof AppCartoesEditarDespesaRoute
   '/cartoes/nova-despesa': typeof AppCartoesNovaDespesaRoute
   '/cartoes/novo': typeof AppCartoesNovoRoute
   '/cartoes/': typeof AppCartoesIndexRoute
@@ -170,12 +184,14 @@ export interface FileRoutesByTo {
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/categorias': typeof AppCategoriasRoute
   '/dashboard': typeof AppDashboardRoute
+  '/faturas-cartao': typeof AppFaturasCartaoRoute
   '/mais': typeof AppMaisRoute
   '/metas': typeof AppMetasRoute
   '/nova-transacao': typeof AppNovaTransacaoRoute
   '/perfil': typeof AppPerfilRoute
   '/transacoes': typeof AppTransacoesRoute
   '/cartoes/$cardId': typeof AppCartoesCardIdRouteWithChildren
+  '/cartoes/editar-despesa': typeof AppCartoesEditarDespesaRoute
   '/cartoes/nova-despesa': typeof AppCartoesNovaDespesaRoute
   '/cartoes/novo': typeof AppCartoesNovoRoute
   '/cartoes': typeof AppCartoesIndexRoute
@@ -194,12 +210,14 @@ export interface FileRoutesById {
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/_app/categorias': typeof AppCategoriasRoute
   '/_app/dashboard': typeof AppDashboardRoute
+  '/_app/faturas-cartao': typeof AppFaturasCartaoRoute
   '/_app/mais': typeof AppMaisRoute
   '/_app/metas': typeof AppMetasRoute
   '/_app/nova-transacao': typeof AppNovaTransacaoRoute
   '/_app/perfil': typeof AppPerfilRoute
   '/_app/transacoes': typeof AppTransacoesRoute
   '/_app/cartoes/$cardId': typeof AppCartoesCardIdRouteWithChildren
+  '/_app/cartoes/editar-despesa': typeof AppCartoesEditarDespesaRoute
   '/_app/cartoes/nova-despesa': typeof AppCartoesNovaDespesaRoute
   '/_app/cartoes/novo': typeof AppCartoesNovoRoute
   '/_app/cartoes/': typeof AppCartoesIndexRoute
@@ -218,12 +236,14 @@ export interface FileRouteTypes {
     | '/recuperar-senha'
     | '/categorias'
     | '/dashboard'
+    | '/faturas-cartao'
     | '/mais'
     | '/metas'
     | '/nova-transacao'
     | '/perfil'
     | '/transacoes'
     | '/cartoes/$cardId'
+    | '/cartoes/editar-despesa'
     | '/cartoes/nova-despesa'
     | '/cartoes/novo'
     | '/cartoes/'
@@ -240,12 +260,14 @@ export interface FileRouteTypes {
     | '/recuperar-senha'
     | '/categorias'
     | '/dashboard'
+    | '/faturas-cartao'
     | '/mais'
     | '/metas'
     | '/nova-transacao'
     | '/perfil'
     | '/transacoes'
     | '/cartoes/$cardId'
+    | '/cartoes/editar-despesa'
     | '/cartoes/nova-despesa'
     | '/cartoes/novo'
     | '/cartoes'
@@ -263,12 +285,14 @@ export interface FileRouteTypes {
     | '/recuperar-senha'
     | '/_app/categorias'
     | '/_app/dashboard'
+    | '/_app/faturas-cartao'
     | '/_app/mais'
     | '/_app/metas'
     | '/_app/nova-transacao'
     | '/_app/perfil'
     | '/_app/transacoes'
     | '/_app/cartoes/$cardId'
+    | '/_app/cartoes/editar-despesa'
     | '/_app/cartoes/nova-despesa'
     | '/_app/cartoes/novo'
     | '/_app/cartoes/'
@@ -387,6 +411,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppMaisRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/faturas-cartao': {
+      id: '/_app/faturas-cartao'
+      path: '/faturas-cartao'
+      fullPath: '/faturas-cartao'
+      preLoaderRoute: typeof AppFaturasCartaoRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/dashboard': {
       id: '/_app/dashboard'
       path: '/dashboard'
@@ -422,6 +453,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCartoesNovaDespesaRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/cartoes/editar-despesa': {
+      id: '/_app/cartoes/editar-despesa'
+      path: '/cartoes/editar-despesa'
+      fullPath: '/cartoes/editar-despesa'
+      preLoaderRoute: typeof AppCartoesEditarDespesaRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/cartoes/$cardId': {
       id: '/_app/cartoes/$cardId'
       path: '/cartoes/$cardId'
@@ -453,12 +491,14 @@ const AppCartoesCardIdRouteWithChildren =
 interface AppRouteChildren {
   AppCategoriasRoute: typeof AppCategoriasRoute
   AppDashboardRoute: typeof AppDashboardRoute
+  AppFaturasCartaoRoute: typeof AppFaturasCartaoRoute
   AppMaisRoute: typeof AppMaisRoute
   AppMetasRoute: typeof AppMetasRoute
   AppNovaTransacaoRoute: typeof AppNovaTransacaoRoute
   AppPerfilRoute: typeof AppPerfilRoute
   AppTransacoesRoute: typeof AppTransacoesRoute
   AppCartoesCardIdRoute: typeof AppCartoesCardIdRouteWithChildren
+  AppCartoesEditarDespesaRoute: typeof AppCartoesEditarDespesaRoute
   AppCartoesNovaDespesaRoute: typeof AppCartoesNovaDespesaRoute
   AppCartoesNovoRoute: typeof AppCartoesNovoRoute
   AppCartoesIndexRoute: typeof AppCartoesIndexRoute
@@ -467,12 +507,14 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppCategoriasRoute: AppCategoriasRoute,
   AppDashboardRoute: AppDashboardRoute,
+  AppFaturasCartaoRoute: AppFaturasCartaoRoute,
   AppMaisRoute: AppMaisRoute,
   AppMetasRoute: AppMetasRoute,
   AppNovaTransacaoRoute: AppNovaTransacaoRoute,
   AppPerfilRoute: AppPerfilRoute,
   AppTransacoesRoute: AppTransacoesRoute,
   AppCartoesCardIdRoute: AppCartoesCardIdRouteWithChildren,
+  AppCartoesEditarDespesaRoute: AppCartoesEditarDespesaRoute,
   AppCartoesNovaDespesaRoute: AppCartoesNovaDespesaRoute,
   AppCartoesNovoRoute: AppCartoesNovoRoute,
   AppCartoesIndexRoute: AppCartoesIndexRoute,
