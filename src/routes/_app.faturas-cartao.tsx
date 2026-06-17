@@ -1,6 +1,6 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, ChevronRight, CreditCard, TrendingDown } from "lucide-react";
+import { AlertCircle, ChevronRight, CreditCard, Lock } from "lucide-react";
 import { useCardStore } from "@/lib/card-store";
 import { cn } from "@/lib/utils";
 
@@ -12,31 +12,33 @@ export const Route = createFileRoute("/_app/faturas-cartao")({
 const fmt = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-function toYYYYMM(competence: string): string {
+function toYYYYMM(competence: string) {
   const [mm, yyyy] = competence.split("/");
   return `${yyyy}-${mm}`;
 }
-function currentYYYYMM(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-}
-function nextYYYYMM(): string {
-  const now = new Date();
-  const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-  return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}`;
-}
 
-const STATUS_DOT:   Record<string, string> = { open: "bg-amber-400", paid: "bg-emerald-400", closed: "bg-slate-400", overdue: "bg-red-400" };
-const STATUS_TEXT:  Record<string, string> = { open: "text-amber-700", paid: "text-emerald-700", closed: "text-slate-600", overdue: "text-red-700" };
-const STATUS_BG:    Record<string, string> = { open: "bg-amber-50", paid: "bg-emerald-50", closed: "bg-slate-100", overdue: "bg-red-50" };
-const STATUS_LABEL: Record<string, string> = { open: "Em aberto", paid: "Paga", closed: "Fechada", overdue: "Em atraso" };
+type Tab = "closed" | "open";
+
+// ── Estilos por status ─────────────────────────────────────────────────────
+const STATUS_DOT:   Record<string, string> = {
+  open: "bg-amber-400", closed: "bg-slate-400", paid: "bg-emerald-400", overdue: "bg-red-400",
+};
+const STATUS_TEXT:  Record<string, string> = {
+  open: "text-amber-700", closed: "text-slate-600", paid: "text-emerald-700", overdue: "text-red-700",
+};
+const STATUS_BG:    Record<string, string> = {
+  open: "bg-amber-50", closed: "bg-slate-100", paid: "bg-emerald-50", overdue: "bg-red-50",
+};
+const STATUS_LABEL: Record<string, string> = {
+  open: "Em aberto", closed: "Fechada", paid: "Paga", overdue: "Em atraso",
+};
 
 function FaturasCartaoPage() {
-  const router = useRouter();
+  const router   = useRouter();
   const { cards, invoices, fetchCards, fetchInvoices, ensureInvoices } = useCardStore();
   const [loading, setLoading] = useState(true);
+  const [tab, setTab]         = useState<Tab>("closed");
 
-  // Carregar todos os cartões e suas faturas
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -44,86 +46,73 @@ function FaturasCartaoPage() {
         await fetchCards();
         const activeCards = useCardStore.getState().cards.filter(c => c.active);
         await Promise.all(
-          activeCards.flatMap(card => [
-            ensureInvoices(card),
-            fetchInvoices(card.id),
-          ])
+          activeCards.flatMap(card => [ensureInvoices(card), fetchInvoices(card.id)])
         );
-      } finally {
-        setLoading(false);
-      }
+      } finally { setLoading(false); }
     })();
   }, []);
 
-  const now  = currentYYYYMM();
-  const next = nextYYYYMM();
+  const activeCards = useMemo(() => cards.filter(c => c.active), [cards]);
 
-  // ── Faturas enriquecidas com nome do cartão ──────────────────────────────
-  const enriched = useMemo(() => {
-    return invoices
-      .filter(inv => {
-        const card = cards.find(c => c.id === inv.card_id);
-        return card?.active;
-      })
-      .map(inv => {
-        const card    = cards.find(c => c.id === inv.card_id)!;
-        const ym      = toYYYYMM(inv.competence);
-        const isPast  = ym < now;
-        const rawStatus = inv.status as "open" | "closed" | "paid";
-        const status  = isPast && rawStatus === "open" ? "overdue" : rawStatus;
-        return { ...inv, cardName: card?.name ?? "", cardFlag: card?.flag ?? "", ym, status };
-      });
-  }, [invoices, cards, now]);
+  // ── Faturas enriquecidas ─────────────────────────────────────────────────
+  const enriched = useMemo(() => invoices
+    .filter(inv => activeCards.some(c => c.id === inv.card_id))
+    .map(inv => {
+      const card = activeCards.find(c => c.id === inv.card_id)!;
+      return { ...inv, cardName: card?.name ?? "", cardFlag: card?.flag ?? "" };
+    }),
+  [invoices, activeCards]);
 
-  // ── Seção 1: Faturas do mês atual (em aberto ou em atraso) ───────────────
-  const currentSection = useMemo(() =>
-    enriched
-      .filter(inv => (inv.ym === now && inv.status !== "paid") ||
-                     (inv.ym < now  && (inv.status === "overdue" || inv.status === "open")))
-      .sort((a, b) => {
-        if (a.ym === now && b.ym !== now) return -1;
-        if (b.ym === now && a.ym !== now) return  1;
-        return b.ym.localeCompare(a.ym);
-      }),
-  [enriched, now]);
+  // ── Aba "Fechadas": fatura mais recente com status=closed por cartão ─────
+  // Conceito: fatura cujo ciclo encerrou, total fixado, aguardando pagamento
+  const closedList = useMemo(() => activeCards
+    .map(card => {
+      const cardInvoices = enriched
+        .filter(i => i.card_id === card.id && i.status === "closed")
+        .sort((a, b) => toYYYYMM(b.competence).localeCompare(toYYYYMM(a.competence)));
+      return cardInvoices[0] ?? null;
+    })
+    .filter(Boolean) as typeof enriched,
+  [enriched, activeCards]);
 
-  // ── Seção 2: Próximo mês ─────────────────────────────────────────────────
-  const nextSection = useMemo(() =>
-    enriched
-      .filter(inv => inv.ym === next)
-      .sort((a, b) => a.cardName.localeCompare(b.cardName)),
-  [enriched, next]);
+  // ── Aba "Em aberto": primeira fatura open por cartão ────────────────────
+  // Conceito: ciclo corrente, despesas acumulando; próxima fatura disponível
+  // após a última fechada/paga
+  const openList = useMemo(() => activeCards
+    .map(card => {
+      const cardOpen = enriched
+        .filter(i => i.card_id === card.id && i.status === "open")
+        .sort((a, b) => toYYYYMM(a.competence).localeCompare(toYYYYMM(b.competence)));
+      return cardOpen[0] ?? null;   // primeiro aberto = próxima fatura disponível
+    })
+    .filter(Boolean) as typeof enriched,
+  [enriched, activeCards]);
 
-  // ── Totais do cabeçalho ──────────────────────────────────────────────────
-  const { totalLimit, totalUsed } = useMemo(() => {
-    const activeCards = cards.filter(c => c.active);
-    const totalLimit  = activeCards.reduce((s, c) => s + (c.limit_total ?? 0), 0);
-    // "Utilizado" = soma dos totais das faturas abertas (mês atual + próximos)
-    const openInvoices = enriched.filter(inv =>
-      inv.status !== "paid" && inv.ym >= now
-    );
-    const totalUsed = openInvoices.reduce((s, inv) => s + (inv.total_amount ?? 0), 0);
-    return { totalLimit, totalUsed };
-  }, [cards, enriched, now]);
+  // ── Totais consolidados para o cabeçalho (ambas as abas) ─────────────────
+  const totalLimit     = useMemo(() => activeCards.reduce((s, c) => s + (c.limit_total ?? 0), 0), [activeCards]);
+  const totalClosed    = useMemo(() => closedList.reduce((s, i) => s + i.total_amount, 0), [closedList]);
+  const totalOpen      = useMemo(() => openList.reduce((s, i) => s + i.total_amount, 0), [openList]);
+  const totalAvailable = Math.max(totalLimit - totalClosed - totalOpen, 0);
+  const pct            = totalLimit > 0 ? Math.min(((totalClosed + totalOpen) / totalLimit) * 100, 100) : 0;
+  const isHigh         = pct > 80;
 
-  const totalAvailable = Math.max(totalLimit - totalUsed, 0);
-  const pct = totalLimit > 0 ? Math.min((totalUsed / totalLimit) * 100, 100) : 0;
-  const isHigh = pct > 80;
+  const currentList  = tab === "closed" ? closedList  : openList;
+  const currentTotal = tab === "closed" ? totalClosed : totalOpen;
 
   // ── Card de fatura ────────────────────────────────────────────────────────
-  type EnrichedInvoice = (typeof enriched)[0];
+  type Inv = (typeof enriched)[0];
 
-  function InvoiceCard({ inv, highlight = false }: { inv: EnrichedInvoice; highlight?: boolean }) {
+  function InvoiceCard({ inv, highlight }: { inv: Inv; highlight?: boolean }) {
     const [mon, yr] = inv.competence.split("/");
-    const iconBg:   Record<string, string> = { open: "bg-amber-50", overdue: "bg-red-50", closed: "bg-slate-100", paid: "bg-emerald-50" };
-    const iconText: Record<string, string> = { open: "text-amber-600", overdue: "text-red-600", closed: "text-slate-600", paid: "text-emerald-600" };
+    const status    = inv.status as "open" | "closed" | "paid";
+
+    const iconBg:   Record<string, string> = { open: "bg-amber-50",  closed: "bg-slate-100", paid: "bg-emerald-50"  };
+    const iconText: Record<string, string> = { open: "text-amber-600", closed: "text-slate-600", paid: "text-emerald-600" };
 
     return (
-      <a
-        href={`/cartoes/${inv.card_id}/fatura/${inv.id}`}
+      <a href={`/cartoes/${inv.card_id}/fatura/${inv.id}`}
         className={cn(
-          "flex items-center gap-3 rounded-2xl border px-4 py-3.5 shadow-sm",
-          "transition-all active:scale-[0.98]",
+          "flex items-center gap-3 rounded-2xl border px-4 py-3.5 shadow-sm transition-all active:scale-[0.98]",
           highlight
             ? "bg-indigo-600 border-indigo-500 text-white"
             : "bg-white dark:bg-card border-slate-100 dark:border-border"
@@ -132,14 +121,14 @@ function FaturasCartaoPage() {
         {/* Ícone mês/ano */}
         <div className={cn(
           "flex shrink-0 flex-col items-center justify-center rounded-xl h-12 w-16",
-          highlight ? "bg-white/15" : iconBg[inv.status]
+          highlight ? "bg-white/15" : iconBg[status]
         )}>
           <span className={cn("text-[11px] font-bold uppercase leading-none",
-            highlight ? "text-white/70" : iconText[inv.status])}>
+            highlight ? "text-white/70" : iconText[status])}>
             {mon.slice(0, 3)}
           </span>
           <span className={cn("text-[18px] font-extrabold leading-tight",
-            highlight ? "text-white" : iconText[inv.status])}>
+            highlight ? "text-white" : iconText[status])}>
             {yr}
           </span>
         </div>
@@ -147,10 +136,10 @@ function FaturasCartaoPage() {
         <div className="flex-1 min-w-0">
           {/* Nome do cartão */}
           <p className={cn("text-[12px] font-semibold truncate",
-            highlight ? "text-white/70" : "text-slate-500 dark:text-muted-foreground")}>
+            highlight ? "text-white/70" : "text-slate-500")}>
             {inv.cardFlag} · {inv.cardName}
           </p>
-          {/* Competência + badge — mesma linha, sem quebra */}
+          {/* Competência + badge na mesma linha */}
           <div className="flex items-center gap-2 flex-nowrap overflow-hidden mt-0.5">
             <p className={cn("text-[15px] font-bold shrink-0",
               highlight ? "text-white" : "text-slate-800 dark:text-foreground")}>
@@ -158,17 +147,15 @@ function FaturasCartaoPage() {
             </p>
             <span className={cn(
               "flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold whitespace-nowrap",
-              highlight
-                ? "bg-white/20 text-white"
-                : cn(STATUS_BG[inv.status], STATUS_TEXT[inv.status])
+              highlight ? "bg-white/20 text-white" : cn(STATUS_BG[status], STATUS_TEXT[status])
             )}>
-              {inv.status === "overdue"
+              {status === "overdue"
                 ? <AlertCircle className="h-2.5 w-2.5 shrink-0" />
-                : <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", STATUS_DOT[inv.status])} />}
-              {STATUS_LABEL[inv.status]}
+                : <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", STATUS_DOT[status])} />}
+              {STATUS_LABEL[status]}
             </span>
           </div>
-          <p className={cn("text-[11px] mt-0.5 truncate",
+          <p className={cn("text-[11px] mt-0.5",
             highlight ? "text-white/60" : "text-slate-400")}>
             Vence {new Date(inv.due_date + "T12:00:00").toLocaleDateString("pt-BR")}
           </p>
@@ -190,36 +177,28 @@ function FaturasCartaoPage() {
     <div style={{ width:"100vw", maxWidth:"100vw", overflowX:"hidden" }}
       className="min-h-screen bg-slate-50 dark:bg-background md:max-w-2xl md:mx-auto">
 
-      {/* ── HEADER ─────────────────────────────────────────────────────── */}
-      <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 px-5 pb-14 text-white"
+      {/* ── CABEÇALHO CONSOLIDADO ─────────────────────────────────────── */}
+      <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 px-5 pb-5 text-white"
         style={{ paddingTop:"calc(env(safe-area-inset-top,0px) + 1.25rem)" }}>
-        <div className="mb-5">
+        <div className="mb-4">
           <p className="text-[11px] font-bold uppercase tracking-widest text-white/50 mb-1">
-            Resumo de faturas
+            {activeCards.length} cartão{activeCards.length !== 1 ? "es" : ""} ativo{activeCards.length !== 1 ? "s" : ""}
           </p>
-          <h1 className="text-2xl font-extrabold leading-tight">Faturas de cartão</h1>
+          <h1 className="text-2xl font-extrabold">Faturas de cartão</h1>
         </div>
 
-        {/* Card resumo consolidado */}
-        <div className="rounded-2xl bg-white/10 p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <CreditCard className="h-4 w-4 text-white/60" />
-            <span className="text-[12px] text-white/60">
-              {cards.filter(c => c.active).length} cartão{cards.filter(c => c.active).length !== 1 ? "es" : ""} ativo{cards.filter(c => c.active).length !== 1 ? "s" : ""}
-            </span>
-          </div>
-
+        {/* Resumo consolidado */}
+        <div className="rounded-2xl bg-white/10 p-4 mb-5">
           <div className="flex justify-between mb-1">
             <span className="text-xs text-white/60">Comprometido</span>
-            <span className="text-xs text-white/60">Disponível</span>
+            <span className="text-xs text-white/60">Disponível estimado</span>
           </div>
           <div className="flex justify-between mb-3">
             <span className={cn("text-2xl font-bold", isHigh && "text-red-300")}>
-              {fmt(totalUsed)}
+              {fmt(totalClosed + totalOpen)}
             </span>
             <span className="text-2xl font-semibold text-white/80">{fmt(totalAvailable)}</span>
           </div>
-
           <div className="h-2.5 rounded-full bg-white/20 overflow-hidden">
             <div className={cn("h-full rounded-full transition-all", isHigh ? "bg-red-400" : "bg-white")}
               style={{ width:`${pct}%` }} />
@@ -228,70 +207,107 @@ function FaturasCartaoPage() {
             <span className="text-[11px] text-white/50">{pct.toFixed(0)}% do limite</span>
             <span className="text-[11px] text-white/50">Limite total {fmt(totalLimit)}</span>
           </div>
+          {/* Breakdown fechadas / em aberto */}
+          <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/10 text-[11px]">
+            <span className="text-white/60">
+              🔒 Fechadas a pagar: <span className="font-bold text-white">{fmt(totalClosed)}</span>
+            </span>
+            <span className="text-white/60">
+              📊 Em aberto: <span className="font-bold text-white">{fmt(totalOpen)}</span>
+            </span>
+          </div>
+        </div>
 
-          {/* Totais por status */}
-          {currentSection.length > 0 && (
-            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/10">
-              <TrendingDown className="h-3.5 w-3.5 text-white/50 shrink-0" />
-              <span className="text-[12px] text-white/60">
-                {currentSection.length} fatura{currentSection.length !== 1 ? "s" : ""} em aberto este mês ·{" "}
-                {fmt(currentSection.reduce((s, i) => s + i.total_amount, 0))}
-              </span>
-            </div>
-          )}
+        {/* ── SELETOR DE ABAS ─────────────────────────────────────────── */}
+        <div className="flex rounded-2xl bg-white/15 p-1 gap-1">
+          {([
+            { key: "closed" as Tab, label: "Faturas fechadas", icon: "🔒" },
+            { key: "open"   as Tab, label: "Faturas em aberto", icon: "📊" },
+          ] as const).map(t => (
+            <button key={t.key} type="button"
+              onClick={() => setTab(t.key)}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5",
+                "text-[13px] font-bold transition-all",
+                tab === t.key
+                  ? "bg-white text-indigo-700 shadow"
+                  : "text-white/80 hover:text-white"
+              )}>
+              {t.icon} {t.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* ── CONTEÚDO ───────────────────────────────────────────────────── */}
-      <div className="px-4 -mt-6 pb-8 space-y-6">
+      {/* ── CONTEÚDO DA ABA ──────────────────────────────────────────────── */}
+      <div className="px-4 pt-5 pb-8">
 
         {loading && (
-          <div className="flex justify-center py-10">
+          <div className="flex justify-center py-12">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
           </div>
         )}
 
         {!loading && (
           <>
-            {/* ── FATURAS DO MÊS ATUAL ───────────────────────────────── */}
-            {currentSection.length > 0 && (
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-2.5">
-                  Fatura atual
-                </p>
-                <div className="space-y-2.5">
-                  {currentSection.map((inv, idx) => (
-                    <InvoiceCard key={inv.id} inv={inv} highlight={idx === 0} />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* ── PRÓXIMO MÊS ────────────────────────────────────────── */}
-            {nextSection.length > 0 && (
-              <div>
-                <div className="flex items-center justify-between mb-2.5">
+            {/* Resumo da aba selecionada */}
+            {currentList.length > 0 && (
+              <div className={cn(
+                "flex items-center justify-between rounded-2xl px-4 py-3 mb-4",
+                tab === "closed"
+                  ? "bg-slate-100 dark:bg-card border border-slate-200"
+                  : "bg-amber-50 dark:bg-card border border-amber-100"
+              )}>
+                <div>
                   <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
-                    Próximo mês
+                    {tab === "closed" ? "Total a pagar (fechadas)" : "Total acumulado (em aberto)"}
                   </p>
-                  <span className="text-[11px] text-slate-400">
-                    {nextSection.length} fatura{nextSection.length !== 1 ? "s" : ""}
-                  </span>
+                  <p className={cn("text-xl font-extrabold mt-0.5",
+                    tab === "closed" ? "text-slate-700" : "text-amber-700")}>
+                    {fmt(currentTotal)}
+                  </p>
                 </div>
-                <div className="space-y-2.5">
-                  {nextSection.map(inv => (
-                    <InvoiceCard key={inv.id} inv={inv} />
-                  ))}
+                <div className="text-right">
+                  <p className="text-[11px] text-slate-400">
+                    {currentList.length} cartão{currentList.length !== 1 ? "es" : ""}
+                  </p>
+                  {tab === "closed" && (
+                    <p className="text-[11px] text-slate-500 mt-0.5">Aguardando pagamento</p>
+                  )}
+                  {tab === "open" && (
+                    <p className="text-[11px] text-amber-600 mt-0.5">Próxima fatura disponível</p>
+                  )}
                 </div>
               </div>
             )}
 
-            {/* Estado vazio */}
-            {currentSection.length === 0 && nextSection.length === 0 && (
-              <div className="rounded-2xl border border-dashed border-slate-200 dark:border-border py-12 text-center">
-                <CreditCard className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-                <p className="text-sm font-medium text-slate-500">Nenhuma fatura em aberto</p>
-                <p className="text-xs text-slate-400 mt-1">Todos os cartões estão em dia</p>
+            {/* Lista de faturas */}
+            {currentList.length > 0 ? (
+              <div className="space-y-2.5">
+                {currentList.map((inv, idx) => (
+                  <InvoiceCard key={inv.id} inv={inv} highlight={idx === 0 && tab === "closed"} />
+                ))}
+              </div>
+            ) : (
+              /* Estado vazio por aba */
+              <div className="rounded-2xl border border-dashed border-slate-200 dark:border-border py-14 text-center">
+                {tab === "closed" ? (
+                  <>
+                    <Lock className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+                    <p className="text-sm font-medium text-slate-500">Nenhuma fatura fechada</p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Faturas fecham automaticamente na data de encerramento de cada cartão
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <CreditCard className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+                    <p className="text-sm font-medium text-slate-500">Nenhuma fatura em aberto</p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Todas as faturas foram encerradas ou pagas
+                    </p>
+                  </>
+                )}
               </div>
             )}
           </>
