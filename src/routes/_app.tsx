@@ -210,44 +210,32 @@ function AppLayout() {
         <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 border-t border-border/60 bg-card/98 backdrop-blur-md">
           <div className="flex w-full items-stretch" style={{ height: "68px" }}>
 
-            {navItems.slice(0, 2).map(({ to, label, icon: Icon }) => {
-              const isActive = pathname === to || pathname.startsWith(to + "/");
-              return (
-                <Link key={to} to={to}
-                  className="flex flex-1 flex-col items-center justify-center gap-1 h-full">
-                  <Icon className={cn("h-[26px] w-[26px]",
-                    isActive ? "text-primary" : "text-muted-foreground"
-                  )} />
-                  <span className={cn("text-[11px] font-semibold",
-                    isActive ? "text-primary" : "text-muted-foreground"
-                  )}>{label}</span>
-                </Link>
-              );
-            })}
-
-            {/* Botão central + */}
+            {/* ── Adicionar: PRIMEIRA posição, ícone maior e destaque ── */}
             <button onClick={() => setAddMenuOpen(!addMenuOpen)}
-              className="flex flex-1 flex-col items-center justify-center gap-1 h-full">
+              className="flex flex-1 flex-col items-center justify-center h-full"
+              style={{ gap: "3px" }}>
               <div className={cn(
-                "flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition-all duration-200",
+                "flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition-all duration-200",
                 addMenuOpen && "rotate-45 shadow-lg shadow-primary/30"
               )}>
-                {addMenuOpen ? <X className="h-5 w-5" /> : <PlusCircle className="h-5 w-5" />}
+                {addMenuOpen ? <X className="h-6 w-6" /> : <PlusCircle className="h-6 w-6" />}
               </div>
-              <span className={cn("text-[11px] font-semibold",
+              <span className={cn("text-[10px] font-semibold text-center leading-none",
                 addMenuOpen ? "text-primary" : "text-muted-foreground"
               )}>Adicionar</span>
             </button>
 
-            {navItems.slice(2).map(({ to, label, icon: Icon }) => {
+            {/* ── Demais itens do nav ── */}
+            {navItems.map(({ to, label, icon: Icon }) => {
               const isActive = pathname === to || pathname.startsWith(to + "/");
               return (
                 <Link key={to} to={to}
-                  className="flex flex-1 flex-col items-center justify-center gap-1 h-full">
-                  <Icon className={cn("h-[26px] w-[26px]",
+                  className="flex flex-1 flex-col items-center justify-center h-full"
+                  style={{ gap: "3px" }}>
+                  <Icon className={cn("h-[24px] w-[24px] shrink-0",
                     isActive ? "text-primary" : "text-muted-foreground"
                   )} />
-                  <span className={cn("text-[11px] font-semibold",
+                  <span className={cn("text-[10px] font-semibold text-center leading-none",
                     isActive ? "text-primary" : "text-muted-foreground"
                   )}>{label}</span>
                 </Link>

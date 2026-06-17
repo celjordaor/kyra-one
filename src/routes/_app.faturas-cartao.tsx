@@ -296,32 +296,40 @@ function FaturasCartaoPage() {
             {/* Resumo da aba selecionada */}
             {currentList.length > 0 && tab === "closed" && (
               <div className="rounded-2xl border border-slate-200 bg-white dark:bg-card mb-4 overflow-hidden">
-                {closedToPay.length > 0 && (
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-                    <div>
-                      <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">A pagar</p>
-                      <p className="text-lg font-extrabold text-slate-700 mt-0.5">{fmt(totalToPay)}</p>
-                    </div>
-                    <div className="text-right">
-                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-600">
-                        {closedToPay.length} fatura{closedToPay.length !== 1 ? "s" : ""} fechada{closedToPay.length !== 1 ? "s" : ""}
+                <div className="flex items-stretch px-4 py-3 gap-0">
+                  {/* Coluna A pagar */}
+                  {closedToPay.length > 0 && (
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">
+                        A pagar
+                      </p>
+                      <p className="text-[20px] font-extrabold text-slate-700 leading-tight">
+                        {fmt(totalToPay)}
+                      </p>
+                      <span className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">
+                        {closedToPay.length} fechada{closedToPay.length !== 1 ? "s" : ""}
                       </span>
                     </div>
-                  </div>
-                )}
-                {closedPaid.length > 0 && (
-                  <div className="flex items-center justify-between px-4 py-3">
-                    <div>
-                      <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-500">Quitadas</p>
-                      <p className="text-lg font-extrabold text-emerald-700 mt-0.5">{fmt(totalPaid)}</p>
-                    </div>
-                    <div className="text-right">
-                      <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-600">
-                        {closedPaid.length} fatura{closedPaid.length !== 1 ? "s" : ""} quitada{closedPaid.length !== 1 ? "s" : ""}
+                  )}
+                  {/* Divisor vertical */}
+                  {closedToPay.length > 0 && closedPaid.length > 0 && (
+                    <div className="w-px mx-4 bg-slate-100 self-stretch" />
+                  )}
+                  {/* Coluna Quitadas */}
+                  {closedPaid.length > 0 && (
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-500 mb-0.5">
+                        Quitadas
+                      </p>
+                      <p className="text-[20px] font-extrabold text-emerald-700 leading-tight">
+                        {fmt(totalPaid)}
+                      </p>
+                      <span className="mt-1 inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-600">
+                        {closedPaid.length} quitada{closedPaid.length !== 1 ? "s" : ""}
                       </span>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             )}
             {currentList.length > 0 && tab === "open" && (
