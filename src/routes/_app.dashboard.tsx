@@ -51,9 +51,6 @@ function isCardRelated(t:{source?:string;category?:string}):boolean {
 type RecentItem = {
   id: string; title: string; amount: number; type: "income"|"expense";
   category: string; _d: Date; isCardExpense: boolean; cardName?: string; settled?: boolean;
-  expenseType?: "single"|"installment"|"recurring";
-  installmentsTotal?: number;
-  totalAmount?: number;
 };
 
 // ── Campo de senha com toggle mostrar/ocultar ─────────────────────────────
@@ -139,26 +136,15 @@ function DashboardPage() {
   useEffect(()=>{fetchCards();},[]);
   useEffect(()=>{cards.forEach(c=>fetchInvoices(c.id));},[cards.length]);
 
-  // Carregar despesas dos 3 meses mais recentes (feed de movimentações)
+  // Carregar despesas das faturas do mês selecionado
   useEffect(()=>{
-    const now=new Date();
-    invoices
-      .filter(inv=>{
-        const due=new Date(inv.due_date+"T12:00:00");
-        const diff=(now.getFullYear()-due.getFullYear())*12+(now.getMonth()-due.getMonth());
-        return diff>=0&&diff<=2;
-      })
-      .forEach(inv=>{fetchExpenses(inv.id);fetchInstallments(inv.id);});
-  },[invoices.length]);
-
-  // Carregar despesas do mês selecionado (resumo mensal)
-  useEffect(()=>{
-    invoices
-      .filter(inv=>{
-        const due=new Date(inv.due_date+"T12:00:00");
-        return due.getMonth()===selectedMonth&&due.getFullYear()===selectedYear;
-      })
-      .forEach(inv=>{fetchExpenses(inv.id);fetchInstallments(inv.id);});
+    const monthInvoices=invoices.filter(inv=>{
+      const due=new Date(inv.due_date+"T12:00:00");
+      const closing=new Date(inv.closing_date+"T12:00:00");
+      return (due.getMonth()===selectedMonth&&due.getFullYear()===selectedYear)||
+             (closing.getMonth()===selectedMonth&&closing.getFullYear()===selectedYear);
+    });
+    monthInvoices.forEach(inv=>{fetchExpenses(inv.id);fetchInstallments(inv.id);});
   },[invoices.length,selectedMonth,selectedYear]);
 
   const monthTx=useMemo(()=>transactions
@@ -175,66 +161,51 @@ function DashboardPage() {
   },[monthTx]);
 
   const categories=useMemo(()=>{
-    const totals:{[k:string]:number}={};let total=0;
-    for(const t of monthTx){if(t.type!=="expense")continue;const v=Math.abs(t.amount);totals[t.category]=(totals[t.category]??0)+v;total+=v;}
-    return Object.entries(totals).sort((a,b)=>b[1]-a[1]).map(([name,value],i)=>({name,value:total>0?Math.round((value/total)*100):0,color:CATEGORY_COLORS[i%CATEGORY_COLORS.length]}));
+    const totals=new Map<string,number>();let total=0;
+    for(const t of monthTx){if(t.type!=="expense")continue;const v=Math.abs(t.amount);totals.set(t.category,(totals.get(t.category)??0)+v);total+=v;}
+    return[...totals.entries()].sort((a,b)=>b[1]-a[1]).map(([name,value],i)=>({name,value:total>0?Math.round((value/total)*100):0,color:CATEGORY_COLORS[i%CATEGORY_COLORS.length]}));
   },[monthTx]);
 
   // ── Itens unificados para "Últimas transações" ────────────────────────
   const recentItems=useMemo(():RecentItem[]=>{
-    // 1. Transações regulares sem filtro de mês
+    // 1. Transações regulares (sem filtro de mês)
     const regular:RecentItem[]=transactions
       .map(t=>({...t,_d:parseBrDate(t.date)}))
       .filter(t=>!isCardRelated(t))
       .sort((a,b)=>b._d.getTime()-a._d.getTime())
       .slice(0,10)
       .map(t=>({id:t.id,title:t.title,amount:t.amount,type:t.type,category:t.category,_d:t._d,isCardExpense:false,settled:t.settled}));
-
-    // 2. Despesas avulsas (single)
-    const cardSingle:RecentItem[]=expenses
-      .filter(e=>e.expense_type==="single")
-      .map(e=>{
-        const card=cards.find(c=>c.id===e.card_id);
-        return{id:e.id,title:e.description,amount:-Math.abs(e.amount),type:"expense" as const,category:e.category,_d:new Date(e.purchase_date+"T12:00:00"),isCardExpense:true,cardName:card?.name,expenseType:"single" as const};
-      });
-
-    // 3. Parceladas: apenas installment_number=1 (compra original)
-    const cardInstallment:RecentItem[]=expenses
-      .filter(e=>e.expense_type==="installment"&&(e.installment_number??1)===1)
-      .map(e=>{
-        const card=cards.find(c=>c.id===e.card_id);
-        const cleanTitle=e.description.replace(/ 1\/\d+$/,"");
-        const totalAmt=Math.abs(e.amount)*(e.installments_total??1);
-        return{id:e.id,title:cleanTitle,amount:-Math.abs(e.amount),totalAmount:totalAmt,type:"expense" as const,category:e.category,_d:new Date(e.purchase_date+"T12:00:00"),isCardExpense:true,cardName:card?.name,expenseType:"installment" as const,installmentsTotal:e.installments_total??1};
-      });
-
-    // 4. Recorrentes: deduplicar por descrição+cartão
-    const recurObj:{[k:string]:any}={};
-    expenses.filter(e=>e.expense_type==="recurring").forEach(e=>{
-      const key=e.description+"|||"+e.card_id;
-      if(!recurObj[key]||new Date(e.purchase_date)>new Date(recurObj[key].purchase_date)){
-        recurObj[key]=e;
-      }
-    });
-    const cardRecurring:RecentItem[]=Object.values(recurObj).map(e=>{
+    // 2. Despesas avulsas de cartão
+    const cardSingle:RecentItem[]=expenses.filter(e=>e.expense_type==="single").map(e=>{
       const card=cards.find(c=>c.id===e.card_id);
-      return{id:e.id,title:e.description,amount:-Math.abs(e.amount),type:"expense" as const,category:e.category,_d:new Date(e.purchase_date+"T12:00:00"),isCardExpense:true,cardName:card?.name,expenseType:"recurring" as const};
+      return{id:e.id,title:e.description,amount:-Math.abs(e.amount),type:"expense" as const,category:e.category,_d:new Date(e.purchase_date+"T12:00:00"),isCardExpense:true,cardName:card?.name,expenseType:"single"};
     });
-
-    return[...regular,...cardSingle,...cardInstallment,...cardRecurring]
-      .sort((a,b)=>b._d.getTime()-a._d.getTime())
-      .slice(0,7);
+    // 3. Parceladas: só installment_number=1 (compra original)
+    const cardInstallment:RecentItem[]=expenses.filter(e=>e.expense_type==="installment"&&(e.installment_number??1)===1).map(e=>{
+      const card=cards.find(c=>c.id===e.card_id);
+      const tot=Math.abs(e.amount)*(e.installments_total??1);
+      const ttl=e.description.replace(/ 1\/\d+$/,"");
+      return{id:e.id,title:ttl,amount:-Math.abs(e.amount),totalAmount:tot,type:"expense" as const,category:e.category,_d:new Date(e.purchase_date+"T12:00:00"),isCardExpense:true,cardName:card?.name,expenseType:"installment",installmentsTotal:(e.installments_total??1)};
+    });
+    // 4. Recorrentes deduplicadas — sem Map<>, sem inline type
+    const seen=new Set<string>();
+    const cardRecurring:RecentItem[]=expenses
+      .filter(e=>e.expense_type==="recurring")
+      .sort((a,b)=>b.purchase_date.localeCompare(a.purchase_date))
+      .filter(e=>{const k=e.description+"|||"+e.card_id;if(seen.has(k))return false;seen.add(k);return true;})
+      .map(e=>{
+        const card=cards.find(c=>c.id===e.card_id);
+        return{id:e.id,title:e.description,amount:-Math.abs(e.amount),type:"expense" as const,category:e.category,_d:new Date(e.purchase_date+"T12:00:00"),isCardExpense:true,cardName:card?.name,expenseType:"recurring"};
+      });
+    return[...regular,...cardSingle,...cardInstallment,...cardRecurring].sort((a,b)=>b._d.getTime()-a._d.getTime()).slice(0,7);
   },[transactions,expenses,cards]);
 
 
 
-  const monthCardTotal=useMemo(()=>invoices
-    .filter(inv=>{
-      const due=new Date(inv.due_date+"T12:00:00");
-      return due.getMonth()===selectedMonth&&due.getFullYear()===selectedYear&&inv.status!=="paid";
-    })
-    .reduce((s,inv)=>s+inv.total_amount,0)
-  ,[invoices,selectedMonth,selectedYear]);
+  const monthCardTotal=useMemo(()=>invoices.filter(inv=>{
+    const due=new Date(inv.due_date+"T12:00:00");
+    return due.getMonth()===selectedMonth&&due.getFullYear()===selectedYear&&inv.status!=="paid";
+  }).reduce((s,inv)=>s+inv.total_amount,0),[invoices,selectedMonth,selectedYear]);
 
   const goPrevMonth=()=>{if(selectedMonth===0){setSelectedMonth(11);setSelectedYear(y=>y-1);}else setSelectedMonth(m=>m-1);};
   const goNextMonth=()=>{if(selectedMonth===11){setSelectedMonth(0);setSelectedYear(y=>y+1);}else setSelectedMonth(m=>m+1);};
@@ -305,7 +276,6 @@ function DashboardPage() {
       <div className="md:grid md:grid-cols-[1fr_380px] md:gap-6 md:items-start space-y-5 md:space-y-0">
         {/* Coluna esquerda (desktop): savings, categories, pending */}
         <div className="space-y-5">
-      {/* Faturas do mês */}
       {monthCardTotal > 0 && (
         <div className="flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50/50 p-4 shadow-sm">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 shrink-0">
@@ -317,10 +287,7 @@ function DashboardPage() {
           </div>
           <div className="text-right shrink-0">
             <p className="text-sm font-bold text-red-500">{hidden(monthCardTotal)}</p>
-            <button onClick={()=>router.navigate({to:"/faturas-cartao"})}
-              className="text-[10px] text-blue-500 font-medium">
-              Ver faturas
-            </button>
+            <button onClick={()=>router.navigate({to:"/faturas-cartao"})} className="text-[10px] text-blue-500 font-medium">Ver faturas</button>
           </div>
         </div>
       )}
@@ -367,35 +334,26 @@ function DashboardPage() {
 
         {/* Coluna direita (desktop): últimas transações */}
         <div className="space-y-5">
-      {/* ── Últimas movimentações — fixas, sem filtro de mês ── */}
+      {/* ── Últimas movimentações ── */}
       <div className="md:bg-card md:border md:rounded-2xl md:p-5 md:shadow-sm">
         <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-semibold text-foreground">Últimas movimentações</h2>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Independente do mês selecionado</p>
-          </div>
-          <button onClick={()=>router.navigate({to:"/transacoes"})}
-            className="text-xs text-primary font-medium hover:underline">
-            Ver tudo
-          </button>
+          <h2 className="text-sm font-semibold text-foreground">Últimas movimentações</h2>
+          <button onClick={()=>router.navigate({to:"/transacoes"})} className="text-xs text-primary font-medium">Ver tudo</button>
         </div>
 
         <div className="mt-3 space-y-2">
           {recentItems.length===0&&(
-            <p className="rounded-xl border bg-card p-4 text-center text-xs text-muted-foreground">
-              Nenhuma movimentação encontrada.
-            </p>
+            <p className="rounded-xl border bg-card p-4 text-center text-xs text-muted-foreground">Nenhuma movimentação.</p>
           )}
-          {recentItems.map(t=>{
-            const isRecurring   = t.expenseType==="recurring";
-            const isInstallment = t.expenseType==="installment";
-            const iconBg = isRecurring?"bg-violet-100":isInstallment?"bg-blue-100":t.isCardExpense?"bg-blue-100":t.type==="income"?"bg-emerald-100":"bg-red-100";
-            return(
-              <div key={t.id} className="flex items-start gap-3 rounded-xl border bg-card p-3 shadow-sm">
-                <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full mt-0.5",iconBg)}>
-                  {isRecurring
+          {recentItems.slice(0,7).map(t=>(
+            <div key={t.id} className="flex items-center justify-between rounded-xl border bg-card p-3 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className={cn("flex h-9 w-9 items-center justify-center rounded-full",
+                  t.expenseType==="recurring"?"bg-violet-100":t.expenseType==="installment"?"bg-blue-100":t.isCardExpense?"bg-blue-100":t.type==="income"?"bg-emerald-100":"bg-red-100"
+                )}>
+                  {t.expenseType==="recurring"
                     ?<RotateCcw className="h-4 w-4 text-violet-600"/>
-                    :isInstallment
+                    :t.expenseType==="installment"
                     ?<Layers className="h-4 w-4 text-blue-500"/>
                     :t.isCardExpense
                     ?<CreditCard className="h-4 w-4 text-blue-500"/>
@@ -404,38 +362,26 @@ function DashboardPage() {
                     :<TrendingDown className="h-4 w-4 text-red-500"/>
                   }
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-medium text-foreground truncate">{t.title}</p>
-                    <p className={cn("text-sm font-semibold shrink-0",isRecurring||isInstallment||t.isCardExpense?"text-blue-500":t.type==="income"?"text-emerald-600":"text-red-500")}>
-                      {t.type==="income"?"+":"-"}{showValues?fmtCurrency(Math.abs(t.amount)):"••••"}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
-                    <span className="text-[11px] text-muted-foreground">{relativeLabel(t._d)}</span>
-                    {t.isCardExpense&&t.cardName&&(
-                      <span className="text-[11px] text-blue-500 font-medium">· {t.cardName}</span>
-                    )}
-                    {isRecurring&&(
-                      <span className="inline-flex items-center gap-0.5 rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-bold text-violet-600">
-                        <RotateCcw className="h-2.5 w-2.5"/> Recorrente
-                      </span>
-                    )}
-                    {isInstallment&&t.installmentsTotal&&(
-                      <span className="rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-bold text-blue-600">
-                        1/{t.installmentsTotal} parc.
-                      </span>
-                    )}
-                  </div>
-                  {isInstallment&&t.totalAmount&&t.installmentsTotal&&(
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                      Total {showValues?fmtCurrency(t.totalAmount):"••••"} · {t.installmentsTotal}x {showValues?fmtCurrency(Math.abs(t.amount)):"••••"}
-                    </p>
+                <div>
+                  <p className="text-sm font-medium text-foreground">{t.title}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {relativeLabel(t._d)}
+                    {t.isCardExpense&&t.cardName&&<span className="ml-1 font-medium text-blue-500">• {t.cardName}</span>}
+                    {t.expenseType==="recurring"&&<span className="ml-1 rounded-full bg-violet-50 px-1 text-[10px] font-bold text-violet-600">♺</span>}
+                    {t.expenseType==="installment"&&t.installmentsTotal&&<span className="ml-1 rounded-full bg-blue-50 px-1 text-[10px] font-bold text-blue-600">1/{t.installmentsTotal}x</span>}
+                  </p>
+                  {t.expenseType==="installment"&&t.totalAmount&&t.installmentsTotal&&(
+                    <p className="text-[11px] text-muted-foreground">Total {showValues?fmtCurrency(t.totalAmount):"••••"} · {t.installmentsTotal}x</p>
                   )}
                 </div>
               </div>
-            );
-          })}
+              <p className={cn("text-sm font-semibold",
+                t.expenseType==="recurring"||t.expenseType==="installment"||t.isCardExpense?"text-blue-500":t.type==="income"?"text-emerald-600":"text-red-500"
+              )}>
+                {t.type==="income"?"+":"-"}{showValues?fmtCurrency(Math.abs(t.amount)):"••••"}
+              </p>
+            </div>
+          ))}
         </div>
       </div>
       {/* Dialog: Alterar senha */}
