@@ -30,7 +30,7 @@ const STATUS_BG:    Record<string, string> = {
   open: "bg-amber-50", closed: "bg-slate-100", paid: "bg-emerald-50", overdue: "bg-red-50",
 };
 const STATUS_LABEL: Record<string, string> = {
-  open: "Em aberto", closed: "Fechada", paid: "Paga", overdue: "Em atraso",
+  open: "Em aberto", closed: "Fechada", paid: "Quitada", overdue: "Em atraso",
 };
 
 function FaturasCartaoPage() {
@@ -63,14 +63,15 @@ function FaturasCartaoPage() {
     }),
   [invoices, activeCards]);
 
-  // ── Aba "Fechadas": fatura mais recente com status=closed por cartão ─────
-  // Conceito: fatura cujo ciclo encerrou, total fixado, aguardando pagamento
+  // ── Aba "Fechadas": fatura mais recente não-aberta por cartão ──────────
+  // Inclui "closed" (aguardando pagamento) e "paid" (já quitada)
+  // Lógica: para cada cartão, pega a fatura mais recente que não está em aberto
   const closedList = useMemo(() => activeCards
     .map(card => {
-      const cardInvoices = enriched
-        .filter(i => i.card_id === card.id && i.status === "closed")
+      const cardNonOpen = enriched
+        .filter(i => i.card_id === card.id && i.status !== "open")
         .sort((a, b) => toYYYYMM(b.competence).localeCompare(toYYYYMM(a.competence)));
-      return cardInvoices[0] ?? null;
+      return cardNonOpen[0] ?? null;   // mais recente fechada ou paga
     })
     .filter(Boolean) as typeof enriched,
   [enriched, activeCards]);
@@ -90,7 +91,12 @@ function FaturasCartaoPage() {
 
   // ── Totais consolidados para o cabeçalho (ambas as abas) ─────────────────
   const totalLimit     = useMemo(() => activeCards.reduce((s, c) => s + (c.limit_total ?? 0), 0), [activeCards]);
-  const totalClosed    = useMemo(() => closedList.reduce((s, i) => s + i.total_amount, 0), [closedList]);
+  // Faturas fechadas (a pagar) vs quitadas
+  const closedToPay  = useMemo(() => closedList.filter(i => i.status === "closed"), [closedList]);
+  const closedPaid   = useMemo(() => closedList.filter(i => i.status === "paid"),   [closedList]);
+  const totalClosed  = useMemo(() => closedList.reduce((s, i) => s + i.total_amount, 0), [closedList]);
+  const totalToPay   = useMemo(() => closedToPay.reduce((s, i) => s + i.total_amount, 0), [closedToPay]);
+  const totalPaid    = useMemo(() => closedPaid.reduce((s, i) => s + i.total_amount, 0), [closedPaid]);
   const totalOpen      = useMemo(() => openList.reduce((s, i) => s + i.total_amount, 0), [openList]);
   const totalAvailable = Math.max(totalLimit - totalClosed - totalOpen, 0);
   const pct            = totalLimit > 0 ? Math.min(((totalClosed + totalOpen) / totalLimit) * 100, 100) : 0;
@@ -106,14 +112,16 @@ function FaturasCartaoPage() {
     const [mon, yr] = inv.competence.split("/");
     const status    = inv.status as "open" | "closed" | "paid";
 
-    const iconBg:   Record<string, string> = { open: "bg-amber-50",  closed: "bg-slate-100", paid: "bg-emerald-50"  };
-    const iconText: Record<string, string> = { open: "text-amber-600", closed: "text-slate-600", paid: "text-emerald-600" };
+    const iconBg:   Record<string, string> = { open: "bg-amber-50", closed: "bg-slate-100", paid: "bg-emerald-100" };
+    const iconText: Record<string, string> = { open: "text-amber-600", closed: "text-slate-600", paid: "text-emerald-700" };
 
     return (
       <a href={`/cartoes/${inv.card_id}/fatura/${inv.id}`}
         className={cn(
           "flex items-center gap-3 rounded-2xl border px-4 py-3.5 shadow-sm transition-all active:scale-[0.98]",
-          highlight
+          highlight && inv.status === "paid"
+            ? "bg-emerald-600 border-emerald-500 text-white"
+            : highlight
             ? "bg-indigo-600 border-indigo-500 text-white"
             : "bg-white dark:bg-card border-slate-100 dark:border-border"
         )}>
@@ -121,7 +129,7 @@ function FaturasCartaoPage() {
         {/* Ícone mês/ano */}
         <div className={cn(
           "flex shrink-0 flex-col items-center justify-center rounded-xl h-12 w-16",
-          highlight ? "bg-white/15" : iconBg[status]
+          highlight ? "bg-white/20" : iconBg[status]
         )}>
           <span className={cn("text-[11px] font-bold uppercase leading-none",
             highlight ? "text-white/70" : iconText[status])}>
@@ -210,7 +218,10 @@ function FaturasCartaoPage() {
           {/* Breakdown fechadas / em aberto */}
           <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/10 text-[11px]">
             <span className="text-white/60">
-              🔒 Fechadas a pagar: <span className="font-bold text-white">{fmt(totalClosed)}</span>
+              🔒 A pagar: <span className="font-bold text-white">{fmt(totalToPay)}</span>
+            </span>
+            <span className="text-white/60">
+              ✅ Quitadas: <span className="font-bold text-emerald-300">{fmt(totalPaid)}</span>
             </span>
             <span className="text-white/60">
               📊 Em aberto: <span className="font-bold text-white">{fmt(totalOpen)}</span>
@@ -251,32 +262,47 @@ function FaturasCartaoPage() {
         {!loading && (
           <>
             {/* Resumo da aba selecionada */}
-            {currentList.length > 0 && (
-              <div className={cn(
-                "flex items-center justify-between rounded-2xl px-4 py-3 mb-4",
-                tab === "closed"
-                  ? "bg-slate-100 dark:bg-card border border-slate-200"
-                  : "bg-amber-50 dark:bg-card border border-amber-100"
-              )}>
+            {currentList.length > 0 && tab === "closed" && (
+              <div className="rounded-2xl border border-slate-200 bg-white dark:bg-card mb-4 overflow-hidden">
+                {closedToPay.length > 0 && (
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">A pagar</p>
+                      <p className="text-lg font-extrabold text-slate-700 mt-0.5">{fmt(totalToPay)}</p>
+                    </div>
+                    <div className="text-right">
+                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-600">
+                        {closedToPay.length} fatura{closedToPay.length !== 1 ? "s" : ""} fechada{closedToPay.length !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                {closedPaid.length > 0 && (
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-500">Quitadas</p>
+                      <p className="text-lg font-extrabold text-emerald-700 mt-0.5">{fmt(totalPaid)}</p>
+                    </div>
+                    <div className="text-right">
+                      <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-600">
+                        {closedPaid.length} fatura{closedPaid.length !== 1 ? "s" : ""} quitada{closedPaid.length !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            {currentList.length > 0 && tab === "open" && (
+              <div className="flex items-center justify-between rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 mb-4">
                 <div>
-                  <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
-                    {tab === "closed" ? "Total a pagar (fechadas)" : "Total acumulado (em aberto)"}
-                  </p>
-                  <p className={cn("text-xl font-extrabold mt-0.5",
-                    tab === "closed" ? "text-slate-700" : "text-amber-700")}>
-                    {fmt(currentTotal)}
-                  </p>
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-amber-500">Acumulado em aberto</p>
+                  <p className="text-lg font-extrabold text-amber-700 mt-0.5">{fmt(currentTotal)}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-[11px] text-slate-400">
                     {currentList.length} cartão{currentList.length !== 1 ? "es" : ""}
                   </p>
-                  {tab === "closed" && (
-                    <p className="text-[11px] text-slate-500 mt-0.5">Aguardando pagamento</p>
-                  )}
-                  {tab === "open" && (
-                    <p className="text-[11px] text-amber-600 mt-0.5">Próxima fatura disponível</p>
-                  )}
+                  <p className="text-[11px] text-amber-600 mt-0.5">Próxima fatura disponível</p>
                 </div>
               </div>
             )}
