@@ -13,10 +13,11 @@ export const Route = createFileRoute("/_app")({
 });
 
 const navItems = [
-  { to: "/dashboard",  label: "Início",     icon: Home },
-  { to: "/transacoes", label: "Transações", icon: Receipt },
-  { to: "/cartoes",    label: "Cartões",    icon: CreditCard },
-  { to: "/mais",       label: "Mais",        icon: MoreHorizontal },
+  { to: "/dashboard",        label: "Início",     icon: Home },
+  { to: "/transacoes",       label: "Transações", icon: Receipt },
+  { to: "/cartoes",          label: "Cartões",    icon: CreditCard },
+  { to: "/faturas-cartao",   label: "Faturas",    icon: Tag },
+  { to: "/mais",             label: "Mais",       icon: MoreHorizontal },
 ];
 
 function AppLayout() {
@@ -53,7 +54,7 @@ function AppLayout() {
 
   return (
     <TooltipProvider>
-      <div className="flex bg-background" style={{ width: "100vw", maxWidth: "100vw", minHeight: "100dvh", overflowX: "hidden" }}>
+      <div style={{ display:"block", background:"var(--color-background)", minHeight:"100dvh", width:"100%", maxWidth:"100vw", overflowX:"hidden" }}>
         {showBanner && (
           <div className="fixed top-0 left-0 right-0 z-50 md:left-64">
             <GracePeriodBanner subscription={subscription} />
@@ -163,9 +164,9 @@ function AppLayout() {
         </aside>
 
         {/* ══ CONTEÚDO PRINCIPAL ════════════════════════════════════════ */}
-        <div className="flex flex-1 flex-col md:ml-64">
+        <div className="md:ml-64">
           {showBanner && <div className="h-10 md:block hidden" />}
-          <main className="flex-1 md:pb-8" style={{ width: "100%", maxWidth: "100%", overflowX: "hidden", paddingBottom: "calc(72px + env(safe-area-inset-bottom, 20px))" }}>
+          <main className="md:pb-8" style={{ paddingBottom: "calc(72px + env(safe-area-inset-bottom, 20px))" }}>
             <Outlet />
           </main>
         </div>
