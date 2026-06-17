@@ -109,77 +109,109 @@ function FaturasCartaoPage() {
   type Inv = (typeof enriched)[0];
 
   function InvoiceCard({ inv, highlight }: { inv: Inv; highlight?: boolean }) {
-    const [mon, yr] = inv.competence.split("/");
-    const status    = inv.status as "open" | "closed" | "paid";
+    const status  = inv.status as "open" | "closed" | "paid";
+    const dueDate = new Date(inv.due_date + "T12:00:00").toLocaleDateString("pt-BR");
 
-    const iconBg:   Record<string, string> = { open: "bg-amber-50", closed: "bg-slate-100", paid: "bg-emerald-100" };
-    const iconText: Record<string, string> = { open: "text-amber-600", closed: "text-slate-600", paid: "text-emerald-700" };
+    // Cor de fundo do card
+    const cardBg = highlight && status === "paid"
+      ? "bg-emerald-600 border-emerald-500"
+      : highlight
+      ? "bg-indigo-600 border-indigo-500"
+      : "bg-white dark:bg-card border-slate-100 dark:border-border";
+
+    // Cor do ícone do cartão (baseada na bandeira)
+    const flagColors: Record<string, string> = {
+      Visa:       "#1a1f71", Mastercard: "#eb001b", Amex: "#007bc1",
+      Elo:        "#ffcb05", Hipercard:  "#cc0000",
+    };
+    const flagBg = flagColors[inv.cardFlag] ?? "#4f46e5";
+
+    // Pills de status
+    const pillBg: Record<string, string> = {
+      open:    highlight ? "bg-white/20 text-white"        : "bg-amber-50 text-amber-700",
+      closed:  highlight ? "bg-white/20 text-white"        : "bg-slate-100 text-slate-600",
+      paid:    highlight ? "bg-white/20 text-white"        : "bg-emerald-50 text-emerald-700",
+      overdue: highlight ? "bg-red-400/30 text-white"      : "bg-red-50 text-red-700",
+    };
 
     return (
       <a href={`/cartoes/${inv.card_id}/fatura/${inv.id}`}
         className={cn(
-          "flex items-center gap-3 rounded-2xl border px-4 py-3.5 shadow-sm transition-all active:scale-[0.98]",
-          highlight && inv.status === "paid"
-            ? "bg-emerald-600 border-emerald-500 text-white"
-            : highlight
-            ? "bg-indigo-600 border-indigo-500 text-white"
-            : "bg-white dark:bg-card border-slate-100 dark:border-border"
+          "block rounded-2xl border shadow-sm transition-all active:scale-[0.98]",
+          "px-4 pt-4 pb-3.5",
+          cardBg
         )}>
 
-        {/* Ícone mês/ano */}
-        <div className={cn(
-          "flex shrink-0 flex-col items-center justify-center rounded-xl h-12 w-16",
-          highlight ? "bg-white/20" : iconBg[status]
-        )}>
-          <span className={cn("text-[11px] font-bold uppercase leading-none",
-            highlight ? "text-white/70" : iconText[status])}>
-            {mon.slice(0, 3)}
-          </span>
-          <span className={cn("text-[18px] font-extrabold leading-tight",
-            highlight ? "text-white" : iconText[status])}>
-            {yr}
-          </span>
-        </div>
-
-        <div className="flex-1 min-w-0">
-          {/* Nome do cartão */}
-          <p className={cn("text-[12px] font-semibold truncate",
-            highlight ? "text-white/70" : "text-slate-500")}>
-            {inv.cardFlag} · {inv.cardName}
-          </p>
-          {/* Competência + badge na mesma linha */}
-          <div className="flex items-center gap-2 flex-nowrap overflow-hidden mt-0.5">
-            <p className={cn("text-[15px] font-bold shrink-0",
-              highlight ? "text-white" : "text-slate-800 dark:text-foreground")}>
-              {inv.competence}
-            </p>
-            <span className={cn(
-              "flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold whitespace-nowrap",
-              highlight ? "bg-white/20 text-white" : cn(STATUS_BG[status], STATUS_TEXT[status])
-            )}>
-              {status === "overdue"
-                ? <AlertCircle className="h-2.5 w-2.5 shrink-0" />
-                : <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", STATUS_DOT[status])} />}
-              {STATUS_LABEL[status]}
-            </span>
+        {/* ── Linha 1: ícone cartão + nome em destaque + valor ── */}
+        <div className="flex items-center gap-3 mb-3">
+          {/* Ícone da bandeira */}
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[14px] font-extrabold text-white"
+            style={{ background: highlight ? "rgba(255,255,255,0.2)" : flagBg }}>
+            {(inv.cardFlag?.[0] ?? "C").toUpperCase()}
           </div>
-          <p className={cn("text-[11px] mt-0.5",
-            highlight ? "text-white/60" : "text-slate-400")}>
-            Vence {new Date(inv.due_date + "T12:00:00").toLocaleDateString("pt-BR")}
-          </p>
+
+          {/* Nome do cartão — elemento principal */}
+          <div className="flex-1 min-w-0">
+            <p className={cn(
+              "text-[18px] font-extrabold leading-tight truncate",
+              highlight ? "text-white" : "text-slate-800 dark:text-foreground"
+            )}>
+              {inv.cardName}
+            </p>
+            <p className={cn(
+              "text-[12px] font-medium",
+              highlight ? "text-white/60" : "text-slate-400"
+            )}>
+              {inv.cardFlag}
+            </p>
+          </div>
+
+          {/* Valor + chevron */}
+          <div className="flex shrink-0 items-center gap-1">
+            <p className={cn(
+              "text-[18px] font-extrabold",
+              highlight ? "text-white" : "text-slate-800 dark:text-foreground"
+            )}>
+              {fmt(inv.total_amount)}
+            </p>
+            <ChevronRight className={cn("h-4 w-4 shrink-0",
+              highlight ? "text-white/50" : "text-slate-400")} />
+          </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1">
-          <p className={cn("text-[15px] font-bold",
-            highlight ? "text-white" : "text-slate-800 dark:text-foreground")}>
-            {fmt(inv.total_amount)}
-          </p>
-          <ChevronRight className={cn("h-4 w-4",
-            highlight ? "text-white/60" : "text-slate-400")} />
+        {/* ── Linha 2: Pills (competência · status · vencimento) ── */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Pill competência (mês/ano) */}
+          <span className={cn(
+            "rounded-full px-2.5 py-0.5 text-[11px] font-semibold",
+            highlight ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
+          )}>
+            {inv.competence}
+          </span>
+
+          {/* Pill status */}
+          <span className={cn(
+            "flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold",
+            pillBg[status] ?? pillBg.open
+          )}>
+            {status === "overdue"
+              ? <AlertCircle className="h-2.5 w-2.5 shrink-0" />
+              : <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", STATUS_DOT[status])} />}
+            {STATUS_LABEL[status]}
+          </span>
+
+          {/* Pill vencimento */}
+          <span className={cn(
+            "rounded-full px-2.5 py-0.5 text-[11px]",
+            highlight ? "text-white/60" : "text-slate-400"
+          )}>
+            Vence {dueDate}
+          </span>
         </div>
       </a>
     );
   }
+
 
   return (
     <div style={{ width:"100vw", maxWidth:"100vw", overflowX:"hidden" }}
