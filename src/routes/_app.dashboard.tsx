@@ -175,53 +175,85 @@ function DashboardPage() {
   },[monthTx]);
 
   const categories=useMemo(()=>{
-    const totals: Record<string,number>={};let total=0;
+    const totals: {[cat:string]:number}={};let total=0;
     for(const t of monthTx){if(t.type!=="expense")continue;const v=Math.abs(t.amount);totals[t.category]=(totals[t.category]??0)+v;total+=v;}
     return Object.entries(totals).sort((a,b)=>b[1]-a[1]).map(([name,value],i)=>({name,value:total>0?Math.round((value/total)*100):0,color:CATEGORY_COLORS[i%CATEGORY_COLORS.length]}));
   },[monthTx]);
 
   // ── Últimas movimentações — sem filtro de mês, sempre cronológicas ────
-  const recentItems=useMemo(():RecentItem[]=>{
-    // 1. Transações regulares (todas, sem filtro de mês; excluir pagamentos de fatura)
-    const regular:RecentItem[]=transactions
-      .map(t=>({...t,_d:parseBrDate(t.date)}))
-      .filter(t=>!isCardRelated(t))
-      .sort((a,b)=>b._d.getTime()-a._d.getTime())
-      .slice(0,10)
-      .map(t=>({id:t.id,title:t.title,amount:t.amount,type:t.type,category:t.category,_d:t._d,isCardExpense:false,settled:t.settled}));
+  const recentItems = useMemo(() => {
+    const result: RecentItem[] = [];
+
+    // 1. Transações regulares (sem filtro de mês; excluir pagamentos de fatura)
+    transactions
+      .map(t => ({ ...t, _d: parseBrDate(t.date) }))
+      .filter(t => !isCardRelated(t))
+      .sort((a, b) => b._d.getTime() - a._d.getTime())
+      .slice(0, 10)
+      .forEach(t => result.push({
+        id: t.id, title: t.title, amount: t.amount,
+        type: t.type, category: t.category, _d: t._d,
+        isCardExpense: false, settled: t.settled,
+      }));
 
     // 2. Despesas avulsas de cartão (expense_type = "single")
-    const cardSingle:RecentItem[]=expenses
-      .filter(e=>e.expense_type==="single")
-      .map(e=>{const card=cards.find(c=>c.id===e.card_id);return{id:e.id,title:e.description,amount:-Math.abs(e.amount),type:"expense" as const,category:e.category,_d:new Date(e.purchase_date+"T12:00:00"),isCardExpense:true,cardName:card?.name,expenseType:"single" as const};});
-
-    // 3. Compras parceladas — apenas installment_number=1 (compra original)
-    //    installments 2-N não aparecem; representados pelo card da compra original
-    const cardInstallment:RecentItem[]=expenses
-      .filter(e=>e.expense_type==="installment"&&(e.installment_number??1)===1)
-      .map(e=>{
-        const card=cards.find(c=>c.id===e.card_id);
-        // Remove sufixo " 1/12" do título gerado automaticamente
-        const cleanTitle=e.description.replace(/\s+1\/\d+$/,"");
-        return{id:e.id,title:cleanTitle,amount:-Math.abs(e.amount),totalAmount:Math.abs(e.amount)*(e.installments_total??1),type:"expense" as const,category:e.category,_d:new Date(e.purchase_date+"T12:00:00"),isCardExpense:true,cardName:card?.name,expenseType:"installment" as const,installmentsTotal:e.installments_total??1};
+    expenses
+      .filter(e => e.expense_type === "single")
+      .forEach(e => {
+        const card = cards.find(c => c.id === e.card_id);
+        result.push({
+          id: e.id, title: e.description,
+          amount: -Math.abs(e.amount), type: "expense" as const,
+          category: e.category,
+          _d: new Date(e.purchase_date + "T12:00:00"),
+          isCardExpense: true, cardName: card?.name,
+          expenseType: "single" as const,
+        });
       });
 
-    // 4. Recorrentes — deduplicar por descrição+cartão, mostrar só a mais recente
-    const recurObj: Record<string, typeof expenses[0]> = {};
-    expenses.filter(e=>e.expense_type==="recurring").forEach(e=>{
-      const key=`${e.description}|||${e.card_id}`;
-      const ex=recurObj[key];
-      if(!ex||new Date(e.purchase_date)>new Date(ex.purchase_date)) recurObj[key]=e;
-    });
-    const cardRecurring:RecentItem[]=Object.values(recurObj).map(e=>{
-      const card=cards.find(c=>c.id===e.card_id);
-      return{id:e.id,title:e.description,amount:-Math.abs(e.amount),type:"expense" as const,category:e.category,_d:new Date(e.purchase_date+"T12:00:00"),isCardExpense:true,cardName:card?.name,expenseType:"recurring" as const};
-    });
+    // 3. Compras parceladas — apenas installment_number=1 (compra original)
+    expenses
+      .filter(e => e.expense_type === "installment" && (e.installment_number ?? 1) === 1)
+      .forEach(e => {
+        const card = cards.find(c => c.id === e.card_id);
+        const nParcelas = e.installments_total ?? 1;
+        const valParcela = Math.abs(e.amount);
+        const cleanTitle = e.description.replace(/ \d+\/\d+$/, "");
+        result.push({
+          id: e.id, title: cleanTitle,
+          amount: -valParcela, totalAmount: valParcela * nParcelas,
+          type: "expense" as const, category: e.category,
+          _d: new Date(e.purchase_date + "T12:00:00"),
+          isCardExpense: true, cardName: card?.name,
+          expenseType: "installment" as const,
+          installmentsTotal: nParcelas,
+        });
+      });
 
-    return[...regular,...cardSingle,...cardInstallment,...cardRecurring]
-      .sort((a,b)=>b._d.getTime()-a._d.getTime())
-      .slice(0,7);
-  },[transactions,expenses,cards]); // ← sem selectedMonth/selectedYear
+    // 4. Recorrentes — deduplicar por (descrição+cartão), mostrar só a mais recente
+    const seen = new Set<string>();
+    expenses
+      .filter(e => e.expense_type === "recurring")
+      .sort((a, b) => new Date(b.purchase_date).getTime() - new Date(a.purchase_date).getTime())
+      .forEach(e => {
+        const key = e.description + "|||" + e.card_id;
+        if (seen.has(key)) return;
+        seen.add(key);
+        const card = cards.find(c => c.id === e.card_id);
+        result.push({
+          id: e.id, title: e.description,
+          amount: -Math.abs(e.amount), type: "expense" as const,
+          category: e.category,
+          _d: new Date(e.purchase_date + "T12:00:00"),
+          isCardExpense: true, cardName: card?.name,
+          expenseType: "recurring" as const,
+        });
+      });
+
+    return result
+      .sort((a, b) => b._d.getTime() - a._d.getTime())
+      .slice(0, 7);
+  }, [transactions, expenses, cards]); // sem selectedMonth/selectedYear
 
   // Total das faturas de cartão vencendo no mês selecionado (abertas/fechadas)
   const monthCardTotal=useMemo(()=>invoices
