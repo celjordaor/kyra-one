@@ -175,9 +175,9 @@ function DashboardPage() {
   },[monthTx]);
 
   const categories=useMemo(()=>{
-    const totals=new Map<string,number>();let total=0;
-    for(const t of monthTx){if(t.type!=="expense")continue;const v=Math.abs(t.amount);totals.set(t.category,(totals.get(t.category)??0)+v);total+=v;}
-    return[...totals.entries()].sort((a,b)=>b[1]-a[1]).map(([name,value],i)=>({name,value:total>0?Math.round((value/total)*100):0,color:CATEGORY_COLORS[i%CATEGORY_COLORS.length]}));
+    const totals: Record<string,number>={};let total=0;
+    for(const t of monthTx){if(t.type!=="expense")continue;const v=Math.abs(t.amount);totals[t.category]=(totals[t.category]??0)+v;total+=v;}
+    return Object.entries(totals).sort((a,b)=>b[1]-a[1]).map(([name,value],i)=>({name,value:total>0?Math.round((value/total)*100):0,color:CATEGORY_COLORS[i%CATEGORY_COLORS.length]}));
   },[monthTx]);
 
   // ── Últimas movimentações — sem filtro de mês, sempre cronológicas ────
@@ -207,13 +207,13 @@ function DashboardPage() {
       });
 
     // 4. Recorrentes — deduplicar por descrição+cartão, mostrar só a mais recente
-    const recurMap=new Map<string,typeof expenses[0]>();
+    const recurObj: Record<string, typeof expenses[0]> = {};
     expenses.filter(e=>e.expense_type==="recurring").forEach(e=>{
       const key=`${e.description}|||${e.card_id}`;
-      const ex=recurMap.get(key);
-      if(!ex||new Date(e.purchase_date)>new Date(ex.purchase_date))recurMap.set(key,e);
+      const ex=recurObj[key];
+      if(!ex||new Date(e.purchase_date)>new Date(ex.purchase_date)) recurObj[key]=e;
     });
-    const cardRecurring:RecentItem[]=Array.from(recurMap.values()).map(e=>{
+    const cardRecurring:RecentItem[]=Object.values(recurObj).map(e=>{
       const card=cards.find(c=>c.id===e.card_id);
       return{id:e.id,title:e.description,amount:-Math.abs(e.amount),type:"expense" as const,category:e.category,_d:new Date(e.purchase_date+"T12:00:00"),isCardExpense:true,cardName:card?.name,expenseType:"recurring" as const};
     });
