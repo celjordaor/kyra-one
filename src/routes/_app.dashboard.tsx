@@ -1,7 +1,7 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { TrendingUp, TrendingDown, PiggyBank, ChevronLeft, ChevronRight, CalendarDays, Eye, EyeOff, AlertCircle, Check, User, LogOut, KeyRound, CreditCard, Plus, Receipt, Shield, Repeat2 } from "lucide-react";
-import { useTransactions, parseBrDate, toggleSettled, isInstallmentTransaction, getDisplayTitle } from "@/lib/transactions-store";
+import { TrendingUp, TrendingDown, PiggyBank, ChevronLeft, ChevronRight, CalendarDays, Eye, EyeOff, AlertCircle, Check, User, LogOut, KeyRound, CreditCard, Plus, Receipt, Shield, RotateCcw, Layers, Tag } from "lucide-react";
+import { useTransactions, parseBrDate, toggleSettled } from "@/lib/transactions-store";
 import { useCardStore, type Invoice, type CreditCard as CreditCardType } from "@/lib/card-store";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
@@ -47,11 +47,13 @@ function isCardRelated(t:{source?:string;category?:string}):boolean {
   return t.source==="invoice"||t.category==="Cartão de Crédito";
 }
 
-// Item unificado para "Últimas transações"
+// Item unificado para "Últimas movimentações"
 type RecentItem = {
-  id: string; title: string; displayTitle: string; amount: number; type: "income"|"expense";
-  category: string; _d: Date; isCardExpense: boolean; isInstallment: boolean;
-  cardName?: string; settled?: boolean;
+  id: string; title: string; amount: number; type: "income"|"expense";
+  category: string; _d: Date; isCardExpense: boolean; cardName?: string; settled?: boolean;
+  expenseType?: "single"|"installment"|"recurring";
+  installmentsTotal?: number;
+  totalAmount?: number;       // valor total da compra parcelada
 };
 
 // ── Campo de senha com toggle mostrar/ocultar ─────────────────────────────
@@ -119,7 +121,6 @@ function DashboardPage() {
   const [selectedYear,setSelectedYear]=useState(now.getFullYear());
   const [showValues,setShowValues]=useState(true);
   const [billReminders,setBillReminders]=useState(DEFAULT_NOTIFS.billReminders);
-  const [recentFilter, setRecentFilter] = useState<"all"|"income"|"expense"|"faturas">("all");
 
   useEffect(()=>{
     const notifs=loadNotifs();setBillReminders(notifs.billReminders);
@@ -138,15 +139,26 @@ function DashboardPage() {
   useEffect(()=>{fetchCards();},[]);
   useEffect(()=>{cards.forEach(c=>fetchInvoices(c.id));},[cards.length]);
 
-  // Carregar despesas das faturas do mês selecionado
+  // Carregar despesas dos 3 meses mais recentes (para o feed de movimentações)
   useEffect(()=>{
-    const monthInvoices=invoices.filter(inv=>{
-      const due=new Date(inv.due_date+"T12:00:00");
-      const closing=new Date(inv.closing_date+"T12:00:00");
-      return (due.getMonth()===selectedMonth&&due.getFullYear()===selectedYear)||
-             (closing.getMonth()===selectedMonth&&closing.getFullYear()===selectedYear);
-    });
-    monthInvoices.forEach(inv=>{fetchExpenses(inv.id);fetchInstallments(inv.id);});
+    const now=new Date();
+    invoices
+      .filter(inv=>{
+        const due=new Date(inv.due_date+"T12:00:00");
+        const diff=(now.getFullYear()-due.getFullYear())*12+(now.getMonth()-due.getMonth());
+        return diff>=0&&diff<=2; // mês atual + 2 anteriores
+      })
+      .forEach(inv=>{fetchExpenses(inv.id);fetchInstallments(inv.id);});
+  },[invoices.length]);
+
+  // Carregar despesas do mês selecionado (para o resumo mensal)
+  useEffect(()=>{
+    invoices
+      .filter(inv=>{
+        const due=new Date(inv.due_date+"T12:00:00");
+        return due.getMonth()===selectedMonth&&due.getFullYear()===selectedYear;
+      })
+      .forEach(inv=>{fetchExpenses(inv.id);fetchInstallments(inv.id);});
   },[invoices.length,selectedMonth,selectedYear]);
 
   const monthTx=useMemo(()=>transactions
@@ -168,49 +180,66 @@ function DashboardPage() {
     return[...totals.entries()].sort((a,b)=>b[1]-a[1]).map(([name,value],i)=>({name,value:total>0?Math.round((value/total)*100):0,color:CATEGORY_COLORS[i%CATEGORY_COLORS.length]}));
   },[monthTx]);
 
-  // ── Itens unificados para "Últimas transações" ────────────────────────
+  // ── Últimas movimentações — sem filtro de mês, sempre cronológicas ────
   const recentItems=useMemo(():RecentItem[]=>{
-    // Transações regulares (excluir pagamentos de fatura)
-    const regular:RecentItem[]=monthTx
+    // 1. Transações regulares (todas, sem filtro de mês; excluir pagamentos de fatura)
+    const regular:RecentItem[]=transactions
+      .map(t=>({...t,_d:parseBrDate(t.date)}))
       .filter(t=>!isCardRelated(t))
-      .map(t=>({id:t.id,title:t.title,displayTitle:getDisplayTitle(t),amount:t.amount,type:t.type,category:t.category,_d:t._d,isCardExpense:false,isInstallment:isInstallmentTransaction(t),settled:t.settled}));
+      .sort((a,b)=>b._d.getTime()-a._d.getTime())
+      .slice(0,10)
+      .map(t=>({id:t.id,title:t.title,amount:t.amount,type:t.type,category:t.category,_d:t._d,isCardExpense:false,settled:t.settled}));
 
-    // Despesas de cartão do mês (por data de compra)
-    const cardExp:RecentItem[]=expenses
-      .filter(e=>{const d=new Date(e.purchase_date+"T12:00:00");return d.getMonth()===selectedMonth&&d.getFullYear()===selectedYear;})
+    // 2. Despesas avulsas de cartão (expense_type = "single")
+    const cardSingle:RecentItem[]=expenses
+      .filter(e=>e.expense_type==="single")
+      .map(e=>{const card=cards.find(c=>c.id===e.card_id);return{id:e.id,title:e.description,amount:-Math.abs(e.amount),type:"expense" as const,category:e.category,_d:new Date(e.purchase_date+"T12:00:00"),isCardExpense:true,cardName:card?.name,expenseType:"single" as const};});
+
+    // 3. Compras parceladas — apenas installment_number=1 (compra original)
+    //    installments 2-N não aparecem; representados pelo card da compra original
+    const cardInstallment:RecentItem[]=expenses
+      .filter(e=>e.expense_type==="installment"&&(e.installment_number??1)===1)
       .map(e=>{
         const card=cards.find(c=>c.id===e.card_id);
-        return{id:e.id,title:e.description,displayTitle:e.description,amount:-Math.abs(e.amount),type:"expense" as const,category:e.category,_d:new Date(e.purchase_date+"T12:00:00"),isCardExpense:true,isInstallment:false,cardName:card?.name};
+        // Remove sufixo " 1/12" do título gerado automaticamente
+        const cleanTitle=e.description.replace(/\s+1\/\d+$/,"");
+        return{id:e.id,title:cleanTitle,amount:-Math.abs(e.amount),totalAmount:Math.abs(e.amount)*(e.installments_total??1),type:"expense" as const,category:e.category,_d:new Date(e.purchase_date+"T12:00:00"),isCardExpense:true,cardName:card?.name,expenseType:"installment" as const,installmentsTotal:e.installments_total??1};
       });
 
-    // Parcelas de cartão do mês (por data de compra)
-    const cardInst:RecentItem[]=installments
-      .filter(i=>{const d=new Date(i.purchase_date+"T12:00:00");return d.getMonth()===selectedMonth&&d.getFullYear()===selectedYear;})
-      .map(i=>{
-        const card=cards.find(c=>c.id===i.card_id);
-        return{id:i.id,title:i.description,displayTitle:i.description,amount:-Math.abs(i.amount),type:"expense" as const,category:i.category,_d:new Date(i.purchase_date+"T12:00:00"),isCardExpense:true,isInstallment:false,cardName:card?.name};
-      });
+    // 4. Recorrentes — deduplicar por descrição+cartão, mostrar só a mais recente
+    const recurMap=new Map<string,typeof expenses[0]>();
+    expenses.filter(e=>e.expense_type==="recurring").forEach(e=>{
+      const key=`${e.description}|||${e.card_id}`;
+      const ex=recurMap.get(key);
+      if(!ex||new Date(e.purchase_date)>new Date(ex.purchase_date))recurMap.set(key,e);
+    });
+    const cardRecurring:RecentItem[]=Array.from(recurMap.values()).map(e=>{
+      const card=cards.find(c=>c.id===e.card_id);
+      return{id:e.id,title:e.description,amount:-Math.abs(e.amount),type:"expense" as const,category:e.category,_d:new Date(e.purchase_date+"T12:00:00"),isCardExpense:true,cardName:card?.name,expenseType:"recurring" as const};
+    });
 
-    return[...regular,...cardExp,...cardInst].sort((a,b)=>b._d.getTime()-a._d.getTime());
-  },[monthTx,expenses,installments,cards,selectedMonth,selectedYear]);
+    return[...regular,...cardSingle,...cardInstallment,...cardRecurring]
+      .sort((a,b)=>b._d.getTime()-a._d.getTime())
+      .slice(0,7);
+  },[transactions,expenses,cards]); // ← sem selectedMonth/selectedYear
 
-  const recentFiltered = useMemo(() => {
-    switch (recentFilter) {
-      case "income":   return recentItems.filter(t => t.type === "income" && !t.isCardExpense);
-      case "expense":  return recentItems.filter(t => t.type === "expense" && !t.isCardExpense);
-      case "faturas":  return recentItems.filter(t => t.isCardExpense);
-      default:         return recentItems;
-    }
-  }, [recentItems, recentFilter]);
+  // Total das faturas de cartão vencendo no mês selecionado (abertas/fechadas)
+  const monthCardTotal=useMemo(()=>invoices
+    .filter(inv=>{
+      const due=new Date(inv.due_date+"T12:00:00");
+      return due.getMonth()===selectedMonth&&due.getFullYear()===selectedYear&&inv.status!=="paid";
+    })
+    .reduce((s,inv)=>s+inv.total_amount,0),
+  [invoices,selectedMonth,selectedYear]);
 
   const goPrevMonth=()=>{if(selectedMonth===0){setSelectedMonth(11);setSelectedYear(y=>y-1);}else setSelectedMonth(m=>m-1);};
   const goNextMonth=()=>{if(selectedMonth===11){setSelectedMonth(0);setSelectedYear(y=>y+1);}else setSelectedMonth(m=>m+1);};
   const isCurrentMonth=selectedMonth===now.getMonth()&&selectedYear===now.getFullYear();
 
   return (
-    <div className="space-y-5 p-5">
+    <div className="space-y-5 p-5 md:p-8 md:max-w-screen-xl md:mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between pb-2 md:pb-4">
         <div>
           <p className="text-sm text-muted-foreground">{getGreeting()},</p>
           <h1 className="text-lg font-bold text-foreground">{userName||"..."}</h1>
@@ -240,7 +269,7 @@ function DashboardPage() {
       </div>
 
       {/* Month selector */}
-      <div className="flex items-center justify-between rounded-2xl border bg-card p-4 shadow-sm">
+      <div className="flex items-center justify-between rounded-2xl border bg-card p-4 shadow-sm md:p-5">
         <button onClick={goPrevMonth} className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-foreground hover:bg-muted/80"><ChevronLeft className="h-5 w-5"/></button>
         <div className="flex flex-col items-center gap-0.5">
           <div className="flex items-center gap-2"><CalendarDays className="h-4 w-4 text-primary"/><span className="text-base font-semibold text-foreground">{MONTHS[selectedMonth]} {selectedYear}</span></div>
@@ -253,7 +282,7 @@ function DashboardPage() {
       <div className="relative overflow-hidden rounded-2xl bg-primary p-6 text-primary-foreground shadow-lg shadow-primary/20">
         <div className="absolute -right-6 -top-6 h-32 w-32 rounded-full bg-white/10"/>
         <div className="absolute -bottom-8 -left-8 h-28 w-28 rounded-full bg-white/10"/>
-        <div className="relative"><p className="text-sm opacity-90">Saldo do mês</p><p className="mt-1 text-3xl font-bold tracking-tight">{hidden(balance)}</p></div>
+        <div className="relative"><p className="text-sm opacity-90">Saldo do mês</p><p className="mt-1 text-3xl md:text-4xl font-bold tracking-tight">{hidden(balance)}</p></div>
       </div>
 
       {/* Income / Expense */}
@@ -267,6 +296,30 @@ function DashboardPage() {
           <p className="mt-2 text-lg font-bold text-red-500">{hiddenSign(expense,"-")}</p>
         </div>
       </div>
+
+      {/* ── Desktop: 2 colunas — coluna esquerda: savings/categories/pending | direita: recent ── */}
+      <div className="md:grid md:grid-cols-[1fr_380px] md:gap-6 md:items-start space-y-5 md:space-y-0">
+        {/* Coluna esquerda (desktop): savings, categories, pending */}
+        <div className="space-y-5">
+      {/* ── Faturas do mês (cartão) ── */}
+      {monthCardTotal > 0 && (
+        <div className="flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50/50 p-4 shadow-sm dark:border-blue-900/40 dark:bg-blue-950/20">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 shrink-0">
+            <CreditCard className="h-5 w-5 text-blue-600"/>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-foreground">Faturas do mês</p>
+            <p className="text-xs text-muted-foreground">{MONTHS[selectedMonth]} · a vencer ou vencidas</p>
+          </div>
+          <div className="text-right shrink-0">
+            <p className="text-sm font-bold text-red-500">{hidden(monthCardTotal)}</p>
+            <button onClick={()=>router.navigate({to:"/faturas-cartao"})}
+              className="text-[10px] text-blue-500 font-medium hover:underline">
+              Ver faturas →
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Savings hint */}
       <div className="flex items-center gap-3 rounded-xl border bg-card p-4 shadow-sm">
@@ -306,73 +359,86 @@ function DashboardPage() {
         />
       )}
 
-      {/* ── Últimas transações (inclui despesas de cartão) ── */}
-      <div>
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-foreground">Últimas transações</h2>
-          <span className="text-xs text-muted-foreground">{MONTHS[selectedMonth]}</span>
+      </div>{/* fim coluna esquerda */}
+
+        {/* Coluna direita (desktop): últimas transações */}
+        <div className="space-y-5">
+      {/* ── Últimas movimentações — fixas, sem filtro de mês ── */}
+      <div className="md:bg-card md:border md:rounded-2xl md:p-5 md:shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">Últimas movimentações</h2>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Independente do mês selecionado</p>
+          </div>
+          <button onClick={()=>router.navigate({to:"/transacoes"})}
+            className="text-xs text-primary font-medium hover:underline">
+            Ver tudo →
+          </button>
         </div>
 
-        {/* Pills de filtro */}
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {([
-            { key: "all",     label: "Todas" },
-            { key: "income",  label: "Receitas" },
-            { key: "expense", label: "Despesas" },
-            { key: "faturas", label: "💳 Despesas Cartões" },
-          ] as const).map(({ key, label }) => (
-            <button key={key} onClick={() => setRecentFilter(key)}
-              className={cn(
-                "rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                recentFilter === key
-                  ? key === "faturas"
-                    ? "bg-blue-500 text-white"
-                    : "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              )}>
-              {label}
-            </button>
-          ))}
-        </div>
-
-        <div className="mt-2 space-y-2">
-          {recentFiltered.length===0&&(
-            <p className="rounded-xl border bg-card p-4 text-center text-xs text-muted-foreground">Nenhuma transação encontrada.</p>
+        <div className="space-y-2">
+          {recentItems.length===0&&(
+            <p className="rounded-xl border bg-card p-4 text-center text-xs text-muted-foreground">
+              Nenhuma movimentação encontrada.
+            </p>
           )}
-          {recentFiltered.slice(0,5).map(t=>(
-            <div key={t.id} className="flex items-center justify-between rounded-xl border bg-card p-3 shadow-sm">
-              <div className="flex items-center gap-3">
-                {/* Ícone: 💳 azul para cartão, verde/vermelho para normal */}
-                <div className={cn("flex h-9 w-9 items-center justify-center rounded-full",
-                  t.isCardExpense?"bg-blue-100":t.type==="income"?"bg-emerald-100":"bg-red-100"
-                )}>
-                  {t.isCardExpense
-                    ? <CreditCard className="h-4 w-4 text-blue-500"/>
-                    : t.isInstallment
-                    ? (t.type==="income"
-                        ? <Repeat2 className="h-4 w-4 text-emerald-600"/>
-                        : <Repeat2 className="h-4 w-4 text-red-500"/>)
-                    : t.type==="income"
-                    ? <TrendingUp className="h-4 w-4 text-emerald-600"/>
-                    : <TrendingDown className="h-4 w-4 text-red-500"/>
-                  }
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-foreground">{t.displayTitle}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {t.category} • {relativeLabel(t._d)}
-                    {/* Nome do cartão ao lado da data */}
-                    {t.isCardExpense&&t.cardName&&(
-                      <span className="ml-1 font-medium text-blue-500">• {t.cardName}</span>
-                    )}
+          {recentItems.map(t=>(
+            <div key={t.id} className="flex items-start gap-3 rounded-xl border bg-card p-3 shadow-sm">
+              {/* Ícone */}
+              <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full mt-0.5",
+                t.expenseType==="recurring" ? "bg-violet-100"
+                : t.expenseType==="installment" ? "bg-blue-100"
+                : t.isCardExpense ? "bg-blue-100"
+                : t.type==="income" ? "bg-emerald-100" : "bg-red-100"
+              )}>
+                {t.expenseType==="recurring"
+                  ? <RotateCcw className="h-4 w-4 text-violet-600"/>
+                  : t.expenseType==="installment"
+                  ? <Layers className="h-4 w-4 text-blue-500"/>
+                  : t.isCardExpense
+                  ? <CreditCard className="h-4 w-4 text-blue-500"/>
+                  : t.type==="income"
+                  ? <TrendingUp className="h-4 w-4 text-emerald-600"/>
+                  : <TrendingDown className="h-4 w-4 text-red-500"/>
+                }
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm font-medium text-foreground truncate">{t.title}</p>
+                  <p className={cn("text-sm font-semibold shrink-0",
+                    t.expenseType==="recurring"||t.expenseType==="installment"?"text-blue-500"
+                    :t.isCardExpense?"text-blue-500":t.type==="income"?"text-emerald-600":"text-red-500"
+                  )}>
+                    {t.type==="income"?"+":"-"}{showValues?fmtCurrency(Math.abs(t.amount)):"••••"}
                   </p>
                 </div>
+
+                {/* Linha de metadados */}
+                <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                  <span className="text-[11px] text-muted-foreground">{relativeLabel(t._d)}</span>
+                  {t.isCardExpense&&t.cardName&&(
+                    <span className="text-[11px] text-blue-500 font-medium">· {t.cardName}</span>
+                  )}
+                  {t.expenseType==="recurring"&&(
+                    <span className="inline-flex items-center gap-0.5 rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-bold text-violet-600">
+                      <RotateCcw className="h-2.5 w-2.5"/> Recorrente
+                    </span>
+                  )}
+                  {t.expenseType==="installment"&&t.installmentsTotal&&(
+                    <span className="rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-bold text-blue-600">
+                      1/{t.installmentsTotal} parcelas
+                    </span>
+                  )}
+                </div>
+
+                {/* Detalhe de parcelamento */}
+                {t.expenseType==="installment"&&t.totalAmount&&t.installmentsTotal&&(
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Total {showValues?fmtCurrency(t.totalAmount):"••••"} · {t.installmentsTotal}× de {showValues?fmtCurrency(Math.abs(t.amount)):"••••"}
+                  </p>
+                )}
               </div>
-              <p className={cn("text-sm font-semibold",
-                t.isCardExpense?"text-blue-500":t.type==="income"?"text-emerald-600":"text-red-500"
-              )}>
-                {t.type==="income"?"+":""}{showValues?fmtCurrency(Math.abs(t.amount)):"••••"}
-              </p>
             </div>
           ))}
         </div>
@@ -429,6 +495,9 @@ function DashboardPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>{/* fim últimas transações div */}
+        </div>{/* fim coluna direita */}
+      </div>{/* fim grid desktop */}
     </div>
   );
 }
