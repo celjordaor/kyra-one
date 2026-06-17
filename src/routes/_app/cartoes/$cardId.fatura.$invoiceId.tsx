@@ -264,9 +264,9 @@ function FaturaDetailPage() {
                 <div className="flex shrink-0 items-center gap-2">
                   <p className="text-sm font-semibold">{fmt(item.amount)}</p>
                   <div className={cn("flex h-7 w-7 items-center justify-center rounded-full",
-                    isOpen ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                    isPaid ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary"
                   )}>
-                    {isOpen ? <Pencil className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    {isPaid ? <Eye className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
                   </div>
                 </div>
               </button>

@@ -57,6 +57,7 @@ interface CardStore {
   cards: CreditCard[]; invoices: Invoice[]; expenses: CardExpense[];
   installments: CardInstallment[]; loading: boolean;
   fetchCards: () => Promise<void>;
+  closeExpiredInvoices: () => Promise<void>;
   addCard: (c: Omit<CreditCard, "id"|"user_id"|"created_at">) => Promise<void>;
   updateCard: (id: string, d: Partial<CreditCard>) => Promise<void>;
   deleteCard: (id: string) => Promise<void>;
@@ -82,10 +83,33 @@ interface CardStore {
 export const useCardStore = create<CardStore>((set, get) => ({
   cards: [], invoices: [], expenses: [], installments: [], loading: false,
 
+  // ── Fechar faturas cujo closing_date chegou ──────────────────────────
+  closeExpiredInvoices: async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const today = format(new Date(), "yyyy-MM-dd");
+    const { data: closed, error } = await supabase
+      .from("invoices")
+      .update({ status: "closed" })
+      .eq("status", "open")
+      .lte("closing_date", today)   // closing_date <= hoje = fatura fechada
+      .select("id");
+    if (!error && closed && closed.length > 0) {
+      const ids = new Set(closed.map(r => r.id));
+      set(s => ({
+        invoices: s.invoices.map(inv =>
+          ids.has(inv.id) ? { ...inv, status: "closed" as const } : inv
+        ),
+      }));
+    }
+  },
+
   fetchCards: async () => {
     set({ loading: true });
     const { data } = await supabase.from("credit_cards").select("*").order("created_at", { ascending: true });
     set({ cards: data ?? [], loading: false });
+    // Verificar e fechar faturas expiradas ao carregar cartões
+    await get().closeExpiredInvoices();
   },
 
   setDefaultCard: async (id) => {
@@ -116,6 +140,8 @@ export const useCardStore = create<CardStore>((set, get) => ({
   fetchInvoices: async (cardId) => {
     const { data } = await supabase.from("invoices").select("*").eq("card_id", cardId).order("closing_date", { ascending: true });
     set(s => ({ invoices: [...s.invoices.filter(i => i.card_id !== cardId), ...(data ?? [])] }));
+    // Fechar faturas expiradas ao atualizar lista de invoices
+    await get().closeExpiredInvoices();
   },
   ensureInvoices: async (card) => {
     const { data: { user } } = await supabase.auth.getUser(); if (!user) return [];

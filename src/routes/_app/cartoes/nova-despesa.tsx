@@ -45,8 +45,15 @@ function parseInput(v: string): number {
   return parseFloat(v.replace(/\./g, "").replace(",", ".")) || 0;
 }
 function toSortKey(c: string) { const [mm, yyyy] = c.split("/"); return `${yyyy}-${mm}`; }
+// Para seleção padrão: apenas invoices abertas (nova despesa vai p/ fatura aberta)
 function sortedOpen(invs: Invoice[], cardId: string) {
   return [...invs.filter(i => i.card_id === cardId && i.status === "open")]
+    .sort((a, b) => toSortKey(a.competence).localeCompare(toSortKey(b.competence)));
+}
+
+// Para a lista de seleção manual: inclui "closed" (permite lançamento retroativo)
+function sortedAvailable(invs: Invoice[], cardId: string) {
+  return [...invs.filter(i => i.card_id === cardId && i.status !== "paid")]
     .sort((a, b) => toSortKey(a.competence).localeCompare(toSortKey(b.competence)));
 }
 function defaultInvoice(invs: Invoice[], cardId: string, date: string): Invoice | null {
@@ -164,7 +171,7 @@ function NovaDespesaPage() {
 
   const selectedCard    = cards.find(c => c.id === selectedCardId);
   const selectedCat     = categories.find(c => c.name === selectedCatName);
-  const cardInvoices    = sortedOpen(invoices, selectedCardId).slice(0, 6);
+  const cardInvoices    = sortedAvailable(invoices, selectedCardId).slice(0, 6);
   const selectedInvoice = cardInvoices.find(i => i.id === selectedInvId);
   const parsedAmount    = parseInput(displayValue);
 
@@ -404,19 +411,38 @@ function NovaDespesaPage() {
       <BottomSheet open={openBilling} onClose={() => setOpenBilling(false)} title="Fatura destino" maxHeight="65vh">
         <div className="px-4 pt-3 pb-6 space-y-2">
           {cardInvoices.map(inv => {
-            const isSel = selectedInvId === inv.id;
-            const dueLabel = new Date(inv.due_date+"T12:00:00").toLocaleDateString("pt-BR", { day:"2-digit", month:"short" });
+            const isSel      = selectedInvId === inv.id;
+            const isClosed   = inv.status === "closed";
+            const dueLabel   = new Date(inv.due_date+"T12:00:00").toLocaleDateString("pt-BR", { day:"2-digit", month:"short" });
             return (
               <button key={inv.id} type="button"
                 onClick={() => { setValue("invoice_id", inv.id, { shouldValidate: true }); setOpenBilling(false); }}
                 className={cn("flex w-full items-center gap-3 rounded-2xl border-2 p-4 text-left active:scale-95",
-                  isSel ? "border-indigo-400 bg-indigo-50" : "border-transparent bg-slate-50")}>
-                <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-indigo-50">
-                  <span className="text-[10px] font-bold uppercase text-indigo-400">{inv.competence.split("/")[0].slice(0,3)}</span>
-                  <span className="text-sm font-bold text-indigo-700">/{inv.competence.split("/")[1].slice(2)}</span>
+                  isSel
+                    ? "border-indigo-400 bg-indigo-50"
+                    : isClosed
+                    ? "border-slate-200 bg-slate-50"
+                    : "border-transparent bg-slate-50")}>
+                <div className={cn("flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl",
+                  isClosed ? "bg-slate-100" : "bg-indigo-50")}>
+                  <span className={cn("text-[10px] font-bold uppercase",
+                    isClosed ? "text-slate-400" : "text-indigo-400")}>
+                    {inv.competence.split("/")[0].slice(0,3)}
+                  </span>
+                  <span className={cn("text-sm font-bold",
+                    isClosed ? "text-slate-600" : "text-indigo-700")}>
+                    /{inv.competence.split("/")[1].slice(2)}
+                  </span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[16px] font-semibold text-slate-800">{inv.competence}</p>
+                  <div className="flex items-center gap-2 flex-nowrap overflow-hidden">
+                    <p className="text-[16px] font-semibold text-slate-800 shrink-0">{inv.competence}</p>
+                    {isClosed && (
+                      <span className="shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-500 whitespace-nowrap">
+                        Fechada
+                      </span>
+                    )}
+                  </div>
                   <p className="text-[13px] text-slate-400">Vence {dueLabel}</p>
                 </div>
                 {isSel && <CheckCircle2 className="h-6 w-6 shrink-0 text-indigo-500" />}
@@ -424,6 +450,7 @@ function NovaDespesaPage() {
             );
           })}
         </div>
+
       </BottomSheet>
     </div>
   );

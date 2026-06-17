@@ -169,7 +169,8 @@ function EditarDespesaPage() {
   const { expenseId, isInstallment, invoiceId, cardId, invoiceStatus } = Route.useSearch();
 
   const categories = useCategories().filter(c => c.active && c.type === "expense");
-  const canEdit    = invoiceStatus === "open";
+  // Fechada e aberta permitem edição; apenas "paid" é somente leitura
+  const canEdit    = invoiceStatus !== "paid";
 
   // Dados do item
   const [description, setDescription] = useState("");
@@ -332,7 +333,11 @@ function EditarDespesaPage() {
             <ArrowLeft className="h-5 w-5" />
           </button>
           <span className="font-bold text-[17px]">
-            {canEdit ? "Editar despesa" : "Detalhes da despesa"}
+            {invoiceStatus === "paid"
+              ? "Detalhes da despesa"
+              : invoiceStatus === "closed"
+              ? "Editar despesa (fatura fechada)"
+              : "Editar despesa"}
           </span>
           <div className="w-10" />
         </div>
@@ -349,10 +354,14 @@ function EditarDespesaPage() {
                 {TYPE_ICON[expenseType]}
                 {TYPE_LABEL[expenseType]}
               </div>
-              {!canEdit && (
+              {invoiceStatus === "paid" && (
                 <div className="flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-[12px] font-semibold text-slate-500">
-                  <Lock className="h-3 w-3" />
-                  {invoiceStatus === "paid" ? "Fatura paga" : "Fatura fechada"}
+                  <Lock className="h-3 w-3" /> Fatura paga
+                </div>
+              )}
+              {invoiceStatus === "closed" && (
+                <div className="flex items-center gap-1 rounded-full bg-gray-800/20 px-3 py-1 text-[12px] font-semibold text-white/80">
+                  🔒 Fatura fechada — edições permitidas
                 </div>
               )}
             </div>
