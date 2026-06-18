@@ -1,6 +1,6 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { TrendingUp, TrendingDown, PiggyBank, ChevronLeft, ChevronRight, CalendarDays, Eye, EyeOff, AlertCircle, Check, User, LogOut, KeyRound, CreditCard, Plus, Receipt, Shield, RotateCcw, Layers } from "lucide-react";
+import { TrendingUp, TrendingDown, PiggyBank, ChevronLeft, ChevronRight, CalendarDays, Eye, EyeOff, AlertCircle, Check, User, LogOut, KeyRound, CreditCard, Plus, Receipt, Shield } from "lucide-react";
 import { useTransactions, parseBrDate, toggleSettled } from "@/lib/transactions-store";
 import { useCardStore, type Invoice, type CreditCard as CreditCardType } from "@/lib/card-store";
 import { toast } from "sonner";
@@ -161,43 +161,47 @@ function DashboardPage() {
   },[monthTx]);
 
   const categories=useMemo(()=>{
-    const totals: any = {};let total=0;
+    const totals:any={};let total=0;
     for(const t of monthTx){if(t.type!=="expense")continue;const v=Math.abs(t.amount);totals[t.category]=(totals[t.category]||0)+v;total+=v;}
     return Object.entries(totals).sort((a,b)=>b[1]-a[1]).map(([name,value],i)=>({name,value:total>0?Math.round((value/total)*100):0,color:CATEGORY_COLORS[i%CATEGORY_COLORS.length]}));
   },[monthTx]);
 
   // ── Itens unificados para "Últimas transações" ────────────────────────
   const recentItems=useMemo(():RecentItem[]=>{
-    // 1. Transações regulares (sem filtro de mês)
+    // Transações regulares — SEM filtro de mês (últimas movimentações)
     const regular:RecentItem[]=transactions
       .map(t=>({...t,_d:parseBrDate(t.date)}))
       .filter(t=>!isCardRelated(t))
       .sort((a,b)=>b._d.getTime()-a._d.getTime())
       .slice(0,10)
       .map(t=>({id:t.id,title:t.title,amount:t.amount,type:t.type,category:t.category,_d:t._d,isCardExpense:false,settled:t.settled}));
-    // 2. Despesas avulsas de cartão
-    const cardSingle:RecentItem[]=expenses.filter(e=>e.expense_type==="single").map(e=>{
-      const card=cards.find(c=>c.id===e.card_id);
-      return{id:e.id,title:e.description,amount:-Math.abs(e.amount),type:"expense" as const,category:e.category,_d:new Date(e.purchase_date+"T12:00:00"),isCardExpense:true,cardName:card?.name,expenseType:"single"};
-    });
-    // 3. Parceladas: só installment_number=1 (compra original)
-    const cardInstallment:RecentItem[]=expenses.filter(e=>e.expense_type==="installment"&&(e.installment_number??1)===1).map(e=>{
-      const card=cards.find(c=>c.id===e.card_id);
-      const tot=Math.abs(e.amount)*(e.installments_total??1);
-      const ttl=e.description.replace(/ 1\/\d+$/,"");
-      return{id:e.id,title:ttl,amount:-Math.abs(e.amount),totalAmount:tot,type:"expense" as const,category:e.category,_d:new Date(e.purchase_date+"T12:00:00"),isCardExpense:true,cardName:card?.name,expenseType:"installment",installmentsTotal:(e.installments_total??1)};
-    });
-    // 4. Recorrentes deduplicadas — sem genéricos problemáticos em .tsx
-    const seenKeys: any = {};
-    const cardRecurring:RecentItem[]=expenses
+    // Despesas avulsas de cartão
+    const cardExp:RecentItem[]=expenses
+      .filter(e=>e.expense_type==="single")
+      .map(e=>{
+        const card=cards.find(c=>c.id===e.card_id);
+        return{id:e.id,title:e.description,amount:-Math.abs(e.amount),type:"expense" as const,category:e.category,_d:new Date(e.purchase_date+"T12:00:00"),isCardExpense:true,cardName:card?.name,expenseType:"single"};
+      });
+    // Parceladas: só installment_number=1
+    const cardInst:RecentItem[]=expenses
+      .filter(e=>e.expense_type==="installment"&&(e.installment_number??1)===1)
+      .map(e=>{
+        const card=cards.find(c=>c.id===e.card_id);
+        const tot=Math.abs(e.amount)*(e.installments_total??1);
+        const ttl=e.description.replace(" 1/"+String(e.installments_total||""),"").trim();
+        return{id:e.id,title:ttl||e.description,amount:-Math.abs(e.amount),totalAmount:tot,type:"expense" as const,category:e.category,_d:new Date(e.purchase_date+"T12:00:00"),isCardExpense:true,cardName:card?.name,expenseType:"installment",installmentsTotal:(e.installments_total??1)};
+      });
+    // Recorrentes deduplicadas (sem novos genéricos)
+    const seen:any={};
+    const cardRec:RecentItem[]=expenses
       .filter(e=>e.expense_type==="recurring")
       .sort((a,b)=>b.purchase_date.localeCompare(a.purchase_date))
-      .filter(e=>{const k=e.description+"|||"+e.card_id;if(seenKeys[k])return false;seenKeys[k]=true;return true;})
+      .filter(e=>{const k=e.description+e.card_id;if(seen[k])return false;seen[k]=1;return true;})
       .map(e=>{
         const card=cards.find(c=>c.id===e.card_id);
         return{id:e.id,title:e.description,amount:-Math.abs(e.amount),type:"expense" as const,category:e.category,_d:new Date(e.purchase_date+"T12:00:00"),isCardExpense:true,cardName:card?.name,expenseType:"recurring"};
       });
-    return[...regular,...cardSingle,...cardInstallment,...cardRecurring].sort((a,b)=>b._d.getTime()-a._d.getTime()).slice(0,7);
+    return[...regular,...cardExp,...cardInst,...cardRec].sort((a,b)=>b._d.getTime()-a._d.getTime()).slice(0,7);
   },[transactions,expenses,cards]);
 
 
@@ -334,7 +338,7 @@ function DashboardPage() {
 
         {/* Coluna direita (desktop): últimas transações */}
         <div className="space-y-5">
-      {/* ── Últimas movimentações ── */}
+      {/* ── Últimas movimentações — sem filtro de mês ── */}
       <div className="md:bg-card md:border md:rounded-2xl md:p-5 md:shadow-sm">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-foreground">Últimas movimentações</h2>
@@ -349,13 +353,9 @@ function DashboardPage() {
             <div key={t.id} className="flex items-center justify-between rounded-xl border bg-card p-3 shadow-sm">
               <div className="flex items-center gap-3">
                 <div className={cn("flex h-9 w-9 items-center justify-center rounded-full",
-                  t.expenseType==="recurring"?"bg-violet-100":t.expenseType==="installment"?"bg-blue-100":t.isCardExpense?"bg-blue-100":t.type==="income"?"bg-emerald-100":"bg-red-100"
+                  t.isCardExpense?"bg-blue-100":t.type==="income"?"bg-emerald-100":"bg-red-100"
                 )}>
-                  {t.expenseType==="recurring"
-                    ?<RotateCcw className="h-4 w-4 text-violet-600"/>
-                    :t.expenseType==="installment"
-                    ?<Layers className="h-4 w-4 text-blue-500"/>
-                    :t.isCardExpense
+                  {t.isCardExpense
                     ?<CreditCard className="h-4 w-4 text-blue-500"/>
                     :t.type==="income"
                     ?<TrendingUp className="h-4 w-4 text-emerald-600"/>
@@ -367,16 +367,16 @@ function DashboardPage() {
                   <p className="text-xs text-muted-foreground">
                     {relativeLabel(t._d)}
                     {t.isCardExpense&&t.cardName&&<span className="ml-1 font-medium text-blue-500">• {t.cardName}</span>}
-                    {t.expenseType==="recurring"&&<span className="ml-1 rounded-full bg-violet-50 px-1 text-[10px] font-bold text-violet-600">♺</span>}
-                    {t.expenseType==="installment"&&t.installmentsTotal&&<span className="ml-1 rounded-full bg-blue-50 px-1 text-[10px] font-bold text-blue-600">1/{t.installmentsTotal}x</span>}
+                    {t.expenseType==="recurring"&&<span className="ml-1 text-violet-600">♺</span>}
+                    {t.expenseType==="installment"&&t.installmentsTotal&&<span className="ml-1 text-blue-600">1/{t.installmentsTotal}x</span>}
                   </p>
                   {t.expenseType==="installment"&&t.totalAmount&&t.installmentsTotal&&(
-                    <p className="text-[11px] text-muted-foreground">Total {showValues?fmtCurrency(t.totalAmount):"••••"} · {t.installmentsTotal}x</p>
+                    <p className="text-[11px] text-muted-foreground">{showValues?fmtCurrency(t.totalAmount):"••••"} total · {t.installmentsTotal}x</p>
                   )}
                 </div>
               </div>
               <p className={cn("text-sm font-semibold",
-                t.expenseType==="recurring"||t.expenseType==="installment"||t.isCardExpense?"text-blue-500":t.type==="income"?"text-emerald-600":"text-red-500"
+                t.isCardExpense?"text-blue-500":t.type==="income"?"text-emerald-600":"text-red-500"
               )}>
                 {t.type==="income"?"+":"-"}{showValues?fmtCurrency(Math.abs(t.amount)):"••••"}
               </p>
