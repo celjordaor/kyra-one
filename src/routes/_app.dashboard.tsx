@@ -436,7 +436,6 @@ function DashboardPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      </div>{/* fim últimas transações div */}
         </div>{/* fim coluna direita */}
       </div>{/* fim grid desktop */}
     </div>
