@@ -15,8 +15,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   useTransactions, toggleSettled, updateTransaction, deleteTransaction,
-  deleteTransactionSeries, deleteRecurringFuture,
-  isInstallmentTransaction, getDisplayTitle,
+  deleteTransactionSeries, isInstallmentTransaction, getDisplayTitle,
   parseBrDate, formatBrDate, isTodayOrPast, type Transaction,
 } from "@/lib/transactions-store";
 import { useCardStore, type Invoice, type CreditCard as CreditCardType } from "@/lib/card-store";
@@ -212,7 +211,7 @@ function TransacoesPage() {
   };
 
   return (
-    <div className="space-y-4 md:p-8 md:max-w-3xl md:mx-auto" style={{ width:"100vw", maxWidth:"100vw", overflowX:"hidden", padding:"1.25rem", paddingTop:"calc(1.5rem + env(safe-area-inset-top, 0px))", boxSizing:"border-box" }}>
+    <div className="space-y-4 md:p-8 md:max-w-3xl md:mx-auto" style={{ width: "100%", maxWidth: "100%", overflowX: "hidden", padding: "1.25rem", paddingTop: "calc(1.5rem + env(safe-area-inset-top, 0px))" }}>
       <h1 className="text-xl font-bold text-foreground">Transações</h1>
 
       {/* Seletor de mês */}
@@ -412,21 +411,16 @@ function TransacoesPage() {
                             </button>
                             <button
                               onClick={() => {
-                                // Recorrente ou parcelada: sempre abre modal de confirmação
-                                if (t.recurring || isInstallmentTransaction(t)) {
-                                  setDeleteTarget(t);
-                                  return;
-                                }
-                                // Não recorrente quitada: bloqueado (preservar histórico)
                                 if (t.settled) return;
-                                // Não recorrente pendente: exclui diretamente
-                                deleteTransaction(t.id);
+                                if (isInstallmentTransaction(t)) {
+                                  setDeleteTarget(t);
+                                } else {
+                                  deleteTransaction(t.id);
+                                }
                               }}
-                              disabled={t.settled && !t.recurring && !isInstallmentTransaction(t)}
+                              disabled={t.settled}
                               className={cn("flex h-7 w-7 items-center justify-center rounded-full transition-colors",
-                                (t.settled && !t.recurring && !isInstallmentTransaction(t))
-                                  ? "cursor-not-allowed text-muted-foreground/30"
-                                  : "text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                                t.settled ? "cursor-not-allowed text-muted-foreground/30" : "text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                               )}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
@@ -562,13 +556,8 @@ function TransacoesPage() {
           setDeleteTarget(null);
         }}
         onDeleteFuture={() => {
-          if (!deleteTarget) { setDeleteTarget(null); return; }
-          if (isInstallmentTransaction(deleteTarget)) {
-            // Série de N meses: exclui a partir da parcela atual
-            deleteTransactionSeries(deleteTarget.recurrence_id!, deleteTarget.installment_number!);
-          } else if (deleteTarget.recurring) {
-            // Recorrente: exclui todas com mesmo título/tipo a partir desta data
-            deleteRecurringFuture(deleteTarget.title, deleteTarget.type, deleteTarget.date);
+          if (deleteTarget?.recurrence_id && deleteTarget.installment_number) {
+            deleteTransactionSeries(deleteTarget.recurrence_id, deleteTarget.installment_number);
           }
           setDeleteTarget(null);
         }}
@@ -592,41 +581,7 @@ function TransactionDeleteModal({
   useEffect(() => { if (open) setSelected("single"); }, [open]);
   if (!transaction) return null;
 
-  const isInstallment  = isInstallmentTransaction(transaction);
-  const isRecurring    = !!transaction.recurring;
-  const remaining      = (transaction.installments_total ?? 0) - (transaction.installment_number ?? 0);
-
-  const opts = isInstallment
-    ? [
-        {
-          key: "single" as const,
-          title: "Excluir apenas essa parcela",
-          description: `Remove somente a parcela ${transaction.installment_number}/${transaction.installments_total}`,
-          danger: false,
-        },
-        {
-          key: "future" as const,
-          title: "Excluir essa e as próximas",
-          description: remaining > 0
-            ? `Remove esta parcela e as ${remaining} seguintes`
-            : "Remove esta última e última parcela",
-          danger: true,
-        },
-      ]
-    : [
-        {
-          key: "single" as const,
-          title: "Excluir apenas esta recorrência",
-          description: "Remove somente o lançamento deste mês",
-          danger: false,
-        },
-        {
-          key: "future" as const,
-          title: "Excluir esta e todas as futuras",
-          description: "Remove este lançamento e todas as recorrências futuras",
-          danger: true,
-        },
-      ];
+  const remaining = (transaction.installments_total ?? 0) - (transaction.installment_number ?? 0);
 
   return (
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
@@ -634,13 +589,26 @@ function TransactionDeleteModal({
         <div className="px-5 pt-5 pb-2">
           <h3 className="text-base font-semibold text-foreground">Excluir transação</h3>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">"{transaction.title}"</span>{" "}
-            é uma {isInstallment ? "transação parcelada" : "transação recorrente"}.
-            Como deseja excluir?
+            Como deseja excluir <span className="font-medium text-foreground">"{transaction.title}"</span>?
           </p>
         </div>
         <div className="flex flex-col gap-2 px-5 py-3">
-          {opts.map(opt => {
+          {[
+            {
+              key: "single" as const,
+              title: "Excluir apenas essa parcela",
+              description: `Remove somente a parcela ${transaction.installment_number}/${transaction.installments_total}`,
+              danger: false,
+            },
+            {
+              key: "future" as const,
+              title: "Excluir essa e as próximas",
+              description: remaining > 0
+                ? `Remove esta parcela e as ${remaining} seguintes`
+                : "Remove esta última parcela",
+              danger: true,
+            },
+          ].map(opt => {
             const isSel = selected === opt.key;
             return (
               <button key={opt.key} type="button" onClick={() => setSelected(opt.key)}
@@ -1033,8 +1001,7 @@ function EditTransactionDialog({ transaction, onClose, bulkEdit = false, allTran
               <p className="text-sm font-medium">{type==="income"?"Recebida":"Paga"}</p>
               <p className="text-xs text-muted-foreground">{isFuture?"Antecipar efetivação":"Marca como concluída na data de hoje"}</p>
             </div>
-            <Switch checked={settled} onCheckedChange={setSettled}
-                className="data-[state=unchecked]:bg-slate-300 data-[state=checked]:bg-emerald-500 border-2 border-slate-300 data-[state=checked]:border-emerald-500" />
+            <Switch checked={settled} onCheckedChange={setSettled} />
           </div>
           {error && <p className="text-xs text-destructive">{error}</p>}
         </div>

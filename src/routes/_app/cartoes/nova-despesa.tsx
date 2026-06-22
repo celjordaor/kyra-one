@@ -209,8 +209,7 @@ function NovaDespesaPage() {
   };
 
   return (
-    <div style={{ width:"100vw", maxWidth:"100vw", overflowX:"hidden", boxSizing:"border-box" }}
-      className="bg-slate-50 dark:bg-background md:max-w-2xl md:mx-auto">
+    <div className="w-full bg-slate-50 dark:bg-background md:max-w-xl md:mx-auto">
       <form onSubmit={handleSubmit(onSubmit)} style={{ display:"block", width:"100%", margin:0 }}>
 
         {/* HEADER */}
@@ -305,67 +304,28 @@ function NovaDespesaPage() {
             </FieldRow>
           </TxSection>
 
-          {parsedAmount > 0 && (
+          {!isRecurring && parsedAmount > 0 && (
             <TxSection title="Parcelamento">
-              {/* ── InstallmentPicker: desabilitado quando recorrente ── */}
-              <div style={{
-                padding: "1rem",
-                borderBottom: "1px solid #f1f5f9",
-                opacity: isRecurring ? 0.45 : 1,
-                transition: "opacity 0.2s",
-              }}>
-                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
-                  marginBottom:"0.5rem" }}>
-                  <p style={{ fontSize:"0.6875rem", fontWeight:700, textTransform:"uppercase",
-                    letterSpacing:"0.06em", color:"#94a3b8" }}>
-                    Número de parcelas
-                  </p>
-                  {isRecurring && (
-                    <span style={{ fontSize:"0.6875rem", fontWeight:600, color:"#6366f1",
-                      background:"#eef2ff", borderRadius:"9999px", padding:"0.125rem 0.5rem" }}>
-                      Desabilitado — recorrente ativo
-                    </span>
-                  )}
-                </div>
-                <div style={{ pointerEvents: isRecurring ? "none" : "auto" }}>
-                  <InstallmentPicker
-                    amount={parsedAmount}
-                    value={installments}
-                    onChange={n => setValue("installments", n)}
-                  />
-                </div>
+              <div style={{ padding:"1rem", borderBottom:"1px solid #f1f5f9" }}>
+                <p style={{ fontSize:"0.6875rem", fontWeight:700, textTransform:"uppercase",
+                  letterSpacing:"0.06em", color:"#94a3b8", marginBottom:"0.75rem" }}>
+                  Número de parcelas
+                </p>
+                <InstallmentPicker amount={parsedAmount} value={installments} onChange={n => setValue("installments", n)} />
               </div>
-
-              {/* ── Switch recorrente ── */}
               <div style={{ display:"flex", alignItems:"center", gap:"0.75rem", padding:"1rem" }}>
                 <div style={{ flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center",
                   width:"2.5rem", height:"2.5rem", borderRadius:"0.75rem",
-                  background: isRecurring ? "#eef2ff" : "#f1f5f9",
-                  color: isRecurring ? "#6366f1" : "#64748b",
-                  transition: "background 0.2s, color 0.2s" }}>
+                  background:"#f1f5f9", color:"#64748b" }}>
                   <Repeat className="h-5 w-5" />
                 </div>
                 <div style={{ flex:1, minWidth:0 }}>
-                  <p style={{ fontSize:"1rem", fontWeight:500,
-                    color: isRecurring ? "#4f46e5" : "#1e293b",
-                    transition: "color 0.2s" }}>
-                    Despesa recorrente
-                  </p>
-                  <p style={{ fontSize:"0.75rem", color:"#94a3b8", marginTop:"0.125rem" }}>
-                    {isRecurring
-                      ? "Parcelamento desativado — será lançada nas próximas 12 faturas"
-                      : "Lançada nas próximas 12 faturas · desativa parcelamento"}
-                  </p>
+                  <p style={{ fontSize:"1rem", fontWeight:500, color:"#1e293b" }}>Despesa recorrente</p>
+                  <p style={{ fontSize:"0.75rem", color:"#94a3b8", marginTop:"0.125rem" }}>Lançada nas próximas 12 faturas</p>
                 </div>
                 <Controller name="is_recurring" control={control} render={({ field }) => (
-                  <Switch
-                    checked={!!field.value}
-                    onCheckedChange={v => {
-                      field.onChange(v);
-                      if (v) setValue("installments", 1); // reseta parcelas ao ativar recorrente
-                    }}
-                    className="data-[state=unchecked]:bg-slate-300 data-[state=checked]:bg-indigo-500 border-2 border-slate-300 data-[state=checked]:border-indigo-500"
-                  />
+                  <Switch checked={!!field.value} onCheckedChange={v => { field.onChange(v); if (v) setValue("installments", 1); }}
+                  className="data-[state=unchecked]:bg-slate-300 data-[state=checked]:bg-indigo-500 border-2 border-slate-300 data-[state=checked]:border-indigo-500" />
                 )} />
               </div>
             </TxSection>

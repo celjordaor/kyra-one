@@ -69,9 +69,9 @@ function BottomSheet({
 // ── Seção visual ─────────────────────────────────────────────────────────
 function TxSection({ title, children }: { title?: string; children: React.ReactNode }) {
   return (
-    <div style={{ paddingLeft:"1rem", paddingRight:"1rem", marginBottom:"0.75rem" }}>
-      {title && <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 px-0.5">{title}</p>}
-      <div className="w-full rounded-2xl bg-white dark:bg-card shadow-sm border border-slate-100 dark:border-border overflow-hidden">
+    <div className="mx-4 mb-4">
+      {title && <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 px-1">{title}</p>}
+      <div className="rounded-2xl bg-white dark:bg-card shadow-sm border border-slate-100 dark:border-border overflow-hidden">
         {children}
       </div>
     </div>
@@ -85,7 +85,7 @@ function FieldRow({
   last?: boolean; onClick?: () => void; error?: string;
 }) {
   const base = cn(
-    "flex items-center gap-3 px-4 text-left w-full",
+    "flex items-center gap-3 px-4 w-full text-left",
     !last && "border-b border-slate-100 dark:border-border",
     onClick && "active:bg-slate-50"
   );
@@ -94,7 +94,7 @@ function FieldRow({
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-muted text-slate-500">
         {icon}
       </div>
-      <div className="flex-1 min-w-0 py-4 overflow-hidden">
+      <div className="flex-1 min-w-0 py-4">
         <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">{label}</p>
         {children}
         {error && <p className="text-[12px] text-destructive mt-1">{error}</p>}
@@ -116,7 +116,7 @@ function SwitchRow({
 }) {
   return (
     <div className={cn(
-      "flex w-full items-center gap-3 px-4 py-4 [box-sizing:border-box]",
+      "flex items-center gap-3 px-4 py-4",
       !last && "border-b border-slate-100 dark:border-border",
       disabled && "opacity-50"
     )}>
@@ -127,8 +127,7 @@ function SwitchRow({
         <p className="text-[16px] font-medium text-slate-800 dark:text-foreground">{label}</p>
         <p className="text-[12px] text-slate-400 mt-0.5 leading-tight">{description}</p>
       </div>
-      <Switch checked={checked} onCheckedChange={onCheckedChange} disabled={disabled}
-      className="data-[state=unchecked]:bg-slate-300 data-[state=checked]:bg-emerald-500 border-2 border-slate-300 data-[state=checked]:border-emerald-500" />
+      <Switch checked={checked} onCheckedChange={onCheckedChange} disabled={disabled} />
     </div>
   );
 }
@@ -214,8 +213,8 @@ function NovaTransacaoPage() {
   };
 
   return (
-    <div style={{ width:"100vw", maxWidth:"100vw", overflowX:"hidden", boxSizing:"border-box" }} className="bg-slate-50 dark:bg-background md:max-w-2xl md:mx-auto">
-      <form onSubmit={handleSubmit(onSubmit)} style={{ display:"block", width:"100%", margin:0 }}>
+    <div className="bg-slate-50 dark:bg-background md:max-w-2xl md:mx-auto" style={{ width: "100%", maxWidth: "min(100%, 672px)", minHeight: "100dvh" }}>
+      <form onSubmit={handleSubmit(onSubmit)} className="w-full">
 
         {/* ── HEADER ────────────────────────────────────────────────── */}
         <div className={cn(headerBg, "w-full text-white px-4 pb-8")}
@@ -245,8 +244,7 @@ function NovaTransacaoPage() {
         </div>
 
         {/* ── VALOR ─────────────────────────────────────────────────── */}
-        <div style={{ paddingLeft:"1rem", paddingRight:"1rem", marginTop:"-1rem", marginBottom:"1.25rem" }}>
-          <div style={{ borderRadius:"1.5rem", background:"white", overflow:"hidden", boxShadow:"0 10px 25px rgba(0,0,0,.1)", border:"1px solid rgba(255,255,255,.5)" }}>
+        <div className="mx-4 -mt-4 mb-5 rounded-3xl bg-white dark:bg-card shadow-xl border border-white/50 overflow-hidden">
           <div className="px-5 pt-5 pb-3">
             <p className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color: accentHex }}>VALOR</p>
             <div className="flex items-baseline gap-2">
@@ -259,8 +257,7 @@ function NovaTransacaoPage() {
             </div>
             {errors.amount && <p className="text-[12px] text-destructive mt-1">{errors.amount.message}</p>}
           </div>
-          <div style={{ height:"4px", background: accentHex }} />
-        </div>
+          <div className="h-1" style={{ background: accentHex }} />
         </div>
 
         {/* ── INFORMAÇÕES ───────────────────────────────────────────── */}
@@ -342,7 +339,7 @@ function NovaTransacaoPage() {
         </TxSection>
 
         {/* ── BOTÃO ─────────────────────────────────────────────────── */}
-        <div style={{ paddingLeft:"1rem", paddingRight:"1rem", marginTop:"0.5rem", marginBottom:"1rem" }}>
+        <div className="mx-4 mt-2 mb-4">
           <button type="submit" disabled={isSubmitting}
             className="w-full rounded-2xl text-white font-bold transition-all active:scale-95 disabled:opacity-70"
             style={{ height: "60px", fontSize: "17px", backgroundColor: accentHex, boxShadow: `0 6px 20px ${accentHex}44` }}>
