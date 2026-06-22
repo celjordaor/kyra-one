@@ -452,8 +452,10 @@ function PendingSection({transactions,showValues,selectedMonth,selectedYear,card
   installments:ReturnType<typeof useCardStore.getState>["installments"];
   router:ReturnType<typeof useRouter>;
 }) {
-  const [detailInvoice,setDetailInvoice]=useState<Invoice|null>(null);
-  const [detailCard,setDetailCard]=useState<CreditCardType|null>(null);
+  const {payInvoice}=useCardStore();
+  const [showDespesas,setShowDespesas]=useState(false);
+  const [showFaturas,setShowFaturas]=useState(false);
+  const [paying,setPaying]=useState<string|null>(null);
 
   const regularPending=useMemo(()=>transactions.filter(t=>!t.settled&&t.source!=="invoice"&&t.category!=="Cartão de Crédito"),[transactions]);
   const pendingInvoices=useMemo(()=>invoices.filter(inv=>{
@@ -462,61 +464,168 @@ function PendingSection({transactions,showValues,selectedMonth,selectedYear,card
     return due.getMonth()===selectedMonth&&due.getFullYear()===selectedYear;
   }).map(inv=>({invoice:inv,card:cards.find(c=>c.id===inv.card_id)})).filter(item=>item.card?.active),[invoices,cards,selectedMonth,selectedYear]);
 
+  const totalRegular=regularPending.reduce((s,t)=>s+Math.abs(t.amount),0);
+  const totalFaturas=pendingInvoices.reduce((s,{invoice})=>s+invoice.total_amount,0);
   const totalCount=regularPending.length+pendingInvoices.length;
   if(totalCount===0)return null;
 
   const handleSettle=(t:PendingTx)=>{toggleSettled(t.id);toast.success(t.type==="income"?"Receita recebida":"Despesa paga",{description:t.title});};
 
+  const handlePayInvoice=async(invoice:Invoice,card:CreditCardType)=>{
+    setPaying(invoice.id);
+    try{
+      await payInvoice(invoice.id,card);
+      toast.success("Fatura marcada como paga!");
+    }catch{toast.error("Erro ao pagar fatura.");}
+    finally{setPaying(null);}
+  };
+
   return(
-    <div>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h2 className="text-sm font-semibold text-foreground">Pendências</h2>
-          <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-100 px-1.5 text-[10px] font-semibold text-amber-700">{totalCount}</span>
+    <>
+      {/* ── Dois cards resumo ────────────────────────────────────────── */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-semibold text-foreground">Pendências</h2>
+            <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-100 px-1.5 text-[10px] font-semibold text-amber-700">{totalCount}</span>
+          </div>
+          <span className="text-xs text-muted-foreground">Clique para detalhes</span>
         </div>
-        <span className="text-xs text-muted-foreground">Marque para concluir</span>
-      </div>
-      <div className="mt-3 space-y-2">
-        {pendingInvoices.map(({invoice,card})=>(
-          <div key={invoice.id} className="flex items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50/50 p-3 shadow-sm dark:border-blue-900/40 dark:bg-blue-950/20">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-100"><CreditCard className="h-4 w-4 text-blue-600"/></div>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-foreground">Fatura {card?.name} — {invoice.competence}</p>
-                <p className="truncate text-xs text-muted-foreground">Vence {new Date(invoice.due_date+"T12:00:00").toLocaleDateString("pt-BR")} • A pagar</p>
+
+        <div className="grid grid-cols-2 gap-3">
+          {/* Card — Despesas pendentes */}
+          {regularPending.length>0&&(
+            <button onClick={()=>setShowDespesas(true)}
+              className="flex flex-col items-start rounded-xl border border-amber-200 bg-amber-50/60 p-4 shadow-sm text-left transition-all active:scale-95 hover:bg-amber-100/60">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 mb-2">
+                <AlertCircle className="h-4 w-4 text-amber-600"/>
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <p className="text-sm font-semibold text-red-500">{showValues?`-${fmtCurrency(invoice.total_amount)}`:"••••"}</p>
-              <button onClick={()=>card&&(setDetailInvoice(invoice),setDetailCard(card))} title="Ver despesas" className="flex h-8 w-8 items-center justify-center rounded-full border border-blue-400 text-blue-500 hover:bg-blue-500/10"><Receipt className="h-3.5 w-3.5"/></button>
-            </div>
-          </div>
-        ))}
-        {regularPending.map(t=>(
-          <div key={t.id} className="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50/50 p-3 shadow-sm dark:border-amber-900/40 dark:bg-amber-950/20">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100"><AlertCircle className="h-4 w-4 text-amber-600"/></div>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-foreground">{t.title}</p>
-                <p className="truncate text-xs text-muted-foreground">{t.category} • {t.type==="income"?"A receber":"A pagar"}</p>
+              <p className="text-xs text-muted-foreground">Despesas</p>
+              <p className="text-lg font-bold text-amber-700 mt-0.5">{showValues?fmtCurrency(totalRegular):"••••"}</p>
+              <p className="text-[11px] text-amber-600 mt-0.5">{regularPending.length} pendente{regularPending.length!==1?"s":""}</p>
+            </button>
+          )}
+
+          {/* Card — Faturas em aberto */}
+          {pendingInvoices.length>0&&(
+            <button onClick={()=>setShowFaturas(true)}
+              className="flex flex-col items-start rounded-xl border border-blue-200 bg-blue-50/60 p-4 shadow-sm text-left transition-all active:scale-95 hover:bg-blue-100/60">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 mb-2">
+                <CreditCard className="h-4 w-4 text-blue-600"/>
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <p className={`text-sm font-semibold ${t.type==="income"?"text-emerald-600":"text-red-500"}`}>{showValues?`${t.type==="income"?"+":"-"}${fmtCurrency(Math.abs(t.amount))}`:"••••"}</p>
-              <button onClick={()=>handleSettle(t)} className="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-500 text-emerald-500 hover:bg-emerald-500/10"><Check className="h-3.5 w-3.5"/></button>
-            </div>
-          </div>
-        ))}
+              <p className="text-xs text-muted-foreground">Faturas</p>
+              <p className="text-lg font-bold text-blue-700 mt-0.5">{showValues?fmtCurrency(totalFaturas):"••••"}</p>
+              <p className="text-[11px] text-blue-600 mt-0.5">{pendingInvoices.length} em aberto</p>
+            </button>
+          )}
+        </div>
       </div>
-      <InvoiceDetailModal
-        invoice={detailInvoice} card={detailCard}
-        expenses={expenses.filter(e=>e.invoice_id===detailInvoice?.id)}
-        installments={installments.filter(i=>i.invoice_id===detailInvoice?.id)}
-        open={!!detailInvoice}
-        onClose={()=>{setDetailInvoice(null);setDetailCard(null);}}
-        onAddExpense={()=>{const id=detailCard?.id;setDetailInvoice(null);setDetailCard(null);router.navigate({to:"/cartoes/nova-despesa",search:{cardId:id}});}}
-      />
-    </div>
+
+      {/* ── Modal — Despesas pendentes ───────────────────────────────── */}
+      <Dialog open={showDespesas} onOpenChange={setShowDespesas}>
+        <DialogContent className="max-w-sm p-0 overflow-hidden">
+          <div className="bg-amber-500 px-5 pt-5 pb-4 text-white">
+            <DialogHeader>
+              <DialogTitle className="text-white flex items-center gap-2">
+                <AlertCircle className="h-5 w-5"/> Despesas pendentes
+              </DialogTitle>
+            </DialogHeader>
+            <p className="mt-1 text-sm text-white/80">{regularPending.length} item{regularPending.length!==1?"s":""} · {showValues?fmtCurrency(totalRegular):"••••"}</p>
+          </div>
+          <div className="max-h-80 overflow-y-auto">
+            {regularPending.length===0
+              ?<p className="py-8 text-center text-sm text-muted-foreground">Nenhuma despesa pendente.</p>
+              :<div className="divide-y">
+                {regularPending.map(t=>(
+                  <div key={t.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full",t.type==="income"?"bg-emerald-100":"bg-red-100")}>
+                        {t.type==="income"
+                          ?<TrendingUp className="h-3.5 w-3.5 text-emerald-600"/>
+                          :<TrendingDown className="h-3.5 w-3.5 text-red-500"/>
+                        }
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-foreground">{t.title}</p>
+                        <p className="truncate text-xs text-muted-foreground">{t.category} • {t.type==="income"?"A receber":"A pagar"}</p>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <p className={cn("text-sm font-semibold",t.type==="income"?"text-emerald-600":"text-red-500")}>
+                        {showValues?`${t.type==="income"?"+":"-"}${fmtCurrency(Math.abs(t.amount))}`:"••••"}
+                      </p>
+                      <button onClick={()=>handleSettle(t)}
+                        className="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-500 text-emerald-500 hover:bg-emerald-500/10 transition-colors"
+                        title="Marcar como quitada">
+                        <Check className="h-3.5 w-3.5"/>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            }
+          </div>
+          <div className="flex items-center justify-between border-t px-5 py-3">
+            <Button variant="outline" size="sm" onClick={()=>setShowDespesas(false)}>Fechar</Button>
+            <button onClick={()=>{setShowDespesas(false);router.navigate({to:"/transacoes"});}}
+              className="text-xs text-primary font-medium hover:underline">Ver todas →</button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Modal — Faturas em aberto ────────────────────────────────── */}
+      <Dialog open={showFaturas} onOpenChange={setShowFaturas}>
+        <DialogContent className="max-w-sm p-0 overflow-hidden">
+          <div className="bg-blue-600 px-5 pt-5 pb-4 text-white">
+            <DialogHeader>
+              <DialogTitle className="text-white flex items-center gap-2">
+                <CreditCard className="h-5 w-5"/> Faturas em aberto
+              </DialogTitle>
+            </DialogHeader>
+            <p className="mt-1 text-sm text-white/80">{pendingInvoices.length} fatura{pendingInvoices.length!==1?"s":""} · {showValues?fmtCurrency(totalFaturas):"••••"}</p>
+          </div>
+          <div className="max-h-80 overflow-y-auto">
+            {pendingInvoices.length===0
+              ?<p className="py-8 text-center text-sm text-muted-foreground">Nenhuma fatura em aberto.</p>
+              :<div className="divide-y">
+                {pendingInvoices.map(({invoice,card})=>(
+                  <div key={invoice.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100">
+                        <CreditCard className="h-3.5 w-3.5 text-blue-600"/>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-foreground">{card?.name} — {invoice.competence}</p>
+                        <p className="truncate text-xs text-muted-foreground">Vence {new Date(invoice.due_date+"T12:00:00").toLocaleDateString("pt-BR")}</p>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <p className="text-sm font-semibold text-red-500">
+                        {showValues?`-${fmtCurrency(invoice.total_amount)}`:"••••"}
+                      </p>
+                      <button
+                        onClick={()=>card&&handlePayInvoice(invoice,card)}
+                        disabled={paying===invoice.id}
+                        className="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-500 text-emerald-500 hover:bg-emerald-500/10 disabled:opacity-50 transition-colors"
+                        title="Marcar como paga">
+                        <Check className="h-3.5 w-3.5"/>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            }
+          </div>
+          <div className="flex items-center justify-between border-t px-5 py-3">
+            <Button variant="outline" size="sm" onClick={()=>setShowFaturas(false)}>Fechar</Button>
+            <button onClick={()=>{setShowFaturas(false);router.navigate({to:"/faturas-cartao"});}}
+              className="text-xs text-primary font-medium hover:underline">Ver faturas →</button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* InvoiceDetailModal mantido para compatibilidade */}
+    </>
   );
 }
 
