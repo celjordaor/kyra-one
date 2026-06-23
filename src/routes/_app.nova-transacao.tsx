@@ -48,8 +48,11 @@ function BottomSheet({
   if (!open) return null;
   return (
     <>
+      {/* Backdrop */}
       <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-[201] flex flex-col bg-white dark:bg-card rounded-t-3xl overflow-hidden"
+
+      {/* ── MOBILE: bottom sheet ── */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-[201] flex flex-col bg-white dark:bg-card rounded-t-3xl overflow-hidden"
         style={{ maxHeight }}>
         <div className="flex justify-center pt-3 pb-1 shrink-0">
           <div className="w-10 h-1.5 rounded-full bg-slate-200 dark:bg-muted" />
@@ -61,6 +64,20 @@ function BottomSheet({
           </button>
         </div>
         <div className="flex-1 overflow-y-auto overscroll-contain">{children}</div>
+      </div>
+
+      {/* ── DESKTOP: modal centralizado ── */}
+      <div className="hidden md:flex fixed inset-0 z-[201] items-center justify-center p-6">
+        <div className="flex flex-col bg-white dark:bg-card rounded-2xl shadow-2xl border border-slate-200 dark:border-border overflow-hidden w-full max-w-[480px]"
+          style={{ maxHeight: "80vh" }}>
+          <div className="flex items-center justify-between px-5 py-4 shrink-0 border-b border-slate-100 dark:border-border">
+            <h2 className="text-[16px] font-bold text-slate-800 dark:text-foreground">{title}</h2>
+            <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 dark:bg-muted hover:bg-slate-200 transition-colors">
+              <X className="h-4 w-4 text-slate-500" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto">{children}</div>
+        </div>
       </div>
     </>
   );
@@ -365,7 +382,7 @@ function NovaTransacaoPage() {
               className="h-11 w-full rounded-2xl bg-slate-100 dark:bg-muted pl-11 pr-4 text-base outline-none placeholder-slate-400" />
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-3 px-4 pb-8">
+        <div className="grid grid-cols-3 md:grid-cols-4 gap-2 md:gap-3 px-4 pb-6">
           {filtered.length === 0
             ? <p className="col-span-3 py-8 text-center text-sm text-slate-400">Nenhuma categoria encontrada</p>
             : filtered.map(cat => {
@@ -374,13 +391,13 @@ function NovaTransacaoPage() {
               return (
                 <button key={cat.id} type="button"
                   onClick={() => { setValue("category", cat.name, { shouldValidate: true }); setOpenCat(false); setCatSearch(""); }}
-                  className="flex flex-col items-center gap-2 rounded-2xl border-2 py-4 px-2 text-center active:scale-95 transition-transform"
+                  className="flex flex-col items-center gap-1.5 rounded-2xl border-2 py-3 md:py-2.5 px-1 text-center active:scale-95 transition-transform"
                   style={isSel ? { background: color + "18", borderColor: color + "66" } : { borderColor: "transparent", background: "#f8fafc" }}>
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl text-2xl"
+                  <div className="flex h-14 w-14 md:h-10 md:w-10 items-center justify-center rounded-2xl md:rounded-xl text-2xl md:text-xl"
                     style={{ background: color + "22" }}>
                     {isEmoji(cat.icon || "") ? cat.icon : (cat.name[0] ?? "?").toUpperCase()}
                   </div>
-                  <span className="text-[13px] font-semibold text-slate-700 dark:text-foreground leading-tight">{cat.name}</span>
+                  <span className="text-[13px] md:text-[11px] font-semibold text-slate-700 dark:text-foreground leading-tight">{cat.name}</span>
                 </button>
               );
             })
