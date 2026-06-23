@@ -472,6 +472,7 @@ function PendingSection({transactions,showValues,selectedMonth,selectedYear,card
 }) {
   const {payInvoice}=useCardStore();
   const [showDespesas,setShowDespesas]=useState(false);
+  const [showReceitas,setShowReceitas]=useState(false);
   const [showFaturas,setShowFaturas]=useState(false);
   const [paying,setPaying]=useState<string|null>(null);
 
@@ -518,21 +519,30 @@ function PendingSection({transactions,showValues,selectedMonth,selectedYear,card
           <span className="text-xs text-muted-foreground">Clique para detalhes</span>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          {/* Card — Despesas pendentes */}
-          {(pendingExpenses.length>0||pendingIncome.length>0)&&(
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {/* Card — Despesas pendentes (só expenses) */}
+          {pendingExpenses.length>0&&(
             <button onClick={()=>setShowDespesas(true)}
               className="flex flex-col items-start rounded-xl border border-amber-200 bg-amber-50/60 p-4 shadow-sm text-left transition-all active:scale-95 hover:bg-amber-100/60">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 mb-2">
-                <AlertCircle className="h-4 w-4 text-amber-600"/>
+                <TrendingDown className="h-4 w-4 text-amber-600"/>
               </div>
-              <p className="text-xs text-muted-foreground">Transações</p>
-              <p className="text-lg font-bold text-amber-700 mt-0.5">{showValues?fmtCurrency(totalRegular):"••••"}</p>
-              <p className="text-[11px] text-amber-600 mt-0.5">
-                {pendingExpenses.length>0&&`${pendingExpenses.length} despesa${pendingExpenses.length!==1?"s":""}`}
-                {pendingExpenses.length>0&&pendingIncome.length>0&&" · "}
-                {pendingIncome.length>0&&`${pendingIncome.length} receita${pendingIncome.length!==1?"s":""}`}
-              </p>
+              <p className="text-xs text-muted-foreground">Despesas</p>
+              <p className="text-lg font-bold text-amber-700 mt-0.5">{showValues?fmtCurrency(totalExpenses):"••••"}</p>
+              <p className="text-[11px] text-amber-600 mt-0.5">{pendingExpenses.length} pendente{pendingExpenses.length!==1?"s":""}</p>
+            </button>
+          )}
+
+          {/* Card — Receitas pendentes (só income) */}
+          {pendingIncome.length>0&&(
+            <button onClick={()=>setShowReceitas(true)}
+              className="flex flex-col items-start rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 shadow-sm text-left transition-all active:scale-95 hover:bg-emerald-100/60">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 mb-2">
+                <TrendingUp className="h-4 w-4 text-emerald-600"/>
+              </div>
+              <p className="text-xs text-muted-foreground">Receitas</p>
+              <p className="text-lg font-bold text-emerald-700 mt-0.5">{showValues?fmtCurrency(totalIncome):"••••"}</p>
+              <p className="text-[11px] text-emerald-600 mt-0.5">{pendingIncome.length} a receber</p>
             </button>
           )}
 
@@ -551,49 +561,70 @@ function PendingSection({transactions,showValues,selectedMonth,selectedYear,card
         </div>
       </div>
 
-      {/* ── Modal — Despesas pendentes ───────────────────────────────── */}
+      {/* ── Modal — Despesas pendentes (SÓ expenses) ─────────────────── */}
       <Dialog open={showDespesas} onOpenChange={setShowDespesas}>
         <DialogContent className="max-w-sm p-0 overflow-hidden">
           <div className="bg-amber-500 px-5 pt-5 pb-4 text-white">
             <DialogHeader>
               <DialogTitle className="text-white flex items-center gap-2">
-                <AlertCircle className="h-5 w-5"/> Transações pendentes
+                <TrendingDown className="h-5 w-5"/> Despesas pendentes
               </DialogTitle>
             </DialogHeader>
-            <p className="mt-1 text-sm text-white/80">{regularPending.length} item{regularPending.length!==1?"s":""} · {showValues?fmtCurrency(totalRegular):"••••"}</p>
+            <p className="mt-1 text-sm text-white/80">{pendingExpenses.length} despesa{pendingExpenses.length!==1?"s":""} · {showValues?fmtCurrency(totalExpenses):"••••"}</p>
           </div>
           <div className="max-h-80 overflow-y-auto">
-            {regularPending.length===0
-              ?<p className="py-8 text-center text-sm text-muted-foreground">Nenhuma transação pendente.</p>
+            {pendingExpenses.length===0
+              ?<p className="py-8 text-center text-sm text-muted-foreground">Nenhuma despesa pendente.</p>
               :<div className="divide-y">
-                {pendingExpenses.length>0&&<p className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400 bg-slate-50">A pagar</p>}
                 {pendingExpenses.map(t=>(
                   <div key={t.id} className="flex items-center justify-between gap-3 px-4 py-3">
                     <div className="flex min-w-0 items-center gap-3">
-                      <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full",t.type==="income"?"bg-emerald-100":"bg-red-100")}>
-                        {t.type==="income"
-                          ?<TrendingUp className="h-3.5 w-3.5 text-emerald-600"/>
-                          :<TrendingDown className="h-3.5 w-3.5 text-red-500"/>
-                        }
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-100">
+                        <TrendingDown className="h-3.5 w-3.5 text-red-500"/>
                       </div>
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-foreground">{t.title}</p>
-                        <p className="truncate text-xs text-muted-foreground">{t.category} • {t.type==="income"?"A receber":"A pagar"}</p>
+                        <p className="truncate text-xs text-muted-foreground">{t.category} • A pagar</p>
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
-                      <p className={cn("text-sm font-semibold",t.type==="income"?"text-emerald-600":"text-red-500")}>
-                        {showValues?`${t.type==="income"?"+":"-"}${fmtCurrency(Math.abs(t.amount))}`:"••••"}
+                      <p className="text-sm font-semibold text-red-500">
+                        {showValues?`-${fmtCurrency(Math.abs(t.amount))}`:"••••"}
                       </p>
                       <button onClick={()=>handleSettle(t)}
                         className="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-500 text-emerald-500 hover:bg-emerald-500/10 transition-colors"
-                        title="Marcar como quitada">
+                        title="Marcar como paga">
                         <Check className="h-3.5 w-3.5"/>
                       </button>
                     </div>
                   </div>
                 ))}
-                {pendingIncome.length>0&&<p className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest text-emerald-500 bg-emerald-50">A receber</p>}
+              </div>
+            }
+          </div>
+          <div className="flex items-center justify-between border-t px-5 py-3">
+            <Button variant="outline" size="sm" onClick={()=>setShowDespesas(false)}>Fechar</Button>
+            <button onClick={()=>{setShowDespesas(false);router.navigate({to:"/transacoes"});}}
+              className="text-xs text-primary font-medium hover:underline">Ver todas →</button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Modal — Receitas pendentes (SÓ income) ───────────────────── */}
+      <Dialog open={showReceitas} onOpenChange={setShowReceitas}>
+        <DialogContent className="max-w-sm p-0 overflow-hidden">
+          <div className="bg-emerald-600 px-5 pt-5 pb-4 text-white">
+            <DialogHeader>
+              <DialogTitle className="text-white flex items-center gap-2">
+                <TrendingUp className="h-5 w-5"/> Receitas pendentes
+              </DialogTitle>
+            </DialogHeader>
+            <p className="mt-1 text-sm text-white/80">{pendingIncome.length} receita{pendingIncome.length!==1?"s":""} · {showValues?fmtCurrency(totalIncome):"••••"}</p>
+          </div>
+          <div className="max-h-80 overflow-y-auto">
+            {pendingIncome.length===0
+              ?<p className="py-8 text-center text-sm text-muted-foreground">Nenhuma receita pendente.</p>
+              :<div className="divide-y">
                 {pendingIncome.map(t=>(
                   <div key={t.id} className="flex items-center justify-between gap-3 px-4 py-3">
                     <div className="flex min-w-0 items-center gap-3">
@@ -621,8 +652,8 @@ function PendingSection({transactions,showValues,selectedMonth,selectedYear,card
             }
           </div>
           <div className="flex items-center justify-between border-t px-5 py-3">
-            <Button variant="outline" size="sm" onClick={()=>setShowDespesas(false)}>Fechar</Button>
-            <button onClick={()=>{setShowDespesas(false);router.navigate({to:"/transacoes"});}}
+            <Button variant="outline" size="sm" onClick={()=>setShowReceitas(false)}>Fechar</Button>
+            <button onClick={()=>{setShowReceitas(false);router.navigate({to:"/transacoes"});}}
               className="text-xs text-primary font-medium hover:underline">Ver todas →</button>
           </div>
         </DialogContent>
