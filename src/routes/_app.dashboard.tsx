@@ -168,13 +168,31 @@ function DashboardPage() {
 
   // ── Itens unificados para "Últimas transações" ────────────────────────
   const recentItems=useMemo(():RecentItem[]=>{
-    // Transações regulares — SEM filtro de mês (últimas movimentações)
+    // Transações regulares — SEM filtro de mês, deduplicando recorrentes/parceladas
+    const seenRec:any={};
     const regular:RecentItem[]=transactions
       .map(t=>({...t,_d:parseBrDate(t.date)}))
       .filter(t=>!isCardRelated(t))
       .sort((a,b)=>b._d.getTime()-a._d.getTime())
+      .filter(t=>{
+        // Parceladas: manter apenas installment_number=1 (compra original)
+        if(t.installment_number&&t.installment_number>1)return false;
+        // Recorrentes: manter apenas a mais recente por recurrence_id
+        if(t.recurrence_id){
+          if(seenRec[t.recurrence_id])return false;
+          seenRec[t.recurrence_id]=1;
+        }
+        return true;
+      })
       .slice(0,10)
-      .map(t=>({id:t.id,title:t.title,amount:t.amount,type:t.type,category:t.category,_d:t._d,isCardExpense:false,settled:t.settled}));
+      .map(t=>({
+        id:t.id,title:t.title,amount:t.amount,type:t.type,category:t.category,_d:t._d,
+        isCardExpense:false,settled:t.settled,
+        expenseType:t.recurrence_id?(t.installment_number?"installment":"recurring"):"single" as const,
+        installmentsTotal:t.installments_total??undefined,
+        totalAmount:(t.installment_number===1&&(t.installments_total??0)>1)
+          ?Math.abs(t.amount)*(t.installments_total??1):undefined,
+      }));
     // Despesas avulsas de cartão
     const cardExp:RecentItem[]=expenses
       .filter(e=>e.expense_type==="single")
@@ -268,15 +286,25 @@ function DashboardPage() {
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-xl border bg-card p-4 shadow-sm">
           <div className="flex items-center gap-2"><div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100"><TrendingUp className="h-4 w-4 text-emerald-600"/></div><span className="text-xs text-muted-foreground">Receitas</span></div>
-          <p className="mt-2 text-lg font-bold text-emerald-600">{hiddenSign(income,"+")}</p>
+          <p className="mt-2 text-lg font-bold text-emerald-600">{hidden(income)}</p>
         </div>
         <div className="rounded-xl border bg-card p-4 shadow-sm">
           <div className="flex items-center gap-2"><div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-100"><TrendingDown className="h-4 w-4 text-red-500"/></div><span className="text-xs text-muted-foreground">Despesas</span></div>
-          <p className="mt-2 text-lg font-bold text-red-500">{hiddenSign(expense,"-")}</p>
+          <p className="mt-2 text-lg font-bold text-red-500">{hidden(expense)}</p>
         </div>
       </div>
 
-      {/* ── Desktop: 2 colunas — coluna esquerda: savings/categories/pending | direita: recent ── */}
+      {/* ── Pendências — logo abaixo das receitas/despesas ── */}
+      {billReminders&&(
+        <PendingSection
+          transactions={monthTx} showValues={showValues}
+          selectedMonth={selectedMonth} selectedYear={selectedYear}
+          cards={cards} invoices={invoices} expenses={expenses} installments={installments}
+          router={router}
+        />
+      )}
+
+      {/* ── Desktop: 2 colunas — coluna esquerda: savings/categories | direita: recent ── */}
       <div className="md:grid md:grid-cols-[1fr_380px] md:gap-6 md:items-start space-y-5 md:space-y-0">
         {/* Coluna esquerda (desktop): savings, categories, pending */}
         <div className="space-y-5">
@@ -322,16 +350,6 @@ function DashboardPage() {
             ))}
           </div>
         </div>
-      )}
-
-      {/* Pendências */}
-      {billReminders&&(
-        <PendingSection
-          transactions={monthTx} showValues={showValues}
-          selectedMonth={selectedMonth} selectedYear={selectedYear}
-          cards={cards} invoices={invoices} expenses={expenses} installments={installments}
-          router={router}
-        />
       )}
 
       </div>{/* fim coluna esquerda */}
@@ -457,16 +475,24 @@ function PendingSection({transactions,showValues,selectedMonth,selectedYear,card
   const [showFaturas,setShowFaturas]=useState(false);
   const [paying,setPaying]=useState<string|null>(null);
 
-  const regularPending=useMemo(()=>transactions.filter(t=>!t.settled&&t.source!=="invoice"&&t.category!=="Cartão de Crédito"),[transactions]);
+  // Separar despesas e receitas pendentes
+  const allPending=useMemo(()=>transactions.filter(t=>!t.settled&&t.source!=="invoice"&&t.category!=="Cartão de Crédito"),[transactions]);
+  const pendingExpenses=useMemo(()=>allPending.filter(t=>t.type==="expense"),[allPending]);
+  const pendingIncome  =useMemo(()=>allPending.filter(t=>t.type==="income"), [allPending]);
+  // "regularPending" mantido para compatibilidade com a contagem total
+  const regularPending=allPending;
+
   const pendingInvoices=useMemo(()=>invoices.filter(inv=>{
     if(inv.status!=="open"||inv.total_amount<=0)return false;
     const due=new Date(inv.due_date+"T12:00:00");
     return due.getMonth()===selectedMonth&&due.getFullYear()===selectedYear;
   }).map(inv=>({invoice:inv,card:cards.find(c=>c.id===inv.card_id)})).filter(item=>item.card?.active),[invoices,cards,selectedMonth,selectedYear]);
 
-  const totalRegular=regularPending.reduce((s,t)=>s+Math.abs(t.amount),0);
-  const totalFaturas=pendingInvoices.reduce((s,{invoice})=>s+invoice.total_amount,0);
-  const totalCount=regularPending.length+pendingInvoices.length;
+  const totalExpenses=pendingExpenses.reduce((s,t)=>s+Math.abs(t.amount),0);
+  const totalIncome  =pendingIncome.reduce((s,t)=>s+Math.abs(t.amount),0);
+  const totalRegular =regularPending.reduce((s,t)=>s+Math.abs(t.amount),0);
+  const totalFaturas =pendingInvoices.reduce((s,t)=>s+t.invoice.total_amount,0);
+  const totalCount   =regularPending.length+pendingInvoices.length;
   if(totalCount===0)return null;
 
   const handleSettle=(t:PendingTx)=>{toggleSettled(t.id);toast.success(t.type==="income"?"Receita recebida":"Despesa paga",{description:t.title});};
@@ -494,15 +520,19 @@ function PendingSection({transactions,showValues,selectedMonth,selectedYear,card
 
         <div className="grid grid-cols-2 gap-3">
           {/* Card — Despesas pendentes */}
-          {regularPending.length>0&&(
+          {(pendingExpenses.length>0||pendingIncome.length>0)&&(
             <button onClick={()=>setShowDespesas(true)}
               className="flex flex-col items-start rounded-xl border border-amber-200 bg-amber-50/60 p-4 shadow-sm text-left transition-all active:scale-95 hover:bg-amber-100/60">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 mb-2">
                 <AlertCircle className="h-4 w-4 text-amber-600"/>
               </div>
-              <p className="text-xs text-muted-foreground">Despesas</p>
+              <p className="text-xs text-muted-foreground">Transações</p>
               <p className="text-lg font-bold text-amber-700 mt-0.5">{showValues?fmtCurrency(totalRegular):"••••"}</p>
-              <p className="text-[11px] text-amber-600 mt-0.5">{regularPending.length} pendente{regularPending.length!==1?"s":""}</p>
+              <p className="text-[11px] text-amber-600 mt-0.5">
+                {pendingExpenses.length>0&&`${pendingExpenses.length} despesa${pendingExpenses.length!==1?"s":""}`}
+                {pendingExpenses.length>0&&pendingIncome.length>0&&" · "}
+                {pendingIncome.length>0&&`${pendingIncome.length} receita${pendingIncome.length!==1?"s":""}`}
+              </p>
             </button>
           )}
 
@@ -527,16 +557,17 @@ function PendingSection({transactions,showValues,selectedMonth,selectedYear,card
           <div className="bg-amber-500 px-5 pt-5 pb-4 text-white">
             <DialogHeader>
               <DialogTitle className="text-white flex items-center gap-2">
-                <AlertCircle className="h-5 w-5"/> Despesas pendentes
+                <AlertCircle className="h-5 w-5"/> Transações pendentes
               </DialogTitle>
             </DialogHeader>
             <p className="mt-1 text-sm text-white/80">{regularPending.length} item{regularPending.length!==1?"s":""} · {showValues?fmtCurrency(totalRegular):"••••"}</p>
           </div>
           <div className="max-h-80 overflow-y-auto">
             {regularPending.length===0
-              ?<p className="py-8 text-center text-sm text-muted-foreground">Nenhuma despesa pendente.</p>
+              ?<p className="py-8 text-center text-sm text-muted-foreground">Nenhuma transação pendente.</p>
               :<div className="divide-y">
-                {regularPending.map(t=>(
+                {pendingExpenses.length>0&&<p className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400 bg-slate-50">A pagar</p>}
+                {pendingExpenses.map(t=>(
                   <div key={t.id} className="flex items-center justify-between gap-3 px-4 py-3">
                     <div className="flex min-w-0 items-center gap-3">
                       <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full",t.type==="income"?"bg-emerald-100":"bg-red-100")}>
@@ -557,6 +588,30 @@ function PendingSection({transactions,showValues,selectedMonth,selectedYear,card
                       <button onClick={()=>handleSettle(t)}
                         className="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-500 text-emerald-500 hover:bg-emerald-500/10 transition-colors"
                         title="Marcar como quitada">
+                        <Check className="h-3.5 w-3.5"/>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {pendingIncome.length>0&&<p className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest text-emerald-500 bg-emerald-50">A receber</p>}
+                {pendingIncome.map(t=>(
+                  <div key={t.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100">
+                        <TrendingUp className="h-3.5 w-3.5 text-emerald-600"/>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-foreground">{t.title}</p>
+                        <p className="truncate text-xs text-muted-foreground">{t.category} • A receber</p>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <p className="text-sm font-semibold text-emerald-600">
+                        {showValues?`+${fmtCurrency(Math.abs(t.amount))}`:"••••"}
+                      </p>
+                      <button onClick={()=>handleSettle(t)}
+                        className="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-500 text-emerald-500 hover:bg-emerald-500/10 transition-colors"
+                        title="Marcar como recebida">
                         <Check className="h-3.5 w-3.5"/>
                       </button>
                     </div>
