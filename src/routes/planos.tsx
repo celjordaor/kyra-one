@@ -127,9 +127,10 @@ function PlanosPage() {
             </button>
           </div>
 
-          {subscription?.status === "trial" && subscription.daysLeftInTrial !== null && (
+          {/* FIX: daysLeftInTrial não existe em UserSubscription — campo correto é daysLeft */}
+          {subscription?.status === "trial" && subscription.daysLeft !== null && (
             <div className="mt-3 inline-block rounded-full bg-yellow-500/10 px-4 py-1.5 text-sm font-medium text-yellow-600">
-              ⏳ Teste — {subscription.daysLeftInTrial} dias restantes
+              ⏳ Teste — {subscription.daysLeft} dias restantes
             </div>
           )}
         </div>

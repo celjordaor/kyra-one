@@ -48,16 +48,21 @@ async function handleSubscription(mpId) {
 
   if (!userId) return;
 
+  // FIX: deriva o ciclo de cobrança direto da assinatura registrada no MP
+  // (auto_recurring.frequency = 1 → mensal, 12 → anual)
+  const isAnnual = sub.auto_recurring?.frequency === 12;
+
   const updates = {
     status: ourStatus,
     updated_at: new Date().toISOString(),
   };
 
-  // Se ativou, limpar carência e definir fim do período
+  // Se ativou, limpar carência e definir fim do período (respeitando o ciclo)
   if (ourStatus === "active") {
     updates.grace_period_ends_at = null;
     const periodEnd = new Date();
-    periodEnd.setMonth(periodEnd.getMonth() + 1);
+    if (isAnnual) periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+    else periodEnd.setMonth(periodEnd.getMonth() + 1);
     updates.current_period_end = periodEnd.toISOString();
   }
 
@@ -83,9 +88,14 @@ async function handlePayment(paymentId) {
   const userId = payment.external_reference;
   if (!userId) return;
 
+  // FIX: pagamento individual não traz auto_recurring, então lemos
+  // o billing_cycle já salvo na nossa própria tabela subscriptions
+  const isAnnual = (await getBillingCycle(userId)) === "annual";
+
   if (payment.status === "approved") {
     const periodEnd = new Date();
-    periodEnd.setMonth(periodEnd.getMonth() + 1);
+    if (isAnnual) periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+    else periodEnd.setMonth(periodEnd.getMonth() + 1);
     await updateSubscription(userId, {
       status: "active",
       grace_period_ends_at: null,
@@ -102,6 +112,26 @@ async function handlePayment(paymentId) {
       grace_period_ends_at: graceEnd.toISOString(),
       updated_at: new Date().toISOString(),
     });
+  }
+}
+
+// FIX: helper novo — lê o billing_cycle atual do usuário direto do Supabase
+async function getBillingCycle(userId) {
+  try {
+    const res = await fetch(
+      `${process.env.SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${userId}&select=billing_cycle`,
+      {
+        headers: {
+          "apikey": process.env.SUPABASE_SERVICE_ROLE_KEY,
+          "Authorization": `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+        },
+      }
+    );
+    const data = await res.json();
+    return data?.[0]?.billing_cycle ?? "monthly";
+  } catch (e) {
+    console.error("Erro ao buscar billing_cycle:", e);
+    return "monthly";
   }
 }
 
