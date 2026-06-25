@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
 import { Route as RecuperarSenhaRouteImport } from './routes/recuperar-senha'
 import { Route as PlanosRouteImport } from './routes/planos'
 import { Route as LoginRouteImport } from './routes/login'
@@ -33,6 +34,11 @@ import { Route as AppCartoesEditarDespesaRouteImport } from './routes/_app/carto
 import { Route as AppCartoesCardIdRouteImport } from './routes/_app/cartoes/$cardId'
 import { Route as AppCartoesCardIdFaturaInvoiceIdRouteImport } from './routes/_app/cartoes/$cardId.fatura.$invoiceId'
 
+const RedefinirSenhaRoute = RedefinirSenhaRouteImport.update({
+  id: '/redefinir-senha',
+  path: '/redefinir-senha',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RecuperarSenhaRoute = RecuperarSenhaRouteImport.update({
   id: '/recuperar-senha',
   path: '/recuperar-senha',
@@ -158,6 +164,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/planos': typeof PlanosRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
+  '/redefinir-senha': typeof RedefinirSenhaRoute
   '/categorias': typeof AppCategoriasRoute
   '/dashboard': typeof AppDashboardRoute
   '/faturas-cartao': typeof AppFaturasCartaoRoute
@@ -182,6 +189,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/planos': typeof PlanosRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
+  '/redefinir-senha': typeof RedefinirSenhaRoute
   '/categorias': typeof AppCategoriasRoute
   '/dashboard': typeof AppDashboardRoute
   '/faturas-cartao': typeof AppFaturasCartaoRoute
@@ -208,6 +216,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/planos': typeof PlanosRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
+  '/redefinir-senha': typeof RedefinirSenhaRoute
   '/_app/categorias': typeof AppCategoriasRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/faturas-cartao': typeof AppFaturasCartaoRoute
@@ -234,6 +243,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/planos'
     | '/recuperar-senha'
+    | '/redefinir-senha'
     | '/categorias'
     | '/dashboard'
     | '/faturas-cartao'
@@ -258,6 +268,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/planos'
     | '/recuperar-senha'
+    | '/redefinir-senha'
     | '/categorias'
     | '/dashboard'
     | '/faturas-cartao'
@@ -283,6 +294,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/planos'
     | '/recuperar-senha'
+    | '/redefinir-senha'
     | '/_app/categorias'
     | '/_app/dashboard'
     | '/_app/faturas-cartao'
@@ -309,10 +321,18 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   PlanosRoute: typeof PlanosRoute
   RecuperarSenhaRoute: typeof RecuperarSenhaRoute
+  RedefinirSenhaRoute: typeof RedefinirSenhaRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/redefinir-senha': {
+      id: '/redefinir-senha'
+      path: '/redefinir-senha'
+      fullPath: '/redefinir-senha'
+      preLoaderRoute: typeof RedefinirSenhaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/recuperar-senha': {
       id: '/recuperar-senha'
       path: '/recuperar-senha'
@@ -532,6 +552,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   PlanosRoute: PlanosRoute,
   RecuperarSenhaRoute: RecuperarSenhaRoute,
+  RedefinirSenhaRoute: RedefinirSenhaRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
