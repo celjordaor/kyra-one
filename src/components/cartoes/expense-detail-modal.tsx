@@ -8,7 +8,7 @@ import { DatePicker } from "@/components/cartoes/date-picker";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { supabase } from "@/lib/supabase";
 import { useCategories } from "@/lib/categories-store";
-import { type ExpenseType } from "@/lib/card-store";
+import { useCardStore, type ExpenseType } from "@/lib/card-store";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -54,12 +54,11 @@ export const fmt = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 // ── Recalcular total da fatura ─────────────────────────────────────────────
+// FIX: delega para a implementação única e canônica em card-store.ts
+// (recalcInvoiceTotal). Mantemos esta função exportada com a mesma
+// assinatura para não quebrar quem já importa `recalcTotal` daqui.
 export async function recalcTotal(invoiceId: string) {
-  const { data: expData }  = await supabase.from("card_expenses").select("amount").eq("invoice_id", invoiceId);
-  const { data: instData } = await supabase.from("card_installments").select("amount").eq("invoice_id", invoiceId);
-  const total = (expData  ?? []).reduce((s, e) => s + (e.amount ?? 0), 0)
-              + (instData ?? []).reduce((s, i) => s + (i.amount ?? 0), 0);
-  await supabase.from("invoices").update({ total_amount: total }).eq("id", invoiceId);
+  await useCardStore.getState().recalcInvoiceTotal(invoiceId);
 }
 
 // ── Modal de opções de exclusão (recorrente / parcelada) ───────────────────

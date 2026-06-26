@@ -53,7 +53,12 @@ function NovoCartaoPage() {
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { closing_day: 1, due_day: 10 },
+    // FIX: "flag" precisa de um valor inicial definido (string vazia),
+    // senão o Select começa "não controlado" (undefined) e passa a
+    // "controlado" só depois que o usuário escolhe uma opção — o que
+    // disparava o warning do React "Select is changing from uncontrolled
+    // to controlled".
+    defaultValues: { closing_day: 1, due_day: 10, flag: "" },
   });
 
   const flagValue = watch("flag");

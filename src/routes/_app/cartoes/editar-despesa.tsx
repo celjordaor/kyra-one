@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useCategories } from "@/lib/categories-store";
+import { useCardStore } from "@/lib/card-store";
 import { DatePicker } from "@/components/cartoes/date-picker";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -211,11 +212,10 @@ function EditarDespesaPage() {
   }, [expenseId, isInstallment]);
 
   // ── Recalcular total da fatura ─────────────────────────────────────────
+  // FIX: delega para a implementação única e canônica em card-store.ts
+  // (recalcInvoiceTotal), em vez de duplicar a query aqui.
   async function recalcTotal(invId: string) {
-    const { data: expData }  = await supabase.from("card_expenses").select("amount").eq("invoice_id", invId);
-    const { data: instData } = await supabase.from("card_installments").select("amount").eq("invoice_id", invId);
-    const total = [...(expData ?? []), ...(instData ?? [])].reduce((s, r) => s + (r.amount ?? 0), 0);
-    await supabase.from("invoices").update({ total_amount: total }).eq("id", invId);
+    await useCardStore.getState().recalcInvoiceTotal(invId);
   }
 
   // ── Salvar ─────────────────────────────────────────────────────────────
@@ -321,8 +321,7 @@ function EditarDespesaPage() {
   const typeColor = TYPE_COLOR[expenseType];
 
   return (
-    <div style={{ width:"100vw", maxWidth:"100vw", overflowX:"hidden" }}
-      className="min-h-screen bg-slate-50 dark:bg-background md:max-w-2xl md:mx-auto">
+    <div className="w-screen max-w-[100vw] overflow-x-hidden min-h-screen bg-slate-50 dark:bg-background md:w-full md:max-w-2xl md:mx-auto md:overflow-x-visible">
 
       {/* HEADER */}
       <div style={{ background: canEdit ? "#4f46e5" : "#64748b", paddingTop:"calc(env(safe-area-inset-top,0px) + 1rem)" }}
