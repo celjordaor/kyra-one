@@ -1,8 +1,9 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { TrendingUp, TrendingDown, PiggyBank, ChevronLeft, ChevronRight, ChevronDown, CalendarDays, Eye, EyeOff, AlertCircle, Check, User, LogOut, KeyRound, CreditCard, Plus, Receipt, Shield, ListChecks } from "lucide-react";
+import { TrendingUp, TrendingDown, PiggyBank, ChevronLeft, ChevronRight, ChevronDown, CalendarDays, Eye, EyeOff, AlertCircle, Check, User, LogOut, KeyRound, CreditCard, Plus, Receipt, Shield, ListChecks, Settings, Wallet } from "lucide-react";
 import { useTransactions, parseBrDate, toggleSettled } from "@/lib/transactions-store";
 import { useCategories } from "@/lib/categories-store";
+import { useAccountBalance, saveAccountBalance } from "@/lib/account-balance-store";
 import { useCardStore, type Invoice, type CreditCard as CreditCardType } from "@/lib/card-store";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
@@ -10,6 +11,7 @@ import { supabase } from "@/lib/supabase";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
@@ -47,6 +49,16 @@ function getGreeting() {
 }
 function isCardRelated(t:{source?:string;category?:string}):boolean {
   return t.source==="invoice"||t.category==="Cartão de Crédito";
+}
+
+// ── Helpers de input monetário (mesmo padrão usado em outras telas do app) ─
+function formatBalanceInput(digits: string): string {
+  const nums = digits.replace(/\D/g, "");
+  if (!nums) return "";
+  return (parseInt(nums, 10) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function parseBalanceInput(v: string): number {
+  return parseFloat(v.replace(/\./g, "").replace(",", ".")) || 0;
 }
 
 // Item unificado para "Últimas transações"
@@ -123,6 +135,42 @@ function DashboardPage() {
   const [showRecent,setShowRecent]=useState(false); // "Últimas movimentações" — colapsada por padrão
   const allCategories=useCategories();
   const categoryIconMap=useMemo(()=>Object.fromEntries(allCategories.map(c=>[c.name,c.icon??"📦"])),[allCategories]);
+
+  // ── Saldo da conta ───────────────────────────────────────────────────────
+  const accountBalance = useAccountBalance();
+  const [openBalanceSetup, setOpenBalanceSetup] = useState(false);
+  const [balanceEnabled, setBalanceEnabled] = useState(false);
+  const [balanceInput, setBalanceInput] = useState("");
+  const [savingBalance, setSavingBalance] = useState(false);
+
+  // Preenche o formulário do modal com os valores atuais sempre que ele abre
+  useEffect(() => {
+    if (openBalanceSetup) {
+      setBalanceEnabled(accountBalance.enabled);
+      setBalanceInput(
+        accountBalance.initialBalance
+          ? accountBalance.initialBalance.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+          : ""
+      );
+    }
+  }, [openBalanceSetup]); // eslint-disable-line
+
+  const handleSaveBalance = async () => {
+    setSavingBalance(true);
+    try {
+      await saveAccountBalance({
+        initialBalance: parseBalanceInput(balanceInput),
+        enabled: balanceEnabled,
+      });
+      toast.success("Saldo da conta atualizado!");
+      setOpenBalanceSetup(false);
+    } catch (err: unknown) {
+      console.error("[dashboard] erro ao salvar saldo da conta:", err);
+      toast.error((err as { message?: string })?.message || "Erro ao salvar. Tente novamente.");
+    } finally {
+      setSavingBalance(false);
+    }
+  };
 
   useEffect(()=>{
     const notifs=loadNotifs();setBillReminders(notifs.billReminders);
@@ -284,11 +332,39 @@ function DashboardPage() {
         <button onClick={goNextMonth} className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-foreground hover:bg-muted/80"><ChevronRight className="h-5 w-5"/></button>
       </div>
 
-      {/* Balance Card */}
-      <div className="relative overflow-hidden rounded-2xl bg-primary p-6 text-primary-foreground shadow-lg shadow-primary/20">
-        <div className="absolute -right-6 -top-6 h-32 w-32 rounded-full bg-white/10"/>
-        <div className="absolute -bottom-8 -left-8 h-28 w-28 rounded-full bg-white/10"/>
-        <div className="relative"><p className="text-sm opacity-90">Saldo do mês</p><p className="mt-1 text-3xl md:text-4xl font-bold tracking-tight">{hidden(balance)}</p></div>
+      {/* Balance Cards — Saldo do mês + Saldo da conta (mesma linha) */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="relative overflow-hidden rounded-2xl bg-primary p-5 text-primary-foreground shadow-lg shadow-primary/20">
+          <div className="absolute -right-6 -top-6 h-28 w-28 rounded-full bg-white/10"/>
+          <div className="absolute -bottom-8 -left-8 h-24 w-24 rounded-full bg-white/10"/>
+          <div className="relative">
+            <p className="text-xs opacity-90">Saldo do mês</p>
+            <p className="mt-1 text-2xl md:text-3xl font-bold tracking-tight">{hidden(balance)}</p>
+          </div>
+        </div>
+
+        <div className="relative overflow-hidden rounded-2xl bg-slate-800 p-5 text-white shadow-lg shadow-slate-800/20">
+          <div className="absolute -right-6 -top-6 h-28 w-28 rounded-full bg-white/10"/>
+          <div className="absolute -bottom-8 -left-8 h-24 w-24 rounded-full bg-white/10"/>
+          <div className="relative">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs opacity-80">Saldo da conta</p>
+              <button onClick={() => setOpenBalanceSetup(true)}
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/15 hover:bg-white/25 transition-colors"
+                title="Configurar saldo da conta">
+                <Settings className="h-3 w-3"/>
+              </button>
+            </div>
+            {accountBalance.enabled ? (
+              <p className="mt-1 text-2xl md:text-3xl font-bold tracking-tight">{hidden(accountBalance.currentBalance)}</p>
+            ) : (
+              <button onClick={() => setOpenBalanceSetup(true)}
+                className="mt-2 text-left text-[13px] font-medium text-white/85 underline underline-offset-2">
+                Configurar saldo inicial
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Income / Expense */}
@@ -457,6 +533,50 @@ function DashboardPage() {
           </div>
         </div>
       </div>
+      {/* Dialog: Configurar saldo da conta */}
+      <Dialog open={openBalanceSetup} onOpenChange={o => { if (!savingBalance) setOpenBalanceSetup(o); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wallet className="h-5 w-5 text-primary" /> Saldo da conta
+            </DialogTitle>
+            <DialogDescription>
+              Informe o saldo atual da sua conta para começar a acompanhar. A partir de agora,
+              toda receita ou despesa marcada como paga/recebida ajusta esse valor automaticamente.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between rounded-xl border bg-muted/40 px-4 py-3">
+              <div>
+                <p className="text-sm font-medium text-foreground">Mostrar saldo da conta</p>
+                <p className="text-xs text-muted-foreground">Exibe o KPI no dashboard</p>
+              </div>
+              <Switch checked={balanceEnabled} onCheckedChange={setBalanceEnabled} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="initial-balance">Saldo inicial (R$)</Label>
+              <Input id="initial-balance" type="text" inputMode="decimal"
+                value={balanceInput}
+                onChange={e => setBalanceInput(formatBalanceInput(e.target.value))}
+                placeholder="0,00" className="h-11" />
+              <p className="text-xs text-muted-foreground">
+                Esse é o ponto de partida. Depois disso, o saldo é ajustado automaticamente
+                conforme você marca receitas e despesas como pagas/recebidas (inclusive faturas
+                de cartão pagas ou estornadas).
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenBalanceSetup(false)} disabled={savingBalance}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveBalance} disabled={savingBalance}>
+              {savingBalance ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Dialog: Alterar senha */}
       <Dialog open={openPassword} onOpenChange={o => { if (!pwdSaving) setOpenPassword(o); }}>
         <DialogContent className="max-w-sm">
