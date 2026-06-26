@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet, Link, useLocation, Navigate, useRouter } from "@tanstack/react-router";
-import { Home, Receipt, User, PlusCircle, CreditCard, TrendingUp, TrendingDown, X, Tag, ChevronRight, MoreHorizontal, Target, Lock, Settings, LayoutDashboard, Layers } from "lucide-react";
+import { Home, Receipt, PlusCircle, CreditCard, TrendingUp, TrendingDown, X, Tag, ChevronRight, MoreHorizontal, Target, Lock, Settings, LayoutDashboard, Layers } from "lucide-react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/lib/auth";
 import { useSubscription } from "@/lib/subscription-store";
@@ -103,9 +103,6 @@ function AppLayout() {
             {[
               {to:"/dashboard",    label:"Início",      icon:Home},
               {to:"/transacoes",   label:"Transações",  icon:Receipt},
-              {to:"/cartoes",      label:"Cartões",     icon:CreditCard},
-              {to:"/faturas-cartao",label:"Faturas",    icon:Tag},
-              {to:"/categorias",   label:"Categorias",  icon:Layers},
             ].map(({to,label,icon:Icon})=>{
               const isActive=pathname===to||pathname.startsWith(to+"/");
               return(
@@ -117,6 +114,44 @@ function AppLayout() {
                 </Link>
               );
             })}
+
+            {/* Cartões — exclusivo do plano Avançado */}
+            {isAdvancado?(
+              <Link to="/cartoes"
+                className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                  (pathname==="/cartoes"||pathname.startsWith("/cartoes/"))?"bg-primary/10 text-primary":"text-muted-foreground hover:bg-accent hover:text-foreground"
+                )}>
+                <CreditCard className="h-4 w-4 shrink-0"/>Cartões
+              </Link>
+            ):(
+              <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground opacity-50 cursor-not-allowed">
+                <CreditCard className="h-4 w-4 shrink-0"/>Cartões
+                <Lock className="h-3 w-3 ml-auto"/>
+              </div>
+            )}
+
+            {/* Faturas — também exclusivo do Avançado (faz parte do módulo de cartões) */}
+            {isAdvancado?(
+              <Link to="/faturas-cartao"
+                className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                  pathname==="/faturas-cartao"?"bg-primary/10 text-primary":"text-muted-foreground hover:bg-accent hover:text-foreground"
+                )}>
+                <Tag className="h-4 w-4 shrink-0"/>Faturas
+              </Link>
+            ):(
+              <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground opacity-50 cursor-not-allowed">
+                <Tag className="h-4 w-4 shrink-0"/>Faturas
+                <Lock className="h-3 w-3 ml-auto"/>
+              </div>
+            )}
+
+            <Link to="/categorias"
+              className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                pathname==="/categorias"?"bg-primary/10 text-primary":"text-muted-foreground hover:bg-accent hover:text-foreground"
+              )}>
+              <Layers className="h-4 w-4 shrink-0"/>Categorias
+            </Link>
+
             {isAdvancado?(
               <Link to="/metas"
                 className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
@@ -130,23 +165,16 @@ function AppLayout() {
                 <Lock className="h-3 w-3 ml-auto"/>
               </div>
             )}
-            <Link to="/perfil"
-              className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-                pathname==="/perfil"?"bg-primary/10 text-primary":"text-muted-foreground hover:bg-accent hover:text-foreground"
-              )}>
-              <User className="h-4 w-4 shrink-0"/>Perfil
-            </Link>
-          </nav>
 
-          {/* ── Configurações (último) ── */}
-          <div className="px-3 pb-4 pt-1 border-t shrink-0">
+            {/* Configurações — agora no lugar onde antes ficava "Perfil" */}
+            {/* (Perfil continua acessível normalmente de dentro de Configurações) */}
             <Link to="/mais"
               className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
                 pathname==="/mais"?"bg-primary/10 text-primary":"text-muted-foreground hover:bg-accent hover:text-foreground"
               )}>
               <Settings className="h-4 w-4 shrink-0"/>Configurações
             </Link>
-          </div>
+          </nav>
         </aside>
 
                 {/* ══ CONTEÚDO PRINCIPAL ════════════════════════════════════════ */}
