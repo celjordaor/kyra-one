@@ -1,7 +1,8 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { TrendingUp, TrendingDown, PiggyBank, ChevronLeft, ChevronRight, CalendarDays, Eye, EyeOff, AlertCircle, Check, User, LogOut, KeyRound, CreditCard, Plus, Receipt, Shield } from "lucide-react";
+import { TrendingUp, TrendingDown, PiggyBank, ChevronLeft, ChevronRight, ChevronDown, CalendarDays, Eye, EyeOff, AlertCircle, Check, User, LogOut, KeyRound, CreditCard, Plus, Receipt, Shield, ListChecks } from "lucide-react";
 import { useTransactions, parseBrDate, toggleSettled } from "@/lib/transactions-store";
+import { useCategories } from "@/lib/categories-store";
 import { useCardStore, type Invoice, type CreditCard as CreditCardType } from "@/lib/card-store";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
@@ -19,7 +20,8 @@ export const Route = createFileRoute("/_app/dashboard")({
 });
 
 const MONTHS = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
-const CATEGORY_COLORS = ["bg-emerald-500","bg-teal-500","bg-cyan-500","bg-sky-500","bg-indigo-500","bg-violet-500","bg-slate-400"];
+// Paleta neutra (slate) usada no gráfico de barras de "Gastos por categoria"
+const NEUTRAL_BAR_COLORS = ["bg-slate-800","bg-slate-600","bg-slate-500","bg-slate-400","bg-slate-300","bg-slate-200"];
 const fmtCurrency = (v: number) => new Intl.NumberFormat("pt-BR",{ style:"currency", currency:"BRL" }).format(v);
 
 function relativeLabel(date: Date): string {
@@ -118,6 +120,9 @@ function DashboardPage() {
   const [selectedYear,setSelectedYear]=useState(now.getFullYear());
   const [showValues,setShowValues]=useState(true);
   const [billReminders,setBillReminders]=useState(DEFAULT_NOTIFS.billReminders);
+  const [showRecent,setShowRecent]=useState(false); // "Últimas movimentações" — colapsada por padrão
+  const allCategories=useCategories();
+  const categoryIconMap=useMemo(()=>Object.fromEntries(allCategories.map(c=>[c.name,c.icon??"📦"])),[allCategories]);
 
   useEffect(()=>{
     const notifs=loadNotifs();setBillReminders(notifs.billReminders);
@@ -163,7 +168,11 @@ function DashboardPage() {
   const categories=useMemo(()=>{
     const totals:any={};let total=0;
     for(const t of monthTx){if(t.type!=="expense")continue;const v=Math.abs(t.amount);totals[t.category]=(totals[t.category]||0)+v;total+=v;}
-    return Object.entries(totals).sort((a,b)=>b[1]-a[1]).map(([name,value],i)=>({name,value:total>0?Math.round((value/total)*100):0,color:CATEGORY_COLORS[i%CATEGORY_COLORS.length]}));
+    return Object.entries(totals).sort((a,b)=>(b[1] as number)-(a[1] as number)).map(([name,amount])=>({
+      name,
+      amount: amount as number,
+      percent: total>0?Math.round(((amount as number)/total)*100):0,
+    }));
   },[monthTx]);
 
   // ── Itens unificados para "Últimas transações" ────────────────────────
@@ -334,20 +343,37 @@ function DashboardPage() {
         <div className="ml-auto"><span className="text-sm font-bold text-primary">{hidden(Math.max(0,balance))}</span></div>
       </div>
 
-      {/* Category breakdown */}
+      {/* Category breakdown — barras horizontais, paleta neutra, ícone + valor + percentual */}
       {categories.length>0&&(
-        <div>
-          <h2 className="text-sm font-semibold text-foreground">Gastos por categoria</h2>
-          <div className="mt-3 flex h-3 overflow-hidden rounded-full bg-muted">
-            {categories.map(cat=><div key={cat.name} className={cat.color} style={{width:`${cat.value}%`}}/>)}
+        <div className="rounded-2xl border bg-card p-4 shadow-sm md:p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-foreground">Gastos por categoria</h2>
+            <span className="text-xs text-muted-foreground">{MONTHS[selectedMonth]}</span>
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            {categories.slice(0,4).map(cat=>(
-              <div key={cat.name} className="flex items-center gap-2">
-                <div className={`h-2.5 w-2.5 rounded-full ${cat.color}`}/>
-                <span className="text-xs text-muted-foreground">{cat.name} • {cat.value}%</span>
-              </div>
-            ))}
+          <div className="space-y-3.5">
+            {categories.slice(0,6).map((cat,i)=>{
+              const icon=categoryIconMap[cat.name]??"📦";
+              const barColor=NEUTRAL_BAR_COLORS[i%NEUTRAL_BAR_COLORS.length];
+              return (
+                <div key={cat.name} className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted text-base">
+                    {icon}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <span className="truncate text-xs font-medium text-foreground">{cat.name}</span>
+                      <span className="shrink-0 text-xs font-semibold text-foreground">
+                        {hidden(cat.amount)}
+                        <span className="ml-1 font-normal text-muted-foreground">· {cat.percent}%</span>
+                      </span>
+                    </div>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                      <div className={cn("h-full rounded-full transition-all duration-500",barColor)} style={{width:`${cat.percent}%`}}/>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -356,13 +382,40 @@ function DashboardPage() {
 
         {/* Coluna direita (desktop): últimas transações */}
         <div className="space-y-5">
-      {/* ── Últimas movimentações — sem filtro de mês ── */}
+      {/* ── Últimas movimentações — sem filtro de mês, cabeçalho colapsável ── */}
       <div className="md:bg-card md:border md:rounded-2xl md:p-5 md:shadow-sm">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-foreground">Últimas movimentações</h2>
-          <button onClick={()=>router.navigate({to:"/transacoes"})} className="text-xs text-primary font-medium">Ver tudo</button>
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={()=>setShowRecent(o=>!o)}
+          onKeyDown={(e)=>{if(e.key==="Enter"||e.key===" ")setShowRecent(o=>!o);}}
+          className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-xl border bg-card p-4 shadow-sm md:border-none md:bg-transparent md:p-0 md:shadow-none"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+              <ListChecks className="h-4.5 w-4.5 text-primary"/>
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold text-foreground">Últimas movimentações</h2>
+              <p className="text-xs text-muted-foreground">
+                {recentItems.length} {recentItems.length===1?"lançamento":"lançamentos"}
+              </p>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-3">
+            <button
+              type="button"
+              onClick={(e)=>{e.stopPropagation();router.navigate({to:"/transacoes"});}}
+              className="text-xs text-primary font-medium hover:underline"
+            >
+              Ver tudo
+            </button>
+            <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform duration-300",showRecent&&"rotate-180")}/>
+          </div>
         </div>
 
+        <div className={cn("grid transition-all duration-300 ease-in-out",showRecent?"grid-rows-[1fr] opacity-100":"grid-rows-[0fr] opacity-0")}>
+          <div className="overflow-hidden min-h-0">
         <div className="mt-3 space-y-2">
           {recentItems.length===0&&(
             <p className="rounded-xl border bg-card p-4 text-center text-xs text-muted-foreground">Nenhuma movimentação.</p>
@@ -400,6 +453,8 @@ function DashboardPage() {
               </p>
             </div>
           ))}
+        </div>
+          </div>
         </div>
       </div>
       {/* Dialog: Alterar senha */}
