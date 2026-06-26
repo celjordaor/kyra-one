@@ -183,6 +183,15 @@ function NovaTransacaoPage() {
 
   useEffect(() => { setValue("category", ""); }, [tipo]);
   useEffect(() => { if (isFuture) setSettled(false); else setSettled(true); }, [isFuture]);
+  // FIX: sincroniza o tipo (receita/despesa) sempre que o parâmetro de busca
+  // da rota mudar. Sem isso, o `tipo` só era definido uma vez no useState
+  // inicial — se a tela já estivesse montada (ou o router reaproveitasse a
+  // mesma instância ao navegar para /nova-transacao com outro `?type=`),
+  // clicar em "Receita"/"Despesa" no menu lateral ou no menu inferior não
+  // atualizava a seleção visual.
+  useEffect(() => {
+    if (initialType && initialType !== tipo) setTipo(initialType);
+  }, [initialType]); // eslint-disable-line
 
   function handleAmountChange(raw: string) {
     const digits = raw.replace(/\D/g, "");
