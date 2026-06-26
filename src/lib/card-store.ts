@@ -106,46 +106,70 @@ export const useCardStore = create<CardStore>((set, get) => ({
 
   fetchCards: async () => {
     set({ loading: true });
-    const { data } = await supabase.from("credit_cards").select("*").order("created_at", { ascending: true });
+    const { data, error } = await supabase.from("credit_cards").select("*").order("created_at", { ascending: true });
+    if (error) {
+      console.error("[card-store] erro ao buscar cartões:", error);
+    }
     set({ cards: data ?? [], loading: false });
     // Verificar e fechar faturas expiradas ao carregar cartões
     await get().closeExpiredInvoices();
   },
 
   setDefaultCard: async (id) => {
-    const { data: { user } } = await supabase.auth.getUser(); if (!user) return;
-    await supabase.from("credit_cards").update({ is_default: false }).eq("user_id", user.id);
-    await supabase.from("credit_cards").update({ is_default: true }).eq("id", id);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Usuário não autenticado.");
+    const { error: e1 } = await supabase.from("credit_cards").update({ is_default: false }).eq("user_id", user.id);
+    if (e1) { console.error("[card-store] erro ao limpar padrão:", e1); throw e1; }
+    const { error: e2 } = await supabase.from("credit_cards").update({ is_default: true }).eq("id", id);
+    if (e2) { console.error("[card-store] erro ao definir padrão:", e2); throw e2; }
     set(s => ({ cards: s.cards.map(c => ({ ...c, is_default: c.id === id })) }));
   },
 
+  // FIX: agora loga e RELANÇA o erro real do Supabase, em vez de engolir
+  // silenciosamente e deixar a UI achar que o cartão foi criado com sucesso.
   addCard: async (card) => {
-    const { data: { user } } = await supabase.auth.getUser(); if (!user) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Usuário não autenticado.");
     const isFirst = get().cards.filter(c => c.active).length === 0;
-    const { data, error } = await supabase.from("credit_cards").insert({ ...card, user_id: user.id, is_default: isFirst }).select().single();
-    if (error || !data) return;
+    const { data, error } = await supabase
+      .from("credit_cards")
+      .insert({ ...card, user_id: user.id, is_default: isFirst })
+      .select()
+      .single();
+    if (error) {
+      console.error("[card-store] erro ao criar cartão:", error);
+      throw error;
+    }
+    if (!data) {
+      throw new Error("O Supabase não retornou os dados do cartão criado.");
+    }
     set(s => ({ cards: [...s.cards, data] }));
     await get().ensureInvoices(data);
   },
 
   updateCard: async (id, data) => {
-    await supabase.from("credit_cards").update(data).eq("id", id);
+    const { error } = await supabase.from("credit_cards").update(data).eq("id", id);
+    if (error) { console.error("[card-store] erro ao atualizar cartão:", error); throw error; }
     set(s => ({ cards: s.cards.map(c => c.id === id ? { ...c, ...data } : c) }));
   },
   deleteCard: async (id) => {
-    await supabase.from("credit_cards").delete().eq("id", id);
+    const { error } = await supabase.from("credit_cards").delete().eq("id", id);
+    if (error) { console.error("[card-store] erro ao excluir cartão:", error); throw error; }
     set(s => ({ cards: s.cards.filter(c => c.id !== id) }));
   },
 
   fetchInvoices: async (cardId) => {
-    const { data } = await supabase.from("invoices").select("*").eq("card_id", cardId).order("closing_date", { ascending: true });
+    const { data, error } = await supabase.from("invoices").select("*").eq("card_id", cardId).order("closing_date", { ascending: true });
+    if (error) console.error("[card-store] erro ao buscar faturas:", error);
     set(s => ({ invoices: [...s.invoices.filter(i => i.card_id !== cardId), ...(data ?? [])] }));
     // Fechar faturas expiradas ao atualizar lista de invoices
     await get().closeExpiredInvoices();
   },
   ensureInvoices: async (card) => {
-    const { data: { user } } = await supabase.auth.getUser(); if (!user) return [];
-    const { data: existing } = await supabase.from("invoices").select("competence").eq("card_id", card.id);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+    const { data: existing, error: existErr } = await supabase.from("invoices").select("competence").eq("card_id", card.id);
+    if (existErr) console.error("[card-store] erro ao verificar faturas existentes:", existErr);
     const existingSet = new Set((existing ?? []).map(i => i.competence));
     const now = new Date(); const toInsert: Omit<Invoice, "id"|"created_at">[] = [];
     for (let i = 0; i < 12; i++) {
@@ -153,7 +177,10 @@ export const useCardStore = create<CardStore>((set, get) => ({
       const { competence, closing_date, due_date } = buildInvoiceDates(card, ref);
       if (!existingSet.has(competence)) toInsert.push({ user_id: user.id, card_id: card.id, competence, closing_date, due_date, total_amount: 0, status: "open", transaction_id: null });
     }
-    if (toInsert.length > 0) await supabase.from("invoices").insert(toInsert);
+    if (toInsert.length > 0) {
+      const { error: insErr } = await supabase.from("invoices").insert(toInsert);
+      if (insErr) console.error("[card-store] erro ao gerar faturas automáticas:", insErr);
+    }
     await get().fetchInvoices(card.id);
     return get().invoices.filter(i => i.card_id === card.id);
   },

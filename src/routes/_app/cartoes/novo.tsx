@@ -71,8 +71,14 @@ function NovoCartaoPage() {
       });
       toast.success("Cartão cadastrado com sucesso!");
       router.navigate({ to: "/cartoes" });
-    } catch {
-      toast.error("Erro ao cadastrar cartão. Tente novamente.");
+    } catch (err: unknown) {
+      // FIX: mostra o erro REAL do Supabase (RLS, coluna inexistente, etc.)
+      // em vez de um texto genérico que escondia o que de fato aconteceu.
+      console.error("[novo-cartao] erro ao cadastrar cartão:", err);
+      const message =
+        (err as { message?: string })?.message ||
+        "Erro ao cadastrar cartão. Tente novamente.";
+      toast.error(message);
     }
   };
 
