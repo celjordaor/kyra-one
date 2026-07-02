@@ -350,7 +350,7 @@ function FaturasCartaoPage() {
             {currentList.length > 0 ? (
               <div className="space-y-2.5">
                 {currentList.map((inv, idx) => (
-                  <InvoiceCard key={inv.id} inv={inv} highlight={idx === 0 && tab === "closed"} />
+                  <InvoiceCard key={inv.id} inv={inv} />
                 ))}
               </div>
             ) : (
