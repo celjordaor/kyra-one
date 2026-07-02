@@ -225,58 +225,107 @@ function DashboardPage() {
 
   // ── Itens unificados para "Últimas transações" ────────────────────────
   const recentItems=useMemo(():RecentItem[]=>{
-    // Transações regulares — SEM filtro de mês, deduplicando recorrentes/parceladas
-    const seenRec:any={};
-    const regular:RecentItem[]=transactions
-      .map(t=>({...t,_d:parseBrDate(t.date)}))
+    const today=new Date(); today.setHours(0,0,0,0);
+
+    // ── Transações regulares (não-cartão) ─────────────────────────────────
+    // Regras de agrupamento:
+    //  • Parceladas (installments_total > 1): mostrar apenas installment_number=1
+    //    (a "compra original"), independente da data — representa toda a série.
+    //  • Recorrentes (recurrence_id sem installments_total): mostrar a parcela
+    //    mais próxima de hoje (passada ou futura imediata), 1 por recurrence_id.
+    //  • Avulsas: sempre mostrar individualmente.
+
+    // Agrupa recorrentes por recurrence_id → guarda a mais próxima de hoje
+    const recMap:Record<string,typeof transactions[0]&{_d:Date}>={}; 
+    const withDate=transactions
       .filter(t=>!isCardRelated(t))
-      .sort((a,b)=>b._d.getTime()-a._d.getTime())
+      .map(t=>({...t,_d:parseBrDate(t.date)}));
+
+    for(const t of withDate){
+      if(!t.recurrence_id) continue;
+      // Parceladas: só o representante (parcela 1) entra neste mapa
+      if((t.installments_total??0)>1){
+        if((t.installment_number??0)===1) recMap[t.recurrence_id]=t;
+        continue;
+      }
+      // Recorrentes mensais: guarda a mais próxima de hoje
+      const existing=recMap[t.recurrence_id];
+      if(!existing){
+        recMap[t.recurrence_id]=t; continue;
+      }
+      const diffNew=Math.abs(t._d.getTime()-today.getTime());
+      const diffOld=Math.abs(existing._d.getTime()-today.getTime());
+      if(diffNew<diffOld) recMap[t.recurrence_id]=t;
+    }
+
+    const regular:RecentItem[]=withDate
       .filter(t=>{
-        // Parceladas: manter apenas installment_number=1 (compra original)
-        if(t.installment_number&&t.installment_number>1)return false;
-        // Recorrentes: manter apenas a mais recente por recurrence_id
-        if(t.recurrence_id){
-          if(seenRec[t.recurrence_id])return false;
-          seenRec[t.recurrence_id]=1;
-        }
-        return true;
+        if(!t.recurrence_id) return true; // avulsa: sempre inclui
+        // recorrente/parcelada: só entra se for o representante escolhido acima
+        return recMap[t.recurrence_id]?.id===t.id;
       })
-      .slice(0,10)
       .map(t=>({
         id:t.id,title:t.title,amount:t.amount,type:t.type,category:t.category,_d:t._d,
         isCardExpense:false,settled:t.settled,
-        expenseType:t.recurrence_id?(t.installment_number?"installment":"recurring"):"single" as const,
+        expenseType:t.recurrence_id
+          ?((t.installments_total??0)>1?"installment":"recurring")
+          :"single" as const,
         installmentsTotal:t.installments_total??undefined,
-        totalAmount:(t.installment_number===1&&(t.installments_total??0)>1)
+        totalAmount:((t.installment_number??0)===1&&(t.installments_total??0)>1)
           ?Math.abs(t.amount)*(t.installments_total??1):undefined,
       }));
-    // Despesas avulsas de cartão
+
+    // ── Despesas avulsas de cartão ────────────────────────────────────────
     const cardExp:RecentItem[]=expenses
       .filter(e=>e.expense_type==="single")
       .map(e=>{
         const card=cards.find(c=>c.id===e.card_id);
-        return{id:e.id,title:e.description,amount:-Math.abs(e.amount),type:"expense" as const,category:e.category,_d:new Date(e.purchase_date+"T12:00:00"),isCardExpense:true,cardName:card?.name,expenseType:"single"};
+        return{id:e.id,title:e.description,amount:-Math.abs(e.amount),type:"expense" as const,
+          category:e.category,_d:new Date(e.purchase_date+"T12:00:00"),
+          isCardExpense:true,cardName:card?.name,expenseType:"single"};
       });
-    // Parceladas: só installment_number=1
+
+    // ── Parceladas de cartão: só a parcela 1 (representa toda a compra) ───
     const cardInst:RecentItem[]=expenses
       .filter(e=>e.expense_type==="installment"&&(e.installment_number??1)===1)
       .map(e=>{
         const card=cards.find(c=>c.id===e.card_id);
         const tot=Math.abs(e.amount)*(e.installments_total??1);
         const ttl=e.description.replace(" 1/"+String(e.installments_total||""),"").trim();
-        return{id:e.id,title:ttl||e.description,amount:-Math.abs(e.amount),totalAmount:tot,type:"expense" as const,category:e.category,_d:new Date(e.purchase_date+"T12:00:00"),isCardExpense:true,cardName:card?.name,expenseType:"installment",installmentsTotal:(e.installments_total??1)};
+        return{id:e.id,title:ttl||e.description,amount:-Math.abs(e.amount),totalAmount:tot,
+          type:"expense" as const,category:e.category,_d:new Date(e.purchase_date+"T12:00:00"),
+          isCardExpense:true,cardName:card?.name,expenseType:"installment",
+          installmentsTotal:(e.installments_total??1)};
       });
-    // Recorrentes deduplicadas (sem novos genéricos)
-    const seen:any={};
-    const cardRec:RecentItem[]=expenses
-      .filter(e=>e.expense_type==="recurring")
-      .sort((a,b)=>b.purchase_date.localeCompare(a.purchase_date))
-      .filter(e=>{const k=e.description+e.card_id;if(seen[k])return false;seen[k]=1;return true;})
-      .map(e=>{
-        const card=cards.find(c=>c.id===e.card_id);
-        return{id:e.id,title:e.description,amount:-Math.abs(e.amount),type:"expense" as const,category:e.category,_d:new Date(e.purchase_date+"T12:00:00"),isCardExpense:true,cardName:card?.name,expenseType:"recurring"};
-      });
-    return[...regular,...cardExp,...cardInst,...cardRec].sort((a,b)=>b._d.getTime()-a._d.getTime()).slice(0,7);
+
+    // ── Recorrentes de cartão: 1 por descrição+cartão, mais próxima de hoje ─
+    const cardRecMap:Record<string,typeof expenses[0]>={};
+    for(const e of expenses.filter(e=>e.expense_type==="recurring")){
+      const k=e.description+"__"+e.card_id;
+      const existing=cardRecMap[k];
+      if(!existing){cardRecMap[k]=e;continue;}
+      const dNew=Math.abs(new Date(e.purchase_date+"T12:00:00").getTime()-today.getTime());
+      const dOld=Math.abs(new Date(existing.purchase_date+"T12:00:00").getTime()-today.getTime());
+      if(dNew<dOld) cardRecMap[k]=e;
+    }
+    const cardRec:RecentItem[]=Object.values(cardRecMap).map(e=>{
+      const card=cards.find(c=>c.id===e.card_id);
+      return{id:e.id,title:e.description,amount:-Math.abs(e.amount),type:"expense" as const,
+        category:e.category,_d:new Date(e.purchase_date+"T12:00:00"),
+        isCardExpense:true,cardName:card?.name,expenseType:"recurring"};
+    });
+
+    // ── Ordenação final: mais próximo de hoje primeiro (passado ou futuro) ─
+    // Não usamos simplesmente "mais recente" porque isso faria futuros subirem
+    // ao topo. Queremos: primeiro as do dia de hoje/ontem, depois passado
+    // recente, depois futuro próximo.
+    return[...regular,...cardExp,...cardInst,...cardRec]
+      .sort((a,b)=>{
+        const da=Math.abs(a._d.getTime()-today.getTime());
+        const db=Math.abs(b._d.getTime()-today.getTime());
+        return da-db;
+      })
+      .slice(0,7);
   },[transactions,expenses,cards]);
 
 
