@@ -227,7 +227,7 @@ function NovaDespesaPage() {
 
   return (
     <div className="w-full bg-slate-50 dark:bg-background md:max-w-xl md:mx-auto">
-      <form onSubmit={handleSubmit(onSubmit)} style={{ display:"block", width:"100%", margin:0 }}>
+      <form id="nova-despesa-form" onSubmit={handleSubmit(onSubmit)} style={{ display:"block", width:"100%", margin:0 }}>
 
         {/* HEADER */}
         <div style={{ display:"block", background:"#4f46e5", color:"white",
@@ -357,18 +357,41 @@ function NovaDespesaPage() {
             </FieldRow>
           </TxSection>
 
-          {/* BOTÃO */}
-          <div style={{ display:"block", marginLeft:"1rem", marginRight:"1rem", marginTop:"0.5rem" }}>
-            <button type="submit" disabled={isSubmitting}
-              style={{ display:"block", width:"100%", height:"3.75rem", fontSize:"1.0625rem",
-                fontWeight:700, color:"white", background:"#4f46e5", border:"none",
-                borderRadius:"1rem", cursor:"pointer", opacity: isSubmitting ? 0.7 : 1,
-                boxShadow:"0 6px 20px rgba(79,70,229,0.4)" }}>
-              {isSubmitting ? "Salvando..." : "✓  Lançar despesa"}
-            </button>
-          </div>
+          {/* Espaçador mobile: empurra conteúdo acima do botão fixo */}
+          <div style={{ height:"6rem" }} className="md:hidden" />
+
         </div>
       </form>
+
+      {/* BOTÃO — fixo no rodapé mobile, inline no desktop */}
+      {/* Mobile/PWA: fixed bottom, acima do bottom nav (68px) + safe area */}
+      <div className="md:hidden"
+        style={{
+          position:"fixed", left:0, right:0, bottom:"68px", zIndex:20,
+          padding:"12px 16px calc(env(safe-area-inset-bottom, 12px) + 0px) 16px",
+        background:"rgba(255,255,255,0.97)",
+          backdropFilter:"blur(8px)",
+          borderTop:"1px solid rgba(0,0,0,0.06)",
+        }}>
+        <button type="submit" form="nova-despesa-form" disabled={isSubmitting}
+          style={{ display:"block", width:"100%", height:"56px", fontSize:"1.0625rem",
+            fontWeight:700, color:"white", background:"#4f46e5", border:"none",
+            borderRadius:"1rem", cursor:"pointer", opacity: isSubmitting ? 0.7 : 1,
+            boxShadow:"0 6px 20px rgba(79,70,229,0.4)", transition:"all 0.15s" }}>
+          {isSubmitting ? "Salvando..." : "✓  Lançar despesa"}
+        </button>
+      </div>
+
+      {/* Desktop: botão inline dentro do form */}
+      <div className="hidden md:block" style={{ marginLeft:"1rem", marginRight:"1rem", marginTop:"0.5rem", marginBottom:"1rem" }}>
+        <button type="submit" form="nova-despesa-form" disabled={isSubmitting}
+          style={{ display:"block", width:"100%", height:"3.75rem", fontSize:"1.0625rem",
+            fontWeight:700, color:"white", background:"#4f46e5", border:"none",
+            borderRadius:"1rem", cursor:"pointer", opacity: isSubmitting ? 0.7 : 1,
+            boxShadow:"0 6px 20px rgba(79,70,229,0.4)" }}>
+          {isSubmitting ? "Salvando..." : "✓  Lançar despesa"}
+        </button>
+      </div>
 
       {/* CARTÃO */}
       <BottomSheet open={openCard} onClose={() => setOpenCard(false)} title="Cartão" maxHeight="65vh">
