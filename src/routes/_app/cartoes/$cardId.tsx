@@ -117,7 +117,6 @@ function CartaoDetailPage() {
     const isPast  = ym < now;
     const rawStatus = invoice.status as "open" | "closed" | "paid";
     const status  = isPast && rawStatus === "open" ? "overdue" : rawStatus;
-    const [mon, yr] = invoice.competence.split("/");
 
     // Cores do ícone por status
     const iconBg: Record<string, string> = {
@@ -145,24 +144,21 @@ function CartaoDetailPage() {
             : "bg-white dark:bg-card border-slate-100 dark:border-border"
         )}>
 
-        {/* Ícone mês/ano — compacto, mesma linha */}
+        {/* Ícone de calendário — cor por status, sem repetir a data */}
         <div className={cn(
-          "flex shrink-0 flex-col items-center justify-center rounded-xl",
-          "h-12 w-16",
+          "flex shrink-0 items-center justify-center rounded-xl",
+          "h-12 w-12",
           highlight ? "bg-white/15" : iconBg[status]
         )}>
-          <span className={cn(
-            "text-[11px] font-bold uppercase leading-none",
-            highlight ? "text-white/70" : iconText[status]
-          )}>
-            {mon.slice(0, 3)}
-          </span>
-          <span className={cn(
-            "text-[18px] font-extrabold leading-tight",
-            highlight ? "text-white" : iconText[status]
-          )}>
-            {yr}
-          </span>
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"
+            fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            className={cn(highlight ? "text-white" : iconText[status])}
+            stroke="currentColor">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
         </div>
 
         <div className="flex-1 min-w-0">
