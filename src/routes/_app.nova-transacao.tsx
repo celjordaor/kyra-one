@@ -322,7 +322,7 @@ function NovaTransacaoPage() {
         {/* ── REPETIÇÃO ─────────────────────────────────────────────── */}
         <TxSection title="Repetição">
           <SwitchRow icon={<Repeat className="h-5 w-5" />} label="Recorrente"
-            description={`Replica pelos próximos ${RECURRING_MONTHS} meses`}
+            description={`Torna ${isIncome ? "a receita" : "a despesa"} recorrente para todos os meses`}
             checked={recurring} onCheckedChange={v => { setRecurring(v); if (v) setRepeat(false); }} />
 
           <div className={cn(repeat && "bg-slate-50/80 dark:bg-muted/20")}>
@@ -333,7 +333,7 @@ function NovaTransacaoPage() {
               <div className="flex-1 min-w-0">
                 <p className="text-[16px] font-medium text-slate-800 dark:text-foreground">Repetir N meses</p>
                 <p className="text-[12px] text-slate-400 mt-0.5">
-                  {repeat ? `${repeatMonths} parcelas a partir desta data` : "Cria cópias nos próximos meses"}
+                  {repeat ? `Cria ${isIncome ? "receitas" : "despesas"} para os próximos ${repeatMonths} meses` : `Cria ${isIncome ? "receitas" : "despesas"} para um número de meses definido`}
                 </p>
               </div>
               <Switch checked={repeat} onCheckedChange={v => { setRepeat(v); if (v) setRecurring(false); }} />

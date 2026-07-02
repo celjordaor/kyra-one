@@ -338,7 +338,7 @@ function NovaDespesaPage() {
                 </div>
                 <div style={{ flex:1, minWidth:0 }}>
                   <p style={{ fontSize:"1rem", fontWeight:500, color:"#1e293b" }}>Despesa recorrente</p>
-                  <p style={{ fontSize:"0.75rem", color:"#94a3b8", marginTop:"0.125rem" }}>Lançada nas próximas 12 faturas</p>
+                  <p style={{ fontSize:"0.75rem", color:"#94a3b8", marginTop:"0.125rem" }}>Despesa recorrente no cartão de crédito</p>
                 </div>
                 <Controller name="is_recurring" control={control} render={({ field }) => (
                   <Switch checked={!!field.value} onCheckedChange={v => { field.onChange(v); if (v) setValue("installments", 1); }}

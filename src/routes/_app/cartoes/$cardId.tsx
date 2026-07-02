@@ -58,6 +58,7 @@ function CartaoDetailPage() {
   if (childMatches.length > 0) return <Outlet />;
 
   const [showEdit, setShowEdit] = useState(false);
+  const [showUpcoming, setShowUpcoming] = useState(false); // próximas faturas colapsadas por padrão
   const { cards, invoices, fetchCards, fetchInvoices, ensureInvoices } = useCardStore();
   const { limitUsed } = useLimitUsed(cardId);
 
@@ -294,18 +295,37 @@ function CartaoDetailPage() {
         {/* ── PRÓXIMAS FATURAS ──────────────────────────────────────── */}
         {upcoming.length > 0 && (
           <div>
-            <div className="flex items-center justify-between mb-2.5">
+            <button
+              type="button"
+              onClick={() => setShowUpcoming(o => !o)}
+              className="flex w-full items-center justify-between mb-2.5"
+            >
               <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
                 Próximas faturas
               </p>
-              <span className="text-[11px] text-slate-400">
-                {upcoming.length} fatura{upcoming.length !== 1 ? "s" : ""}
-              </span>
-            </div>
-            <div className="space-y-2.5">
-              {upcoming.map(inv => (
-                <InvoiceCard key={inv.id} invoice={inv} />
-              ))}
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-slate-400">
+                  {upcoming.length} fatura{upcoming.length !== 1 ? "s" : ""}
+                </span>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14" height="14" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" strokeWidth="2.5"
+                  strokeLinecap="round" strokeLinejoin="round"
+                  className={`text-slate-400 transition-transform duration-300 ${showUpcoming ? "rotate-180" : ""}`}
+                >
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </div>
+            </button>
+            <div className={`grid transition-all duration-300 ease-in-out ${showUpcoming ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+              <div className="overflow-hidden">
+                <div className="space-y-2.5">
+                  {upcoming.map(inv => (
+                    <InvoiceCard key={inv.id} invoice={inv} />
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         )}
