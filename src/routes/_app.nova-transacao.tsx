@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   ArrowLeft, TrendingUp, TrendingDown, Repeat, Repeat2,
   Minus, Plus, CheckCircle2, ChevronRight, Tag, Calendar,
-  FileText, Layers, Search, X,
+  FileText, Search, X,
 } from "lucide-react";
 import { DatePicker } from "@/components/cartoes/date-picker";
 import { Switch } from "@/components/ui/switch";
@@ -359,9 +359,6 @@ function NovaTransacaoPage() {
             )}
           </div>
 
-          <FieldRow icon={<Layers className="h-5 w-5" />} label="Parcelamento de cartão" last>
-            <p className="text-[13px] text-slate-400">Use "Nova Despesa Cartão" para parcelamento via fatura</p>
-          </FieldRow>
         </TxSection>
 
         {/* ── BOTÃO ─────────────────────────────────────────────────── */}
