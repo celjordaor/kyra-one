@@ -508,6 +508,7 @@ function DashboardPage() {
           selectedMonth={selectedMonth} selectedYear={selectedYear}
           cards={cards} invoices={invoices} expenses={expenses} installments={installments}
           router={router} categoryIconMap={categoryIconMap}
+          onEditTx={openTxEdit}
         />
       )}
 
@@ -549,7 +550,7 @@ function DashboardPage() {
             <span className="text-xs text-muted-foreground">{MONTHS[selectedMonth]}</span>
           </div>
           <div className="space-y-3.5">
-            {categories.slice(0,6).map((cat,i)=>{
+            {categories.map((cat,i)=>{
               const icon=categoryIconMap[cat.name]??"📦";
               const barColor=NEUTRAL_BAR_COLORS[i%NEUTRAL_BAR_COLORS.length];
               return (
@@ -823,20 +824,15 @@ function DashboardPage() {
                 const dayNames = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
                 const [d, m, y] = date.split("/").map(Number);
                 const weekday = dayNames[new Date(y, m - 1, d).getDay()];
-                const dayTotal = items.reduce((s, t) => s + Math.abs(t.amount), 0);
                 return (
                   <div key={date}>
-                    {/* Separador de dia */}
-                    <div className="flex items-center justify-between px-4 pt-4 pb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-base font-bold text-foreground">{weekday}, {dd}</span>
-                        <span className="text-xs text-muted-foreground">/{mm}</span>
-                      </div>
-                      <span className="text-sm font-semibold text-red-500">-{fmtCurrency(dayTotal)}</span>
+                    <div className="flex items-center gap-2 px-4 pt-4 pb-2">
+                      <span className="text-base font-bold text-foreground">{weekday}, {dd}</span>
+                      <span className="text-xs text-muted-foreground">/{mm}</span>
                     </div>
-                    {/* Itens do dia */}
                     {items.map((t, i) => (
-                      <button key={t.id} type="button" onClick={() => openTxEdit(t)}
+                      <button key={t.id} type="button"
+                        onClick={(e) => { e.stopPropagation(); openTxEdit(t); }}
                         className={cn("flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/30",
                           i < items.length - 1 && "border-b border-border/40"
                         )}>
@@ -850,7 +846,7 @@ function DashboardPage() {
                         </div>
                         <div className="shrink-0 flex items-center gap-2">
                           <div className="text-right">
-                            <p className="text-[15px] font-bold text-red-500">-{hidden(Math.abs(t.amount))}</p>
+                            <p className="text-[15px] font-bold text-red-500">{hidden(Math.abs(t.amount))}</p>
                             <span className={cn("text-[10px] font-semibold rounded-full px-2 py-0.5",
                               t.settled ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
                             )}>
@@ -930,18 +926,15 @@ function DashboardPage() {
                 const dayNames = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
                 const [d, m, y] = date.split("/").map(Number);
                 const weekday = dayNames[new Date(y, m - 1, d).getDay()];
-                const dayTotal = items.reduce((s, t) => s + Math.abs(t.amount), 0);
                 return (
                   <div key={date}>
-                    <div className="flex items-center justify-between px-4 pt-4 pb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-base font-bold text-foreground">{weekday}, {dd}</span>
-                        <span className="text-xs text-muted-foreground">/{mm}</span>
-                      </div>
-                      <span className="text-sm font-semibold text-emerald-600">+{fmtCurrency(dayTotal)}</span>
+                    <div className="flex items-center gap-2 px-4 pt-4 pb-2">
+                      <span className="text-base font-bold text-foreground">{weekday}, {dd}</span>
+                      <span className="text-xs text-muted-foreground">/{mm}</span>
                     </div>
                     {items.map((t, i) => (
-                      <button key={t.id} type="button" onClick={() => openTxEdit(t)}
+                      <button key={t.id} type="button"
+                        onClick={(e) => { e.stopPropagation(); openTxEdit(t); }}
                         className={cn("flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/30",
                           i < items.length - 1 && "border-b border-border/40"
                         )}>
@@ -1037,7 +1030,8 @@ function DashboardPage() {
                       <span className="text-xs text-muted-foreground">/{mm}</span>
                     </div>
                     {items.map((t, i) => (
-                      <button key={t.id} type="button" onClick={() => openTxEdit(t)}
+                      <button key={t.id} type="button"
+                        onClick={(e) => { e.stopPropagation(); openTxEdit(t); }}
                         className={cn("flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/30",
                           i < items.length-1 && "border-b border-border/40")}>
                         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-xl" style={{ background:"#f1f5f9" }}>
@@ -1416,19 +1410,27 @@ function DashboardEditTxDialog({
 // ── PendingSection ────────────────────────────────────────────────────
 type PendingTx={id:string;title:string;amount:number;type:"income"|"expense";category:string;settled:boolean;source?:string;_d:Date};
 
-function PendingSection({transactions,showValues,selectedMonth,selectedYear,cards,invoices,expenses,installments,router,categoryIconMap}:{
+function PendingSection({transactions,showValues,selectedMonth,selectedYear,cards,invoices,expenses,installments,router,categoryIconMap,onEditTx}:{
   transactions:PendingTx[];showValues:boolean;selectedMonth:number;selectedYear:number;
   cards:CreditCardType[];invoices:Invoice[];
   expenses:ReturnType<typeof useCardStore.getState>["expenses"];
   installments:ReturnType<typeof useCardStore.getState>["installments"];
   router:ReturnType<typeof useRouter>;
   categoryIconMap:Record<string,string>;
+  onEditTx:(tx:Transaction)=>void;
 }) {
   const {payInvoice}=useCardStore();
   const [showDespesas,setShowDespesas]=useState(false);
   const [showReceitas,setShowReceitas]=useState(false);
   const [showFaturas,setShowFaturas]=useState(false);
   const [paying,setPaying]=useState<string|null>(null);
+  // Full transaction list para buscar recurrence_id ao editar
+  const fullTransactions = useTransactions();
+  function handleClickEdit(pendingTx: PendingTx, e: React.MouseEvent) {
+    e.stopPropagation();
+    const full = fullTransactions.find(t => t.id === pendingTx.id);
+    if (full) onEditTx(full);
+  }
 
   // Separar despesas e receitas pendentes
   const allPending=useMemo(()=>transactions.filter(t=>!t.settled&&t.source!=="invoice"&&t.category!=="Cartão de Crédito"),[transactions]);
@@ -1574,15 +1576,11 @@ function PendingSection({transactions,showValues,selectedMonth,selectedYear,card
               ) : expByDay.map(([date, items]) => {
                 const [dd, mm, yyyy] = date.split("/");
                 const weekday = DAY_NAMES[new Date(Number(yyyy), Number(mm)-1, Number(dd)).getDay()];
-                const dayTotal = items.reduce((s,t) => s + Math.abs(t.amount), 0);
                 return (
                   <div key={date}>
-                    <div className="flex items-center justify-between px-4 pt-4 pb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-base font-bold text-foreground">{weekday}, {dd}</span>
-                        <span className="text-xs text-muted-foreground">/{mm}</span>
-                      </div>
-                      <span className="text-sm font-semibold text-amber-600">-{fmtCurrency(dayTotal)}</span>
+                    <div className="flex items-center gap-2 px-4 pt-4 pb-2">
+                      <span className="text-base font-bold text-foreground">{weekday}, {dd}</span>
+                      <span className="text-xs text-muted-foreground">/{mm}</span>
                     </div>
                     {items.map((t, i) => (
                       <div key={t.id} className={cn("flex items-center gap-3 px-4 py-3", i < items.length-1 && "border-b border-border/40")}>
@@ -1595,9 +1593,14 @@ function PendingSection({transactions,showValues,selectedMonth,selectedYear,card
                         </div>
                         <div className="shrink-0 flex items-center gap-2">
                           <div className="text-right">
-                            <p className="text-[15px] font-bold text-amber-600">-{showValues?fmtCurrency(Math.abs(t.amount)):"••••"}</p>
+                            <p className="text-[15px] font-bold text-amber-600">{showValues?fmtCurrency(Math.abs(t.amount)):"••••"}</p>
                             <span className="text-[10px] font-semibold rounded-full px-2 py-0.5 bg-amber-100 text-amber-700">Pendente</span>
                           </div>
+                          <button onClick={(e) => handleClickEdit(t, e)}
+                            className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors"
+                            title="Editar despesa">
+                            <Pencil className="h-4 w-4"/>
+                          </button>
                           <button onClick={() => handleSettle(t)}
                             className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-500 text-emerald-500 hover:bg-emerald-500/10 transition-colors"
                             title="Marcar como paga">
@@ -1658,15 +1661,11 @@ function PendingSection({transactions,showValues,selectedMonth,selectedYear,card
               ) : incByDay.map(([date, items]) => {
                 const [dd, mm, yyyy] = date.split("/");
                 const weekday = DAY_NAMES[new Date(Number(yyyy), Number(mm)-1, Number(dd)).getDay()];
-                const dayTotal = items.reduce((s,t) => s + Math.abs(t.amount), 0);
                 return (
                   <div key={date}>
-                    <div className="flex items-center justify-between px-4 pt-4 pb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-base font-bold text-foreground">{weekday}, {dd}</span>
-                        <span className="text-xs text-muted-foreground">/{mm}</span>
-                      </div>
-                      <span className="text-sm font-semibold text-emerald-600">+{fmtCurrency(dayTotal)}</span>
+                    <div className="flex items-center gap-2 px-4 pt-4 pb-2">
+                      <span className="text-base font-bold text-foreground">{weekday}, {dd}</span>
+                      <span className="text-xs text-muted-foreground">/{mm}</span>
                     </div>
                     {items.map((t, i) => (
                       <div key={t.id} className={cn("flex items-center gap-3 px-4 py-3", i < items.length-1 && "border-b border-border/40")}>
@@ -1682,6 +1681,11 @@ function PendingSection({transactions,showValues,selectedMonth,selectedYear,card
                             <p className="text-[15px] font-bold text-emerald-600">+{showValues?fmtCurrency(Math.abs(t.amount)):"••••"}</p>
                             <span className="text-[10px] font-semibold rounded-full px-2 py-0.5 bg-amber-100 text-amber-700">Pendente</span>
                           </div>
+                          <button onClick={(e) => handleClickEdit(t, e)}
+                            className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors"
+                            title="Editar receita">
+                            <Pencil className="h-4 w-4"/>
+                          </button>
                           <button onClick={() => handleSettle(t)}
                             className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-500 text-emerald-500 hover:bg-emerald-500/10 transition-colors"
                             title="Marcar como recebida">
