@@ -136,53 +136,9 @@ function DashboardPage() {
   const allCategories=useCategories();
   const categoryIconMap=useMemo(()=>Object.fromEntries(allCategories.map(c=>[c.name,c.icon??"📦"])),[allCategories]);
 
-  // ── Modal de Despesas ────────────────────────────────────────────────────
+  // ── Estados dos modais (só useState, sem dependência de monthTx) ─────────
   const [openExpenseModal, setOpenExpenseModal] = useState(false);
-
-  // Todas as despesas do mês, agrupadas por data (dd/MM/yyyy) desc
-  const expensesByDay = useMemo(() => {
-    const items = monthTx
-      .filter(t => t.type === "expense")
-      .sort((a, b) => b._d.getTime() - a._d.getTime());
-
-    const map: Record<string, typeof items> = {};
-    for (const t of items) {
-      const key = t.date; // dd/mm/yyyy
-      if (!map[key]) map[key] = [];
-      map[key].push(t);
-    }
-    return Object.entries(map).sort((a, b) => {
-      const [da, ma, ya] = a[0].split("/").map(Number);
-      const [db, mb, yb] = b[0].split("/").map(Number);
-      return new Date(yb, mb - 1, db).getTime() - new Date(ya, ma - 1, da).getTime();
-    });
-  }, [monthTx]);
-
-  const expensePaid   = useMemo(() => monthTx.filter(t => t.type === "expense" && t.settled).reduce((s, t) => s + Math.abs(t.amount), 0), [monthTx]);
-  const expensePending = useMemo(() => monthTx.filter(t => t.type === "expense" && !t.settled).reduce((s, t) => s + Math.abs(t.amount), 0), [monthTx]);
-
-  // ── Modal de Receitas ────────────────────────────────────────────────────
   const [openIncomeModal, setOpenIncomeModal] = useState(false);
-
-  const incomesByDay = useMemo(() => {
-    const items = monthTx
-      .filter(t => t.type === "income")
-      .sort((a, b) => b._d.getTime() - a._d.getTime());
-
-    const map: Record<string, typeof items> = {};
-    for (const t of items) {
-      if (!map[t.date]) map[t.date] = [];
-      map[t.date].push(t);
-    }
-    return Object.entries(map).sort((a, b) => {
-      const [da, ma, ya] = a[0].split("/").map(Number);
-      const [db, mb, yb] = b[0].split("/").map(Number);
-      return new Date(yb, mb - 1, db).getTime() - new Date(ya, ma - 1, da).getTime();
-    });
-  }, [monthTx]);
-
-  const incomePaid    = useMemo(() => monthTx.filter(t => t.type === "income" && t.settled).reduce((s, t) => s + Math.abs(t.amount), 0), [monthTx]);
-  const incomePending = useMemo(() => monthTx.filter(t => t.type === "income" && !t.settled).reduce((s, t) => s + Math.abs(t.amount), 0), [monthTx]);
 
   // ── Saldo da conta ───────────────────────────────────────────────────────
   const accountBalance = useAccountBalance();
@@ -270,6 +226,28 @@ function DashboardPage() {
       percent: total>0?Math.round(((amount as number)/total)*100):0,
     }));
   },[monthTx]);
+
+  // ── Dados para os modais de Despesas e Receitas (dependem de monthTx) ───
+  function groupByDay(items: typeof monthTx) {
+    const map: Record<string, typeof items> = {};
+    for (const t of items) {
+      if (!map[t.date]) map[t.date] = [];
+      map[t.date].push(t);
+    }
+    return Object.entries(map).sort((a, b) => {
+      const [da, ma, ya] = a[0].split("/").map(Number);
+      const [db, mb, yb] = b[0].split("/").map(Number);
+      return new Date(yb, mb - 1, db).getTime() - new Date(ya, ma - 1, da).getTime();
+    });
+  }
+
+  const expensesByDay  = useMemo(() => groupByDay(monthTx.filter(t => t.type === "expense")), [monthTx]);
+  const expensePaid    = useMemo(() => monthTx.filter(t => t.type === "expense" && t.settled).reduce((s, t) => s + Math.abs(t.amount), 0), [monthTx]);
+  const expensePending = useMemo(() => monthTx.filter(t => t.type === "expense" && !t.settled).reduce((s, t) => s + Math.abs(t.amount), 0), [monthTx]);
+
+  const incomesByDay   = useMemo(() => groupByDay(monthTx.filter(t => t.type === "income")), [monthTx]);
+  const incomePaid     = useMemo(() => monthTx.filter(t => t.type === "income" && t.settled).reduce((s, t) => s + Math.abs(t.amount), 0), [monthTx]);
+  const incomePending  = useMemo(() => monthTx.filter(t => t.type === "income" && !t.settled).reduce((s, t) => s + Math.abs(t.amount), 0), [monthTx]);
 
   // ── Itens unificados para "Últimas transações" ────────────────────────
   const recentItems=useMemo(():RecentItem[]=>{
