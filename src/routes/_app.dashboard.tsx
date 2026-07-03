@@ -995,15 +995,11 @@ function DashboardPage() {
                 const weekday  = DAY_NAMES[d.getDay()];
                 const dd       = String(d.getDate()).padStart(2,"0");
                 const mm       = String(d.getMonth()+1).padStart(2,"0");
-                const dayTotal = items.reduce((s,t) => s + Math.abs(t.amount), 0);
                 return (
                   <div key={date}>
-                    <div className="flex items-center justify-between px-4 pt-4 pb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-base font-bold text-foreground">{weekday}, {dd}</span>
-                        <span className="text-xs text-muted-foreground">/{mm}</span>
-                      </div>
-                      <span className="text-sm font-semibold text-slate-700">-{fmtCurrency(dayTotal)}</span>
+                    <div className="flex items-center gap-2 px-4 pt-4 pb-2">
+                      <span className="text-base font-bold text-foreground">{weekday}, {dd}</span>
+                      <span className="text-xs text-muted-foreground">/{mm}</span>
                     </div>
                     {items.map((t, i) => (
                       <div key={t.id} className={cn("flex items-center gap-3 px-4 py-3", i < items.length-1 && "border-b border-border/40")}>
@@ -1015,7 +1011,7 @@ function DashboardPage() {
                           <p className="text-xs text-muted-foreground mt-0.5">{t.category}</p>
                         </div>
                         <div className="shrink-0 text-right">
-                          <p className="text-[15px] font-bold text-slate-700">-{hidden(Math.abs(t.amount))}</p>
+                          <p className="text-[15px] font-bold text-slate-700">{hidden(Math.abs(t.amount))}</p>
                           <span className={cn("text-[10px] font-semibold rounded-full px-2 py-0.5",
                             t.settled ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
                           )}>
