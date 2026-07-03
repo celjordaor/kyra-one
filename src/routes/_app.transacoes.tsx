@@ -832,6 +832,8 @@ function EditTransactionDialog({ transaction, onClose, bulkEdit = false, allTran
   const [dateIso, setDateIso]         = useState("");
   const [settled, setSettled]         = useState(false);
   const [error, setError]             = useState<string | null>(null);
+  const [openCat, setOpenCat]         = useState(false);
+  const [catSearch, setCatSearch]     = useState("");
 
   const open = transaction !== null;
 
@@ -1010,31 +1012,33 @@ function EditTransactionDialog({ transaction, onClose, bulkEdit = false, allTran
                   />
                 </div>
 
-                {/* Categoria */}
-                <div className="rounded-2xl border bg-card px-4 py-3 space-y-2.5">
-                  <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Categoria</p>
-                  <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto pb-1">
-                    {availableCategories.map(cat => {
-                      const isSel   = category === cat.name;
-                      const color   = cat.color || "#6b7280";
-                      const isEmoji = (cat.icon?.codePointAt(0) ?? 0) > 0x2000;
-                      return (
-                        <button key={cat.id} type="button" onClick={() => setCategory(cat.name)}
-                          className={cn(
-                            "flex items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium transition-all",
-                            isSel ? "border-transparent shadow-sm" : "border-border hover:border-transparent hover:shadow-sm"
-                          )}
-                          style={isSel ? { background: color + "22", borderColor: color + "88", color } : {}}>
-                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs"
-                            style={{ background: color + "33" }}>
-                            {isEmoji ? cat.icon : (cat.name[0] ?? "?").toUpperCase()}
-                          </span>
-                          {cat.name}
-                        </button>
-                      );
-                    })}
+                {/* Categoria — campo fechado que abre BottomSheet */}
+                <button type="button"
+                  onClick={() => setOpenCat(true)}
+                  className="w-full rounded-2xl border bg-card px-4 py-3.5 text-left flex items-center gap-3 transition-colors hover:bg-muted/30">
+                  {(() => {
+                    const cat = availableCategories.find(c => c.name === category);
+                    const color = cat?.color || "#6b7280";
+                    const isEmoji = (cat?.icon?.codePointAt(0) ?? 0) > 0x2000;
+                    return cat ? (
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl"
+                        style={{ background: color + "22" }}>
+                        {isEmoji ? cat.icon : <span className="text-sm font-bold" style={{ color }}>{cat.name[0]}</span>}
+                      </div>
+                    ) : (
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+                        <span className="text-xs">📦</span>
+                      </div>
+                    );
+                  })()}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Categoria</p>
+                    <p className={cn("text-[16px] font-semibold mt-0.5", category ? "text-foreground" : "text-muted-foreground/50")}>
+                      {category || "Selecione a categoria"}
+                    </p>
                   </div>
-                </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0"/>
+                </button>
 
                 {/* Data */}
                 <div className="rounded-2xl border bg-card px-4 py-3 space-y-2.5">
@@ -1093,6 +1097,60 @@ function EditTransactionDialog({ transaction, onClose, bulkEdit = false, allTran
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── BottomSheet: Categoria ── */}
+      {openCat && (
+        <>
+          <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm"
+            onClick={() => { setOpenCat(false); setCatSearch(""); }} />
+          <div className="fixed bottom-0 left-0 right-0 z-[201] flex flex-col rounded-t-3xl bg-white dark:bg-card overflow-hidden"
+            style={{ maxHeight:"80vh" }}>
+            <div className="flex justify-center pt-3 pb-1 shrink-0">
+              <div className="w-10 h-1.5 rounded-full bg-slate-200 dark:bg-muted"/>
+            </div>
+            <div className="flex items-center justify-between px-5 py-3 shrink-0 border-b border-slate-100 dark:border-border">
+              <h2 className="text-[18px] font-bold text-slate-800 dark:text-foreground">Categoria</h2>
+              <button onClick={() => { setOpenCat(false); setCatSearch(""); }}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 dark:bg-muted">
+                <X className="h-4 w-4 text-slate-500"/>
+              </button>
+            </div>
+            <div className="px-4 pt-3 pb-3 shrink-0">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"/>
+                <input type="text" placeholder="Buscar categoria..." value={catSearch}
+                  onChange={e => setCatSearch(e.target.value)}
+                  className="h-11 w-full rounded-2xl bg-slate-100 dark:bg-muted pl-11 pr-4 text-base outline-none placeholder-slate-400"/>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto overscroll-contain">
+              <div className="grid grid-cols-3 gap-3 px-4 pb-8">
+                {availableCategories
+                  .filter(c => c.name.toLowerCase().includes(catSearch.toLowerCase()))
+                  .map(cat => {
+                    const isSel   = category === cat.name;
+                    const color   = cat.color || "#6b7280";
+                    const isEmoji = (cat.icon?.codePointAt(0) ?? 0) > 0x2000;
+                    return (
+                      <button key={cat.name} type="button"
+                        onClick={() => { setCategory(cat.name); setOpenCat(false); setCatSearch(""); }}
+                        className="flex flex-col items-center gap-2 rounded-2xl border-2 py-4 px-2 text-center active:scale-95 transition-transform"
+                        style={isSel
+                          ? { background: color+"18", borderColor: color+"66" }
+                          : { borderColor:"transparent", background:"#f8fafc" }}>
+                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl text-2xl"
+                          style={{ background: color+"22" }}>
+                          {isEmoji ? cat.icon : "📦"}
+                        </div>
+                        <span className="text-[13px] font-semibold text-slate-700 dark:text-foreground leading-tight">{cat.name}</span>
+                      </button>
+                    );
+                  })}
+              </div>
+            </div>
+          </div>
+        </>
       )}
     </>
   );
