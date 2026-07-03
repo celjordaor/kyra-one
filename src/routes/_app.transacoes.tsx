@@ -4,7 +4,7 @@ import {
   TrendingUp, TrendingDown, Search, SlidersHorizontal,
   ChevronLeft, ChevronRight, CalendarDays, CheckCircle2, Circle,
   Pencil, Repeat, Repeat2, Trash2, CreditCard, Lock, Plus, Receipt,
-  ChevronDown, LayoutList,
+  ChevronDown, LayoutList, X,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -924,92 +924,176 @@ function EditTransactionDialog({ transaction, onClose, bulkEdit = false, allTran
   }
 
   return (
-    <Dialog open={open} onOpenChange={o => !o && onClose()}>
-      <DialogContent
-        className="w-[95vw] max-w-lg sm:max-w-md max-h-[90dvh] overflow-y-auto"
-        onOpenAutoFocus={e => e.preventDefault()}
-      >
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            Editar transação
-            {bulkEdit && (
-              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                Todas as parcelas
-              </span>
-            )}
-          </DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-2 rounded-xl bg-muted p-1">
-            {(["expense","income"] as const).map(tp => (
-              <button key={tp} type="button" onClick={() => setType(tp)}
-                className={cn("flex items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition-all",
-                  type===tp ? `bg-card shadow-sm ${tp==="expense"?"text-red-500":"text-emerald-600"}` : "text-muted-foreground"
-                )}>
-                {tp==="expense" ? <TrendingDown className="h-4 w-4" /> : <TrendingUp className="h-4 w-4" />}
-                {tp==="expense" ? "Despesa" : "Receita"}
-              </button>
-            ))}
-          </div>
-          <div className="space-y-1.5">
-            <Label>Valor</Label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
-              <Input inputMode="decimal" className="h-12 pl-9 text-base font-semibold" value={amountDisplay} onChange={e => handleAmountChange(e.target.value)} />
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Descrição</Label>
-            <Input value={title} onChange={e => setTitle(e.target.value)} className="h-12 text-base" />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Categoria</Label>
-            <div className="flex flex-wrap gap-2 max-h-44 overflow-y-auto pb-1">
-              {availableCategories.map(cat => {
-                const isSel   = category === cat.name;
-                const color   = cat.color || "#6b7280";
-                const isEmoji = (cat.icon?.codePointAt(0) ?? 0) > 0x2000;
-                return (
-                  <button key={cat.id} type="button" onClick={() => setCategory(cat.name)}
-                    className={cn(
-                      "flex items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium transition-all",
-                      isSel ? "border-transparent shadow-sm" : "border-border hover:border-transparent hover:shadow-sm"
+    <>
+      {/* Overlay */}
+      {open && <div className="fixed inset-0 z-50 bg-black/50" onClick={() => onClose()} />}
+
+      {/* Sheet — sobe do rodapé no mobile, centraliza no desktop */}
+      {open && (
+        <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col md:inset-0 md:items-center md:justify-center">
+          <div className="relative flex flex-col overflow-hidden bg-background md:w-full md:max-w-lg md:rounded-2xl"
+            style={{ maxHeight: "93dvh" }}>
+
+            {/* ── Cabeçalho gradiente (vermelho=despesa, verde=receita) ── */}
+            <div className={cn(
+              "relative overflow-hidden px-5 pt-5 pb-5 text-white shrink-0",
+              type === "expense"
+                ? "bg-gradient-to-br from-red-500 to-rose-600"
+                : "bg-gradient-to-br from-emerald-500 to-teal-600"
+            )}>
+              <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10"/>
+              <div className="absolute -left-6 -bottom-6 h-24 w-24 rounded-full bg-white/10"/>
+              <div className="relative">
+                {/* Título + fechar */}
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-xs text-white/60 uppercase tracking-wide leading-none">
+                      {bulkEdit ? "Editar série" : "Editar transação"}
+                    </p>
+                    {bulkEdit && (
+                      <span className="mt-1 inline-flex rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold text-white">
+                        Todas as parcelas
+                      </span>
                     )}
-                    style={isSel ? { background: color + "22", borderColor: color + "88", color } : {}}>
-                    <span
-                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs"
-                      style={{ background: color + "33" }}>
-                      {isEmoji ? cat.icon : (cat.name[0] ?? "?").toUpperCase()}
-                    </span>
-                    {cat.name}
+                  </div>
+                  <button onClick={onClose}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 hover:bg-white/30">
+                    <X className="h-4 w-4"/>
                   </button>
-                );
-              })}
+                </div>
+
+                {/* Toggle Despesa / Receita */}
+                <div className="flex rounded-xl bg-white/15 p-1 gap-1">
+                  {(["expense","income"] as const).map(tp => (
+                    <button key={tp} type="button" onClick={() => setType(tp)}
+                      className={cn(
+                        "flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold transition-all",
+                        type === tp ? "bg-white text-slate-800 shadow-sm" : "text-white/80 hover:text-white"
+                      )}>
+                      {tp === "expense"
+                        ? <TrendingDown className="h-4 w-4"/>
+                        : <TrendingUp className="h-4 w-4"/>}
+                      {tp === "expense" ? "Despesa" : "Receita"}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Valor em destaque */}
+                <div className="mt-4">
+                  <p className="text-xs text-white/60 mb-1">Valor</p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl font-bold text-white/70">R$</span>
+                    <input
+                      inputMode="decimal"
+                      value={amountDisplay}
+                      onChange={e => handleAmountChange(e.target.value)}
+                      placeholder="0,00"
+                      className="bg-transparent text-4xl font-black text-white placeholder-white/40 outline-none w-full tracking-tight"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Corpo com campos ── */}
+            <div className="overflow-y-auto flex-1">
+              <div className="px-4 py-4 space-y-3">
+
+                {/* Descrição */}
+                <div className="rounded-2xl border bg-card px-4 py-3 space-y-1">
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Descrição</p>
+                  <input
+                    value={title}
+                    onChange={e => setTitle(e.target.value)}
+                    placeholder="Nome da transação"
+                    className="w-full bg-transparent text-[16px] font-semibold text-foreground outline-none placeholder-muted-foreground/50"
+                  />
+                </div>
+
+                {/* Categoria */}
+                <div className="rounded-2xl border bg-card px-4 py-3 space-y-2.5">
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Categoria</p>
+                  <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto pb-1">
+                    {availableCategories.map(cat => {
+                      const isSel   = category === cat.name;
+                      const color   = cat.color || "#6b7280";
+                      const isEmoji = (cat.icon?.codePointAt(0) ?? 0) > 0x2000;
+                      return (
+                        <button key={cat.id} type="button" onClick={() => setCategory(cat.name)}
+                          className={cn(
+                            "flex items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium transition-all",
+                            isSel ? "border-transparent shadow-sm" : "border-border hover:border-transparent hover:shadow-sm"
+                          )}
+                          style={isSel ? { background: color + "22", borderColor: color + "88", color } : {}}>
+                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs"
+                            style={{ background: color + "33" }}>
+                            {isEmoji ? cat.icon : (cat.name[0] ?? "?").toUpperCase()}
+                          </span>
+                          {cat.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Data */}
+                <div className="rounded-2xl border bg-card px-4 py-3 space-y-2.5">
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Data</p>
+                  <DatePicker value={dateIso} onChange={setDateIso} />
+                  {bulkEdit && (
+                    <p className="text-[11px] text-muted-foreground">
+                      ℹ️ Altera apenas o <strong>dia</strong> — cada parcela mantém seu próprio mês.
+                    </p>
+                  )}
+                </div>
+
+                {/* Paga / Recebida */}
+                <div className="rounded-2xl border bg-card px-4 py-3.5 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{type === "income" ? "Recebida" : "Paga"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {isFuture ? "Antecipar efetivação" : "Marca como concluída"}
+                    </p>
+                  </div>
+                  <Switch checked={settled} onCheckedChange={setSettled}/>
+                </div>
+
+                {error && <p className="text-xs text-destructive px-1">{error}</p>}
+
+                {/* Espaçador para o botão fixo no mobile */}
+                <div className="h-20 md:hidden"/>
+              </div>
+            </div>
+
+            {/* ── Botão salvar — fixo no rodapé mobile, inline no desktop ── */}
+            <div className="md:hidden fixed left-0 right-0 z-10 px-4 pt-3 pb-[env(safe-area-inset-bottom,12px)] bg-background/97 border-t border-border/40"
+              style={{ bottom: "0px", backdropFilter: "blur(8px)" }}>
+              <button onClick={handleSave}
+                className={cn(
+                  "w-full h-14 rounded-2xl text-white font-bold text-base shadow-lg transition-all active:scale-95",
+                  type === "expense" ? "bg-red-500 shadow-red-500/25" : "bg-emerald-600 shadow-emerald-600/25"
+                )}>
+                Salvar alterações
+              </button>
+            </div>
+
+            {/* Desktop: botão inline */}
+            <div className="hidden md:flex gap-3 px-4 pb-4 pt-2 border-t shrink-0">
+              <button onClick={onClose}
+                className="flex-1 h-11 rounded-xl border border-border text-sm font-medium text-muted-foreground hover:bg-muted/50 transition-colors">
+                Cancelar
+              </button>
+              <button onClick={handleSave}
+                className={cn(
+                  "flex-1 h-11 rounded-xl text-white font-semibold text-sm transition-all",
+                  type === "expense" ? "bg-red-500 hover:bg-red-600" : "bg-emerald-600 hover:bg-emerald-700"
+                )}>
+                Salvar alterações
+              </button>
             </div>
           </div>
-          <div className="space-y-1.5">
-            <Label>Data</Label>
-            <DatePicker value={dateIso} onChange={setDateIso} />
-            {bulkEdit && (
-              <p className="text-[11px] text-muted-foreground">
-                ℹ️ Altera apenas o <strong>dia</strong> — cada parcela mantém seu próprio mês.
-              </p>
-            )}
-          </div>
-          <div className="flex items-center justify-between rounded-xl border p-3">
-            <div>
-              <p className="text-sm font-medium">{type==="income"?"Recebida":"Paga"}</p>
-              <p className="text-xs text-muted-foreground">{isFuture?"Antecipar efetivação":"Marca como concluída na data de hoje"}</p>
-            </div>
-            <Switch checked={settled} onCheckedChange={setSettled} />
-          </div>
-          {error && <p className="text-xs text-destructive">{error}</p>}
         </div>
-        <DialogFooter>
-          <Button variant="outline" className="h-11" onClick={onClose}>Cancelar</Button>
-          <Button className="h-11" onClick={handleSave}>Salvar</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      )}
+    </>
   );
 }
