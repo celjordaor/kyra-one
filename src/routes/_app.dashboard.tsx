@@ -468,7 +468,7 @@ function DashboardPage() {
           transactions={monthTx} showValues={showValues}
           selectedMonth={selectedMonth} selectedYear={selectedYear}
           cards={cards} invoices={invoices} expenses={expenses} installments={installments}
-          router={router}
+          router={router} categoryIconMap={categoryIconMap}
         />
       )}
 
@@ -928,12 +928,13 @@ function DashboardPage() {
 // ── PendingSection ────────────────────────────────────────────────────
 type PendingTx={id:string;title:string;amount:number;type:"income"|"expense";category:string;settled:boolean;source?:string;_d:Date};
 
-function PendingSection({transactions,showValues,selectedMonth,selectedYear,cards,invoices,expenses,installments,router}:{
+function PendingSection({transactions,showValues,selectedMonth,selectedYear,cards,invoices,expenses,installments,router,categoryIconMap}:{
   transactions:PendingTx[];showValues:boolean;selectedMonth:number;selectedYear:number;
   cards:CreditCardType[];invoices:Invoice[];
   expenses:ReturnType<typeof useCardStore.getState>["expenses"];
   installments:ReturnType<typeof useCardStore.getState>["installments"];
   router:ReturnType<typeof useRouter>;
+  categoryIconMap:Record<string,string>;
 }) {
   const {payInvoice}=useCardStore();
   const [showDespesas,setShowDespesas]=useState(false);
@@ -971,6 +972,25 @@ function PendingSection({transactions,showValues,selectedMonth,selectedYear,card
     }catch{toast.error("Erro ao pagar fatura.");}
     finally{setPaying(null);}
   };
+
+  // ── Agrupamento por data (mesmo padrão dos modais de Despesas/Receitas) ──
+  function groupByDayPending(items: PendingTx[]) {
+    const map: Record<string, PendingTx[]> = {};
+    for (const t of items) {
+      const key = `${String(t._d.getDate()).padStart(2,"0")}/${String(t._d.getMonth()+1).padStart(2,"0")}/${t._d.getFullYear()}`;
+      if (!map[key]) map[key] = [];
+      map[key].push(t);
+    }
+    return Object.entries(map).sort((a, b) => {
+      const [da, ma, ya] = a[0].split("/").map(Number);
+      const [db, mb, yb] = b[0].split("/").map(Number);
+      return new Date(yb, mb-1, db).getTime() - new Date(ya, ma-1, da).getTime();
+    });
+  }
+  const DAY_NAMES = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+  const MONTHS_PT = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+  const expByDay = groupByDayPending(pendingExpenses);
+  const incByDay = groupByDayPending(pendingIncome);
 
   return(
     <>
@@ -1026,103 +1046,174 @@ function PendingSection({transactions,showValues,selectedMonth,selectedYear,card
         </div>
       </div>
 
-      {/* ── Modal — Despesas pendentes (SÓ expenses) ─────────────────── */}
-      <Dialog open={showDespesas} onOpenChange={setShowDespesas}>
-        <DialogContent className="max-w-sm p-0 overflow-hidden">
-          <div className="bg-amber-500 px-5 pt-5 pb-4 text-white">
-            <DialogHeader>
-              <DialogTitle className="text-white flex items-center gap-2">
-                <TrendingDown className="h-5 w-5"/> Despesas pendentes
-              </DialogTitle>
-            </DialogHeader>
-            <p className="mt-1 text-sm text-white/80">{pendingExpenses.length} despesa{pendingExpenses.length!==1?"s":""} · {showValues?fmtCurrency(totalExpenses):"••••"}</p>
-          </div>
-          <div className="max-h-80 overflow-y-auto">
-            {pendingExpenses.length===0
-              ?<p className="py-8 text-center text-sm text-muted-foreground">Nenhuma despesa pendente.</p>
-              :<div className="divide-y">
-                {pendingExpenses.map(t=>(
-                  <div key={t.id} className="flex items-center justify-between gap-3 px-4 py-3">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-100">
-                        <TrendingDown className="h-3.5 w-3.5 text-red-500"/>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-foreground">{t.title}</p>
-                        <p className="truncate text-xs text-muted-foreground">{t.category} • A pagar</p>
-                      </div>
+      {/* ══ MODAL — Despesas pendentes ════════════════════════════════ */}
+      {showDespesas && (
+        <div className="fixed inset-0 z-50 flex flex-col">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowDespesas(false)} />
+          <div className="relative z-10 mt-auto md:m-auto w-full md:max-w-lg md:rounded-2xl flex flex-col overflow-hidden bg-background" style={{ maxHeight:"90dvh" }}>
+            {/* Cabeçalho laranja */}
+            <div className="relative overflow-hidden bg-gradient-to-br from-amber-400 to-orange-500 px-5 pt-5 pb-6 text-white shrink-0">
+              <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10"/>
+              <div className="absolute -left-6 -bottom-6 h-24 w-24 rounded-full bg-white/10"/>
+              <div className="relative">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20">
+                      <TrendingDown className="h-5 w-5"/>
                     </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <p className="text-sm font-semibold text-red-500">
-                        {showValues?`-${fmtCurrency(Math.abs(t.amount))}`:"••••"}
-                      </p>
-                      <button onClick={()=>handleSettle(t)}
-                        className="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-500 text-emerald-500 hover:bg-emerald-500/10 transition-colors"
-                        title="Marcar como paga">
-                        <Check className="h-3.5 w-3.5"/>
-                      </button>
+                    <div>
+                      <p className="text-xs text-white/70 leading-none">Despesas pendentes</p>
+                      <p className="text-sm font-semibold">{MONTHS_PT[selectedMonth]} {selectedYear}</p>
                     </div>
                   </div>
-                ))}
+                  <button onClick={() => setShowDespesas(false)}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 hover:bg-white/30">
+                    <X className="h-4 w-4"/>
+                  </button>
+                </div>
+                <p className="mt-3 text-3xl font-black tracking-tight">{showValues?fmtCurrency(totalExpenses):"••••"}</p>
+                <div className="mt-3 flex gap-4">
+                  <div><p className="text-[11px] text-white/60 uppercase tracking-wide">Lançamentos</p><p className="text-base font-bold">{pendingExpenses.length}</p></div>
+                </div>
               </div>
-            }
+            </div>
+            <div className="overflow-y-auto flex-1 pb-[env(safe-area-inset-bottom,16px)]">
+              {expByDay.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                  <TrendingDown className="h-10 w-10 mb-3 opacity-30"/>
+                  <p className="text-sm">Nenhuma despesa pendente</p>
+                </div>
+              ) : expByDay.map(([date, items]) => {
+                const [dd, mm, yyyy] = date.split("/");
+                const weekday = DAY_NAMES[new Date(Number(yyyy), Number(mm)-1, Number(dd)).getDay()];
+                const dayTotal = items.reduce((s,t) => s + Math.abs(t.amount), 0);
+                return (
+                  <div key={date}>
+                    <div className="flex items-center justify-between px-4 pt-4 pb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base font-bold text-foreground">{weekday}, {dd}</span>
+                        <span className="text-xs text-muted-foreground">/{mm}</span>
+                      </div>
+                      <span className="text-sm font-semibold text-amber-600">-{fmtCurrency(dayTotal)}</span>
+                    </div>
+                    {items.map((t, i) => (
+                      <div key={t.id} className={cn("flex items-center gap-3 px-4 py-3", i < items.length-1 && "border-b border-border/40")}>
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-xl" style={{ background:"#fef3c7" }}>
+                          {categoryIconMap[t.category] ?? "📦"}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[15px] font-semibold text-foreground truncate">{t.title}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{t.category}</p>
+                        </div>
+                        <div className="shrink-0 flex items-center gap-2">
+                          <div className="text-right">
+                            <p className="text-[15px] font-bold text-amber-600">-{showValues?fmtCurrency(Math.abs(t.amount)):"••••"}</p>
+                            <span className="text-[10px] font-semibold rounded-full px-2 py-0.5 bg-amber-100 text-amber-700">Pendente</span>
+                          </div>
+                          <button onClick={() => handleSettle(t)}
+                            className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-500 text-emerald-500 hover:bg-emerald-500/10 transition-colors"
+                            title="Marcar como paga">
+                            <Check className="h-4 w-4"/>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex items-center justify-between border-t px-5 py-3 shrink-0">
+              <button onClick={() => setShowDespesas(false)} className="text-sm font-medium text-muted-foreground hover:text-foreground">Fechar</button>
+              <button onClick={() => { setShowDespesas(false); router.navigate({to:"/transacoes"}); }}
+                className="text-sm text-primary font-semibold hover:underline">Ver todas →</button>
+            </div>
           </div>
-          <div className="flex items-center justify-between border-t px-5 py-3">
-            <Button variant="outline" size="sm" onClick={()=>setShowDespesas(false)}>Fechar</Button>
-            <button onClick={()=>{setShowDespesas(false);router.navigate({to:"/transacoes"});}}
-              className="text-xs text-primary font-medium hover:underline">Ver todas →</button>
-          </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
 
-      {/* ── Modal — Receitas pendentes (SÓ income) ───────────────────── */}
-      <Dialog open={showReceitas} onOpenChange={setShowReceitas}>
-        <DialogContent className="max-w-sm p-0 overflow-hidden">
-          <div className="bg-emerald-600 px-5 pt-5 pb-4 text-white">
-            <DialogHeader>
-              <DialogTitle className="text-white flex items-center gap-2">
-                <TrendingUp className="h-5 w-5"/> Receitas pendentes
-              </DialogTitle>
-            </DialogHeader>
-            <p className="mt-1 text-sm text-white/80">{pendingIncome.length} receita{pendingIncome.length!==1?"s":""} · {showValues?fmtCurrency(totalIncome):"••••"}</p>
-          </div>
-          <div className="max-h-80 overflow-y-auto">
-            {pendingIncome.length===0
-              ?<p className="py-8 text-center text-sm text-muted-foreground">Nenhuma receita pendente.</p>
-              :<div className="divide-y">
-                {pendingIncome.map(t=>(
-                  <div key={t.id} className="flex items-center justify-between gap-3 px-4 py-3">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100">
-                        <TrendingUp className="h-3.5 w-3.5 text-emerald-600"/>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-foreground">{t.title}</p>
-                        <p className="truncate text-xs text-muted-foreground">{t.category} • A receber</p>
-                      </div>
+      {/* ══ MODAL — Receitas pendentes ════════════════════════════════ */}
+      {showReceitas && (
+        <div className="fixed inset-0 z-50 flex flex-col">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowReceitas(false)} />
+          <div className="relative z-10 mt-auto md:m-auto w-full md:max-w-lg md:rounded-2xl flex flex-col overflow-hidden bg-background" style={{ maxHeight:"90dvh" }}>
+            <div className="relative overflow-hidden bg-gradient-to-br from-emerald-500 to-teal-600 px-5 pt-5 pb-6 text-white shrink-0">
+              <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10"/>
+              <div className="absolute -left-6 -bottom-6 h-24 w-24 rounded-full bg-white/10"/>
+              <div className="relative">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20">
+                      <TrendingUp className="h-5 w-5"/>
                     </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <p className="text-sm font-semibold text-emerald-600">
-                        {showValues?`+${fmtCurrency(Math.abs(t.amount))}`:"••••"}
-                      </p>
-                      <button onClick={()=>handleSettle(t)}
-                        className="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-500 text-emerald-500 hover:bg-emerald-500/10 transition-colors"
-                        title="Marcar como recebida">
-                        <Check className="h-3.5 w-3.5"/>
-                      </button>
+                    <div>
+                      <p className="text-xs text-white/70 leading-none">Receitas pendentes</p>
+                      <p className="text-sm font-semibold">{MONTHS_PT[selectedMonth]} {selectedYear}</p>
                     </div>
                   </div>
-                ))}
+                  <button onClick={() => setShowReceitas(false)}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 hover:bg-white/30">
+                    <X className="h-4 w-4"/>
+                  </button>
+                </div>
+                <p className="mt-3 text-3xl font-black tracking-tight">{showValues?fmtCurrency(totalIncome):"••••"}</p>
+                <div className="mt-3 flex gap-4">
+                  <div><p className="text-[11px] text-white/60 uppercase tracking-wide">Lançamentos</p><p className="text-base font-bold">{pendingIncome.length}</p></div>
+                </div>
               </div>
-            }
+            </div>
+            <div className="overflow-y-auto flex-1 pb-[env(safe-area-inset-bottom,16px)]">
+              {incByDay.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                  <TrendingUp className="h-10 w-10 mb-3 opacity-30"/>
+                  <p className="text-sm">Nenhuma receita pendente</p>
+                </div>
+              ) : incByDay.map(([date, items]) => {
+                const [dd, mm, yyyy] = date.split("/");
+                const weekday = DAY_NAMES[new Date(Number(yyyy), Number(mm)-1, Number(dd)).getDay()];
+                const dayTotal = items.reduce((s,t) => s + Math.abs(t.amount), 0);
+                return (
+                  <div key={date}>
+                    <div className="flex items-center justify-between px-4 pt-4 pb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base font-bold text-foreground">{weekday}, {dd}</span>
+                        <span className="text-xs text-muted-foreground">/{mm}</span>
+                      </div>
+                      <span className="text-sm font-semibold text-emerald-600">+{fmtCurrency(dayTotal)}</span>
+                    </div>
+                    {items.map((t, i) => (
+                      <div key={t.id} className={cn("flex items-center gap-3 px-4 py-3", i < items.length-1 && "border-b border-border/40")}>
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-xl" style={{ background:"#d1fae5" }}>
+                          {categoryIconMap[t.category] ?? "📦"}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[15px] font-semibold text-foreground truncate">{t.title}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{t.category}</p>
+                        </div>
+                        <div className="shrink-0 flex items-center gap-2">
+                          <div className="text-right">
+                            <p className="text-[15px] font-bold text-emerald-600">+{showValues?fmtCurrency(Math.abs(t.amount)):"••••"}</p>
+                            <span className="text-[10px] font-semibold rounded-full px-2 py-0.5 bg-amber-100 text-amber-700">Pendente</span>
+                          </div>
+                          <button onClick={() => handleSettle(t)}
+                            className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-500 text-emerald-500 hover:bg-emerald-500/10 transition-colors"
+                            title="Marcar como recebida">
+                            <Check className="h-4 w-4"/>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex items-center justify-between border-t px-5 py-3 shrink-0">
+              <button onClick={() => setShowReceitas(false)} className="text-sm font-medium text-muted-foreground hover:text-foreground">Fechar</button>
+              <button onClick={() => { setShowReceitas(false); router.navigate({to:"/transacoes"}); }}
+                className="text-sm text-primary font-semibold hover:underline">Ver todas →</button>
+            </div>
           </div>
-          <div className="flex items-center justify-between border-t px-5 py-3">
-            <Button variant="outline" size="sm" onClick={()=>setShowReceitas(false)}>Fechar</Button>
-            <button onClick={()=>{setShowReceitas(false);router.navigate({to:"/transacoes"});}}
-              className="text-xs text-primary font-medium hover:underline">Ver todas →</button>
-          </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
 
       {/* ── Modal — Faturas em aberto ────────────────────────────────── */}
       <Dialog open={showFaturas} onOpenChange={setShowFaturas}>
