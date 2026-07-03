@@ -108,6 +108,10 @@ function CartaoDetailPage() {
     .filter(inv => toYYYYMM(inv.competence) > now)
     .sort((a, b) => toYYYYMM(a.competence).localeCompare(toYYYYMM(b.competence)));
 
+  // ── Seção 2a: Próxima fatura (imediata) + Seção 2b: Demais futuras ────────
+  const nextInvoice       = upcoming[0] ?? null;         // fatura logo após a atual
+  const remainingUpcoming = upcoming.slice(1);            // todas as outras
+
   // ── Card de fatura ────────────────────────────────────────────────────────
   function InvoiceCard({ invoice, highlight = false }: {
     invoice: typeof cardInvoices[0];
@@ -288,8 +292,18 @@ function CartaoDetailPage() {
           </div>
         )}
 
-        {/* ── PRÓXIMAS FATURAS ──────────────────────────────────────── */}
-        {upcoming.length > 0 && (
+        {/* ── PRÓXIMA FATURA (imediata — a que vem logo depois da atual) ── */}
+        {nextInvoice && (
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-2.5">
+              Próxima fatura
+            </p>
+            <InvoiceCard invoice={nextInvoice} />
+          </div>
+        )}
+
+        {/* ── PRÓXIMAS FATURAS (demais futuras, colapsadas por padrão) ── */}
+        {remainingUpcoming.length > 0 && (
           <div>
             <button
               type="button"
@@ -301,7 +315,7 @@ function CartaoDetailPage() {
               </p>
               <div className="flex items-center gap-2">
                 <span className="text-[11px] text-slate-400">
-                  {upcoming.length} fatura{upcoming.length !== 1 ? "s" : ""}
+                  {remainingUpcoming.length} fatura{remainingUpcoming.length !== 1 ? "s" : ""}
                 </span>
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -317,7 +331,7 @@ function CartaoDetailPage() {
             <div className={`grid transition-all duration-300 ease-in-out ${showUpcoming ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
               <div className="overflow-hidden">
                 <div className="space-y-2.5">
-                  {upcoming.map(inv => (
+                  {remainingUpcoming.map(inv => (
                     <InvoiceCard key={inv.id} invoice={inv} />
                   ))}
                 </div>
@@ -327,7 +341,7 @@ function CartaoDetailPage() {
         )}
 
         {/* Estado vazio */}
-        {currentAndOverdue.length === 0 && upcoming.length === 0 && (
+        {currentAndOverdue.length === 0 && !nextInvoice && remainingUpcoming.length === 0 && (
           <div className="rounded-2xl border border-dashed border-slate-200 dark:border-border py-10 text-center text-sm text-slate-400 dark:text-muted-foreground">
             Nenhuma fatura disponível.
           </div>

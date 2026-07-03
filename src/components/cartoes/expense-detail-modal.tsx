@@ -1,9 +1,6 @@
 import { useEffect, useState } from "react";
-import { Lock, Save, Trash2, Eye, Pencil, ShoppingBag, RotateCcw, Layers } from "lucide-react";
+import { Lock, Save, Trash2, Eye, Pencil, ShoppingBag, RotateCcw, Layers, X, Search, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DatePicker } from "@/components/cartoes/date-picker";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { supabase } from "@/lib/supabase";
@@ -55,8 +52,6 @@ export const fmt = (v: number) =>
 
 // ── Recalcular total da fatura ─────────────────────────────────────────────
 // FIX: delega para a implementação única e canônica em card-store.ts
-// (recalcInvoiceTotal). Mantemos esta função exportada com a mesma
-// assinatura para não quebrar quem já importa `recalcTotal` daqui.
 export async function recalcTotal(invoiceId: string) {
   await useCardStore.getState().recalcInvoiceTotal(invoiceId);
 }
@@ -229,108 +224,248 @@ export function ExpenseDetailModal({
     }
   }
 
+  const [openCat, setOpenCat]   = useState(false);
+  const [catSearch, setCatSearch] = useState("");
+
   if (!item) return null;
+
+  const selectedCat = categories.find(c => c.name === category);
+  const isEmoji = (icon?: string) => (icon?.codePointAt(0) ?? 0) > 0x2000;
 
   return (
     <>
-      <Dialog open={open} onOpenChange={o => !o && onClose()}>
-        <DialogContent className="max-w-sm p-0 overflow-hidden" aria-describedby={undefined}>
-          <div className={cn("px-5 pt-5 pb-4", !canEdit ? "bg-muted/60" : "bg-primary/5")}>
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-base">
-                {!canEdit && <Lock className="h-4 w-4 text-muted-foreground" />}
-                {canEdit ? "Editar lançamento" : "Detalhes do lançamento"}
-              </DialogTitle>
-            </DialogHeader>
+      {/* Overlay */}
+      {open && <div className="fixed inset-0 z-[100] bg-black/50" onClick={onClose} />}
+
+      {open && (
+        <div className="fixed inset-x-0 bottom-0 z-[101] flex flex-col md:inset-0 md:items-center md:justify-center">
+          <div className="relative flex flex-col overflow-hidden bg-background md:w-full md:max-w-lg md:rounded-2xl"
+            style={{ maxHeight: "92dvh" }}>
+
+            {/* ── Cabeçalho gradiente indigo ── */}
+            <div className={cn(
+              "relative overflow-hidden px-5 pt-5 pb-5 text-white shrink-0",
+              canEdit
+                ? "bg-gradient-to-br from-indigo-600 to-violet-700"
+                : "bg-gradient-to-br from-slate-500 to-slate-700"
+            )}>
+              <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10"/>
+              <div className="absolute -left-6 -bottom-6 h-24 w-24 rounded-full bg-white/10"/>
+              <div className="relative">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-xs text-white/60 uppercase tracking-wide leading-none">
+                      {canEdit ? "Editar lançamento" : "Detalhes do lançamento"}
+                    </p>
+                    <span className={cn(
+                      "mt-1.5 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold bg-white/20 text-white"
+                    )}>
+                      {TYPE_ICON[item.expense_type]} {TYPE_LABEL[item.expense_type]}
+                    </span>
+                  </div>
+                  <button onClick={onClose}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 hover:bg-white/30">
+                    <X className="h-4 w-4"/>
+                  </button>
+                </div>
+
+                {/* Valor em destaque */}
+                <div>
+                  <p className="text-xs text-white/60 mb-1">Valor</p>
+                  {canEdit ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl font-bold text-white/70">R$</span>
+                      <input
+                        type="text" inputMode="decimal"
+                        value={amountDisplay}
+                        onChange={e => setAmountDisplay(formatCurrencyInput(e.target.value))}
+                        placeholder="0,00"
+                        className="bg-transparent text-4xl font-black text-white placeholder-white/40 outline-none w-full tracking-tight"
+                      />
+                    </div>
+                  ) : (
+                    <p className="text-4xl font-black tracking-tight">-{fmt(item.amount)}</p>
+                  )}
+                </div>
+
+                {!canEdit && (
+                  <p className="mt-2 text-xs text-white/60">
+                    {invoiceStatus === "paid" ? "🔒 Fatura paga — somente leitura" : "🔒 Fatura fechada — somente leitura"}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* ── Campos ── */}
+            <div className="overflow-y-auto flex-1">
+              <div className="px-4 py-4 space-y-3">
+
+                {/* Descrição */}
+                <div className="rounded-2xl border bg-card px-4 py-3 space-y-1">
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Descrição</p>
+                  {canEdit ? (
+                    <input
+                      value={description}
+                      onChange={e => setDescription(e.target.value)}
+                      placeholder="Nome da despesa"
+                      className="w-full bg-transparent text-[16px] font-semibold text-foreground outline-none placeholder-muted-foreground/50"
+                    />
+                  ) : (
+                    <p className="text-[16px] font-semibold text-foreground">{item.description}</p>
+                  )}
+                </div>
+
+                {/* Categoria — campo fechado que abre BottomSheet */}
+                {canEdit ? (
+                  <button type="button" onClick={() => setOpenCat(true)}
+                    className="w-full rounded-2xl border bg-card px-4 py-3.5 text-left flex items-center gap-3 transition-colors hover:bg-muted/30">
+                    {selectedCat ? (
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl"
+                        style={{ background: (selectedCat.color || "#6b7280") + "22" }}>
+                        {isEmoji(selectedCat.icon) ? selectedCat.icon : "📦"}
+                      </div>
+                    ) : (
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted">
+                        <span className="text-xs">📦</span>
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Categoria</p>
+                      <p className={cn("text-[16px] font-semibold mt-0.5", category ? "text-foreground" : "text-muted-foreground/50")}>
+                        {category || "Selecione a categoria"}
+                      </p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0"/>
+                  </button>
+                ) : (
+                  <div className="rounded-2xl border bg-card px-4 py-3 space-y-1">
+                    <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Categoria</p>
+                    <p className="text-[16px] font-semibold text-foreground">{item.category}</p>
+                  </div>
+                )}
+
+                {/* Data */}
+                <div className="rounded-2xl border bg-card px-4 py-3 space-y-2">
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Data da compra</p>
+                  {canEdit ? (
+                    <DatePicker value={date} onChange={setDate}/>
+                  ) : (
+                    <p className="text-[16px] font-semibold text-foreground">
+                      {new Date(item.purchase_date + "T12:00:00").toLocaleDateString("pt-BR", { dateStyle: "long" })}
+                    </p>
+                  )}
+                </div>
+
+                {canEdit && <div className="h-20 md:hidden"/>}
+              </div>
+            </div>
+
+            {/* ── Botões mobile fixos ── */}
+            {canEdit && (
+              <div className="md:hidden fixed left-0 right-0 z-10 px-4 pt-3 pb-[env(safe-area-inset-bottom,12px)] bg-background/97 border-t border-border/40"
+                style={{ bottom: "0px", backdropFilter: "blur(8px)" }}>
+                <button onClick={handleSave} disabled={saving}
+                  className="w-full h-14 rounded-2xl bg-indigo-600 text-white font-bold text-base shadow-lg shadow-indigo-600/25 transition-all active:scale-95 disabled:opacity-70">
+                  {saving ? "Salvando..." : "Salvar alterações"}
+                </button>
+                <button onClick={handleDelete}
+                  className="w-full mt-2 h-11 rounded-xl text-red-500 font-semibold text-sm flex items-center justify-center gap-2">
+                  <Trash2 className="h-4 w-4"/> Excluir lançamento
+                </button>
+              </div>
+            )}
             {!canEdit && (
-              <p className="mt-1.5 text-xs text-muted-foreground">
-                {invoiceStatus === "paid" ? "🔒 Fatura paga — edição não permitida" : "🔒 Fatura fechada — edição não permitida"}
-              </p>
+              <div className="md:hidden fixed left-0 right-0 z-10 px-4 pt-3 pb-[env(safe-area-inset-bottom,12px)] bg-background/97 border-t"
+                style={{ bottom: "0px" }}>
+                <button onClick={onClose}
+                  className="w-full h-12 rounded-xl bg-muted text-foreground font-semibold text-sm">
+                  Fechar
+                </button>
+              </div>
             )}
-            <div className="mt-2">
-              <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold", TYPE_CLASS[item.expense_type])}>
-                {TYPE_ICON[item.expense_type]} {TYPE_LABEL[item.expense_type]}
-              </span>
+
+            {/* ── Botões desktop inline ── */}
+            <div className={cn("hidden md:flex items-center border-t px-5 py-3 shrink-0",
+              canEdit ? "justify-between" : "justify-end"
+            )}>
+              {canEdit && (
+                <button onClick={handleDelete}
+                  className="flex items-center gap-1.5 text-sm text-red-500 font-medium hover:text-red-600">
+                  <Trash2 className="h-4 w-4"/> Excluir
+                </button>
+              )}
+              <div className="flex gap-2">
+                <button onClick={onClose}
+                  className="px-4 h-9 rounded-xl border border-border text-sm font-medium text-muted-foreground hover:bg-muted/50">
+                  {canEdit ? "Cancelar" : "Fechar"}
+                </button>
+                {canEdit && (
+                  <button onClick={handleSave} disabled={saving}
+                    className="px-4 h-9 rounded-xl bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-700 disabled:opacity-70 flex items-center gap-1.5">
+                    <Save className="h-3.5 w-3.5"/> {saving ? "Salvando..." : "Salvar"}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
+        </div>
+      )}
 
-          <div className="space-y-4 px-5 py-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Descrição</Label>
-              {canEdit ? <Input value={description} onChange={e => setDescription(e.target.value)} className="h-10" />
-                : <p className="text-sm font-medium text-foreground">{item.description}</p>}
+      {/* ── BottomSheet: Categoria ── */}
+      {openCat && (
+        <>
+          <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm"
+            onClick={() => { setOpenCat(false); setCatSearch(""); }}/>
+          <div className="fixed bottom-0 left-0 right-0 z-[201] flex flex-col rounded-t-3xl bg-white dark:bg-card overflow-hidden"
+            style={{ maxHeight:"80vh" }}>
+            <div className="flex justify-center pt-3 pb-1 shrink-0">
+              <div className="w-10 h-1.5 rounded-full bg-slate-200 dark:bg-muted"/>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Categoria</Label>
-              {canEdit ? (
-                <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
-                  {categories.map(cat => {
-                    const isSel = category === cat.name;
-                    const color = cat.color || "#6b7280";
-                    const isEmoji = (cat.icon?.codePointAt(0) ?? 0) > 0x2000;
-                    return (
-                      <button key={cat.id} type="button" onClick={() => setCategory(cat.name)}
-                        className={cn("flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all",
-                          isSel ? "border-transparent shadow-sm" : "border-border hover:border-transparent hover:shadow-sm"
-                        )}
-                        style={isSel ? { background: color + "22", borderColor: color + "88", color } : {}}>
-                        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px]"
-                          style={{ background: color + "33" }}>
-                          {isEmoji ? cat.icon : (cat.name[0] ?? "?").toUpperCase()}
-                        </span>
-                        {cat.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : <p className="text-sm font-medium text-foreground">{item.category}</p>}
+            <div className="flex items-center justify-between px-5 py-3 shrink-0 border-b border-slate-100 dark:border-border">
+              <h2 className="text-[18px] font-bold text-slate-800 dark:text-foreground">Categoria</h2>
+              <button onClick={() => { setOpenCat(false); setCatSearch(""); }}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 dark:bg-muted">
+                <X className="h-4 w-4 text-slate-500"/>
+              </button>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Valor</Label>
-              {canEdit ? (
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
-                  <Input type="text" inputMode="decimal" className="h-10 pl-9"
-                    value={amountDisplay} onChange={e => setAmountDisplay(formatCurrencyInput(e.target.value))} />
-                </div>
-              ) : <p className="text-sm font-semibold text-red-500">-{fmt(item.amount)}</p>}
+            <div className="px-4 pt-3 pb-3 shrink-0">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"/>
+                <input type="text" placeholder="Buscar categoria..." value={catSearch}
+                  onChange={e => setCatSearch(e.target.value)}
+                  className="h-11 w-full rounded-2xl bg-slate-100 dark:bg-muted pl-11 pr-4 text-base outline-none placeholder-slate-400"/>
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Data da compra</Label>
-              {canEdit ? <DatePicker value={date} onChange={setDate} />
-                : <p className="text-sm font-medium text-foreground">
-                    {new Date(item.purchase_date + "T12:00:00").toLocaleDateString("pt-BR", { dateStyle: "long" })}
-                  </p>}
+            <div className="flex-1 overflow-y-auto overscroll-contain">
+              <div className="grid grid-cols-3 gap-3 px-4 pb-8">
+                {categories.filter(c => c.name.toLowerCase().includes(catSearch.toLowerCase())).map(cat => {
+                  const isSel  = category === cat.name;
+                  const color  = cat.color || "#6b7280";
+                  const emoji  = isEmoji(cat.icon);
+                  return (
+                    <button key={cat.name} type="button"
+                      onClick={() => { setCategory(cat.name); setOpenCat(false); setCatSearch(""); }}
+                      className="flex flex-col items-center gap-2 rounded-2xl border-2 py-4 px-2 text-center active:scale-95 transition-transform"
+                      style={isSel ? { background: color+"18", borderColor: color+"66" } : { borderColor:"transparent", background:"#f8fafc" }}>
+                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl text-2xl"
+                        style={{ background: color+"22" }}>
+                        {emoji ? cat.icon : "📦"}
+                      </div>
+                      <span className="text-[13px] font-semibold text-slate-700 dark:text-foreground leading-tight">{cat.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
-
-          <DialogFooter className="flex-row items-center justify-between gap-2 border-t px-5 py-4">
-            {canEdit ? (
-              <>
-                <Button variant="ghost" size="sm" onClick={handleDelete}
-                  className="gap-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive">
-                  <Trash2 className="h-4 w-4" /> Excluir
-                </Button>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
-                  <Button size="sm" onClick={handleSave} disabled={saving} className="gap-1.5">
-                    <Save className="h-3.5 w-3.5" /> {saving ? "Salvando..." : "Salvar"}
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <Button variant="outline" size="sm" className="ml-auto" onClick={onClose}>Fechar</Button>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </>
+      )}
 
       <DeleteOptionsModal
         open={showDeleteOptions} item={item}
         onClose={() => setShowDeleteOptions(false)}
         onDeleteSingle={deleteSingle} onDeleteFuture={deleteFuture}
       />
-
       <ConfirmDialog
         open={confirmSingle}
         title="Excluir lançamento"
