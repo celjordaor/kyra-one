@@ -4,7 +4,7 @@ import {
   TrendingUp, TrendingDown, Search, SlidersHorizontal,
   ChevronLeft, ChevronRight, CalendarDays, CheckCircle2, Circle,
   Pencil, Repeat, Repeat2, Trash2, CreditCard, Lock, Plus, Receipt,
-  ChevronDown, LayoutList, X,
+  ChevronDown, LayoutList, X, Eye,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -659,9 +659,19 @@ function InvoiceDetailModal({
   open: boolean; onClose: () => void; onAddExpense: () => void;
   onDataChanged: () => Promise<void>;
 }) {
+  const allCategories = useCategories();
+  const categoryIconMap = useMemo(
+    () => Object.fromEntries(allCategories.map(c => [c.name, c.icon ?? "📦"])),
+    [allCategories]
+  );
+  const [editingItem, setEditingItem] = useState<UnifiedItem | null>(null);
+
   if (!invoice || !card) return null;
+
   const isPaid = invoice.status === "paid";
-  const invoiceStatus: InvoiceStatus = invoice.status === "paid" ? "paid" : invoice.status === "closed" ? "closed" : "open";
+  const isClosed = invoice.status === "closed";
+  const invoiceStatus: InvoiceStatus = isPaid ? "paid" : isClosed ? "closed" : "open";
+
   const allItems: UnifiedItem[] = [
     ...expenses.map(e => ({
       id: e.id, description: e.description, amount: e.amount, category: e.category,
@@ -677,78 +687,162 @@ function InvoiceDetailModal({
       installmentNumber: i.installment_number,
     })),
   ].sort((a, b) => new Date(b.purchase_date).getTime() - new Date(a.purchase_date).getTime());
-  const [editingItem, setEditingItem] = useState<UnifiedItem | null>(null);
+
+  // Agrupa por data (yyyy-mm-dd) desc
+  const itemsByDay: Record<string, UnifiedItem[]> = {};
+  for (const item of allItems) {
+    if (!itemsByDay[item.purchase_date]) itemsByDay[item.purchase_date] = [];
+    itemsByDay[item.purchase_date].push(item);
+  }
+  const dayEntries = Object.entries(itemsByDay).sort((a, b) => b[0].localeCompare(a[0]));
+  const DAY_NAMES = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+
+  const dueDate = new Date(invoice.due_date + "T12:00:00");
+  const today = new Date(); today.setHours(0,0,0,0);
+  const isOverdue = !isPaid && dueDate < today;
 
   return (
     <>
-    <Dialog open={open} onOpenChange={o => !o && onClose()}>
-      <DialogContent className="max-w-sm p-0 overflow-hidden">
-        <div className="bg-primary px-5 pt-5 pb-4 text-primary-foreground">
-          <DialogHeader>
-            <DialogTitle className="text-primary-foreground">Fatura {card.name}</DialogTitle>
-          </DialogHeader>
-          <p className="mt-1 text-sm text-primary-foreground/80">
-            {invoice.competence} • Vence {new Date(invoice.due_date+"T12:00:00").toLocaleDateString("pt-BR")}
-          </p>
-          <p className="mt-3 text-2xl font-bold">{fmt(invoice.total_amount)}</p>
-          <span className={cn("mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold",
-            isPaid ? "bg-emerald-400/30 text-emerald-100" : "bg-amber-400/30 text-amber-100"
-          )}>
-            {isPaid ? "Paga" : "Em aberto"}
-          </span>
-        </div>
-        <div className="max-h-72 overflow-y-auto">
-          {allItems.length === 0
-            ? <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma despesa lançada nesta fatura.</p>
-            : <div className="divide-y">{allItems.map(item => (
-              <div key={item.id} className="flex items-center gap-3 px-5 py-3">
-                <div className="flex-1 min-w-0">
-                  <p className="truncate text-sm font-medium text-foreground">{item.description}</p>
-                  <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-                    <span className="text-xs text-muted-foreground">{item.category}</span>
-                    <span className="text-xs text-muted-foreground">·</span>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(item.purchase_date+"T12:00:00").toLocaleDateString("pt-BR",{ day:"2-digit", month:"short" })}
-                    </span>
-                    <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] font-medium", TYPE_CLASS[item.expense_type])}>
-                      {TYPE_LABEL[item.expense_type]}
+      {/* Overlay */}
+      {open && <div className="fixed inset-0 z-50 bg-black/50" onClick={onClose} />}
+
+      {open && (
+        <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col md:inset-0 md:items-center md:justify-center">
+          <div className="relative flex flex-col overflow-hidden bg-background md:w-full md:max-w-lg md:rounded-2xl"
+            style={{ maxHeight: "92dvh" }}>
+
+            {/* ── Cabeçalho gradiente teal/indigo ── */}
+            <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 to-violet-700 px-5 pt-5 pb-6 text-white shrink-0">
+              <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10"/>
+              <div className="absolute -left-6 -bottom-6 h-24 w-24 rounded-full bg-white/10"/>
+              <div className="relative">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <p className="text-xs text-white/60 uppercase tracking-wide leading-none">Fatura</p>
+                    <p className="text-lg font-bold">{card.name}</p>
+                  </div>
+                  <button onClick={onClose}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 hover:bg-white/30">
+                    <X className="h-4 w-4"/>
+                  </button>
+                </div>
+                <p className="text-4xl font-black tracking-tight mt-3">{fmt(invoice.total_amount)}</p>
+                <div className="mt-3 flex flex-wrap gap-4">
+                  <div>
+                    <p className="text-[11px] text-white/60 uppercase tracking-wide">Competência</p>
+                    <p className="text-sm font-semibold">{invoice.competence}</p>
+                  </div>
+                  <div className="w-px bg-white/20"/>
+                  <div>
+                    <p className="text-[11px] text-white/60 uppercase tracking-wide">Vencimento</p>
+                    <p className={cn("text-sm font-semibold", isOverdue && "text-red-300")}>
+                      {dueDate.toLocaleDateString("pt-BR")}
+                    </p>
+                  </div>
+                  <div className="w-px bg-white/20"/>
+                  <div>
+                    <p className="text-[11px] text-white/60 uppercase tracking-wide">Status</p>
+                    <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold",
+                      isPaid    ? "bg-emerald-400/30 text-emerald-100" :
+                      isOverdue ? "bg-red-400/30 text-red-100" :
+                      isClosed  ? "bg-slate-300/30 text-white/80" :
+                                  "bg-amber-400/30 text-amber-100"
+                    )}>
+                      {isPaid ? "✓ Paga" : isOverdue ? "⚠ Vencida" : isClosed ? "🔒 Fechada" : "● Em aberto"}
                     </span>
                   </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <p className="text-sm font-semibold text-red-500">-{fmt(item.amount)}</p>
-                  <ExpenseActionButton item={item} invoiceStatus={invoiceStatus} onOpen={setEditingItem} />
-                </div>
               </div>
-            ))}</div>
-          }
-        </div>
-        <div className="flex items-center justify-between border-t px-5 py-4">
-          <Button variant="outline" size="sm" onClick={onClose}>Fechar</Button>
-          {!isPaid && (
-            <button onClick={onAddExpense}
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md shadow-primary/25 hover:-translate-y-0.5 transition-all">
-              <Plus className="h-5 w-5" />
-            </button>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
+            </div>
 
-    <ExpenseDetailModal
-      item={editingItem}
-      invoiceStatus={invoiceStatus}
-      open={!!editingItem}
-      onClose={() => setEditingItem(null)}
-      onSaved={async () => {
-        setEditingItem(null);
-        await onDataChanged();
-      }}
-      onDeleted={async () => {
-        setEditingItem(null);
-        await onDataChanged();
-      }}
-    />
+            {/* ── Lista de lançamentos agrupada por data ── */}
+            <div className="overflow-y-auto flex-1">
+              {allItems.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                  <CreditCard className="h-10 w-10 mb-3 opacity-30"/>
+                  <p className="text-sm">Nenhuma despesa lançada nesta fatura.</p>
+                </div>
+              ) : (
+                <div className="px-4 pb-4">
+                  {dayEntries.map(([date, items]) => {
+                    const [yyyy, mm, dd] = date.split("-").map(Number);
+                    const weekday = DAY_NAMES[new Date(yyyy, mm - 1, dd).getDay()];
+                    const dayTotal = items.reduce((s, i) => s + i.amount, 0);
+                    return (
+                      <div key={date}>
+                        <div className="flex items-center justify-between pt-4 pb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base font-bold text-foreground">{weekday}, {dd}</span>
+                            <span className="text-xs text-muted-foreground">/{String(mm).padStart(2,"0")}</span>
+                          </div>
+                          <span className="text-sm font-semibold text-indigo-600">-{fmt(dayTotal)}</span>
+                        </div>
+                        <div className="rounded-2xl bg-card border overflow-hidden">
+                          {items.map((item, i) => (
+                            <button key={item.id} type="button"
+                              onClick={() => setEditingItem(item)}
+                              className={cn(
+                                "flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-muted/30",
+                                i < items.length - 1 && "border-b border-border/40"
+                              )}>
+                              {/* Ícone emoji da categoria */}
+                              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-xl"
+                                style={{ background: "#ede9fe" }}>
+                                {categoryIconMap[item.category] ?? "📦"}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[15px] font-semibold text-foreground truncate">{item.description}</p>
+                                <div className="mt-0.5 flex items-center gap-1.5">
+                                  <span className="text-xs text-muted-foreground truncate">{item.category}</span>
+                                  <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] font-medium shrink-0",
+                                    TYPE_CLASS[item.expense_type])}>
+                                    {TYPE_LABEL[item.expense_type]}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="shrink-0 flex items-center gap-2">
+                                <p className="text-[15px] font-bold text-indigo-600">-{fmt(item.amount)}</p>
+                                <div className={cn("flex h-7 w-7 items-center justify-center rounded-full",
+                                  isPaid ? "bg-muted text-muted-foreground" : "bg-indigo-50 text-indigo-500"
+                                )}>
+                                  {isPaid ? <Eye className="h-3.5 w-3.5"/> : <Pencil className="h-3.5 w-3.5"/>}
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* ── Rodapé ── */}
+            <div className="flex items-center justify-between border-t px-5 py-3 shrink-0">
+              <button onClick={onClose}
+                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+                Fechar
+              </button>
+              {!isPaid && (
+                <button onClick={onAddExpense}
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-indigo-600 text-white shadow-md shadow-indigo-600/25 hover:-translate-y-0.5 transition-all">
+                  <Plus className="h-5 w-5"/>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ExpenseDetailModal
+        item={editingItem}
+        invoiceStatus={invoiceStatus}
+        open={!!editingItem}
+        onClose={() => setEditingItem(null)}
+        onSaved={async () => { setEditingItem(null); await onDataChanged(); }}
+        onDeleted={async () => { setEditingItem(null); await onDataChanged(); }}
+      />
     </>
   );
 }
