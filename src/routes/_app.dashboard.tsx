@@ -1215,56 +1215,103 @@ function PendingSection({transactions,showValues,selectedMonth,selectedYear,card
         </div>
       )}
 
-      {/* ── Modal — Faturas em aberto ────────────────────────────────── */}
-      <Dialog open={showFaturas} onOpenChange={setShowFaturas}>
-        <DialogContent className="max-w-sm p-0 overflow-hidden">
-          <div className="bg-blue-600 px-5 pt-5 pb-4 text-white">
-            <DialogHeader>
-              <DialogTitle className="text-white flex items-center gap-2">
-                <CreditCard className="h-5 w-5"/> Faturas em aberto
-              </DialogTitle>
-            </DialogHeader>
-            <p className="mt-1 text-sm text-white/80">{pendingInvoices.length} fatura{pendingInvoices.length!==1?"s":""} · {showValues?fmtCurrency(totalFaturas):"••••"}</p>
-          </div>
-          <div className="max-h-80 overflow-y-auto">
-            {pendingInvoices.length===0
-              ?<p className="py-8 text-center text-sm text-muted-foreground">Nenhuma fatura em aberto.</p>
-              :<div className="divide-y">
-                {pendingInvoices.map(({invoice,card})=>(
-                  <div key={invoice.id} className="flex items-center justify-between gap-3 px-4 py-3">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100">
-                        <CreditCard className="h-3.5 w-3.5 text-blue-600"/>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-foreground">{card?.name} — {invoice.competence}</p>
-                        <p className="truncate text-xs text-muted-foreground">Vence {new Date(invoice.due_date+"T12:00:00").toLocaleDateString("pt-BR")}</p>
-                      </div>
+      {/* ══ MODAL — Faturas em aberto ════════════════════════════════ */}
+      {showFaturas && (
+        <div className="fixed inset-0 z-50 flex flex-col">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowFaturas(false)} />
+          <div className="relative z-10 mt-auto md:m-auto w-full md:max-w-lg md:rounded-2xl flex flex-col overflow-hidden bg-background" style={{ maxHeight:"90dvh" }}>
+
+            {/* Cabeçalho azul */}
+            <div className="relative overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 px-5 pt-5 pb-6 text-white shrink-0">
+              <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10"/>
+              <div className="absolute -left-6 -bottom-6 h-24 w-24 rounded-full bg-white/10"/>
+              <div className="relative">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20">
+                      <CreditCard className="h-5 w-5"/>
                     </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <p className="text-sm font-semibold text-red-500">
-                        {showValues?`-${fmtCurrency(invoice.total_amount)}`:"••••"}
+                    <div>
+                      <p className="text-xs text-white/70 leading-none">Faturas em aberto</p>
+                      <p className="text-sm font-semibold">{MONTHS_PT[selectedMonth]} {selectedYear}</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setShowFaturas(false)}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 hover:bg-white/30">
+                    <X className="h-4 w-4"/>
+                  </button>
+                </div>
+                <p className="mt-3 text-3xl font-black tracking-tight">{showValues?fmtCurrency(totalFaturas):"••••"}</p>
+                <div className="mt-3 flex gap-4">
+                  <div>
+                    <p className="text-[11px] text-white/60 uppercase tracking-wide">Faturas</p>
+                    <p className="text-base font-bold">{pendingInvoices.length}</p>
+                  </div>
+                  <div className="w-px bg-white/20"/>
+                  <div>
+                    <p className="text-[11px] text-white/60 uppercase tracking-wide">Cartões</p>
+                    <p className="text-base font-bold">{new Set(pendingInvoices.map(i=>i.card?.id)).size}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Lista de faturas */}
+            <div className="overflow-y-auto flex-1 pb-[env(safe-area-inset-bottom,16px)]">
+              {pendingInvoices.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                  <CreditCard className="h-10 w-10 mb-3 opacity-30"/>
+                  <p className="text-sm">Nenhuma fatura em aberto</p>
+                </div>
+              ) : pendingInvoices.map(({ invoice, card }, i) => {
+                const dueDate = new Date(invoice.due_date + "T12:00:00");
+                const today = new Date(); today.setHours(0,0,0,0);
+                const isOverdue = dueDate < today;
+                const flagLetter = (card?.flag?.[0] ?? card?.name?.[0] ?? "C").toUpperCase();
+                return (
+                  <div key={invoice.id} className={cn("flex items-center gap-3 px-4 py-4", i < pendingInvoices.length-1 && "border-b border-border/40")}>
+                    {/* Avatar do cartão */}
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700 font-bold text-lg">
+                      {flagLetter}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[15px] font-semibold text-foreground truncate">{card?.name}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {invoice.competence} · Vence {dueDate.toLocaleDateString("pt-BR")}
                       </p>
+                    </div>
+                    <div className="shrink-0 flex items-center gap-2">
+                      <div className="text-right">
+                        <p className="text-[15px] font-bold text-blue-600">
+                          -{showValues ? fmtCurrency(invoice.total_amount) : "••••"}
+                        </p>
+                        <span className={cn("text-[10px] font-semibold rounded-full px-2 py-0.5",
+                          isOverdue ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"
+                        )}>
+                          {isOverdue ? "Vencida" : "Em aberto"}
+                        </span>
+                      </div>
                       <button
-                        onClick={()=>card&&handlePayInvoice(invoice,card)}
-                        disabled={paying===invoice.id}
-                        className="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-500 text-emerald-500 hover:bg-emerald-500/10 disabled:opacity-50 transition-colors"
+                        onClick={() => card && handlePayInvoice(invoice, card)}
+                        disabled={paying === invoice.id}
+                        className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-500 text-emerald-500 hover:bg-emerald-500/10 disabled:opacity-50 transition-colors"
                         title="Marcar como paga">
-                        <Check className="h-3.5 w-3.5"/>
+                        <Check className="h-4 w-4"/>
                       </button>
                     </div>
                   </div>
-                ))}
-              </div>
-            }
+                );
+              })}
+            </div>
+
+            <div className="flex items-center justify-between border-t px-5 py-3 shrink-0">
+              <button onClick={() => setShowFaturas(false)} className="text-sm font-medium text-muted-foreground hover:text-foreground">Fechar</button>
+              <button onClick={() => { setShowFaturas(false); router.navigate({to:"/faturas-cartao"}); }}
+                className="text-sm text-primary font-semibold hover:underline">Ver faturas →</button>
+            </div>
           </div>
-          <div className="flex items-center justify-between border-t px-5 py-3">
-            <Button variant="outline" size="sm" onClick={()=>setShowFaturas(false)}>Fechar</Button>
-            <button onClick={()=>{setShowFaturas(false);router.navigate({to:"/faturas-cartao"});}}
-              className="text-xs text-primary font-medium hover:underline">Ver faturas →</button>
-          </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
 
       {/* InvoiceDetailModal mantido para compatibilidade */}
     </>
