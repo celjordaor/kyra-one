@@ -1,10 +1,11 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { TrendingUp, TrendingDown, PiggyBank, ChevronLeft, ChevronRight, ChevronDown, CalendarDays, Eye, EyeOff, AlertCircle, Check, User, LogOut, KeyRound, CreditCard, Plus, Receipt, Shield, ListChecks, Settings, Wallet, X } from "lucide-react";
-import { useTransactions, parseBrDate, toggleSettled } from "@/lib/transactions-store";
+import { TrendingUp, TrendingDown, PiggyBank, ChevronLeft, ChevronRight, ChevronDown, CalendarDays, Eye, EyeOff, AlertCircle, Check, User, LogOut, KeyRound, CreditCard, Plus, Receipt, Shield, ListChecks, Settings, Wallet, X, Pencil, Save, Trash2, Search } from "lucide-react";
+import { useTransactions, parseBrDate, toggleSettled, updateTransaction, deleteTransaction, deleteTransactionSeries, type Transaction } from "@/lib/transactions-store";
 import { useCategories } from "@/lib/categories-store";
 import { useAccountBalance, saveAccountBalance } from "@/lib/account-balance-store";
 import { useCardStore, type Invoice, type CreditCard as CreditCardType } from "@/lib/card-store";
+import { DatePicker } from "@/components/cartoes/date-picker";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
@@ -141,6 +142,31 @@ function DashboardPage() {
   const [openIncomeModal, setOpenIncomeModal] = useState(false);
   // Modal de detalhe por categoria
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+
+  // ── Edição de transação (nos modais do dashboard) ─────────────────────────
+  const [editingTx, setEditingTx]         = useState<Transaction | null>(null);
+  const [editScope, setEditScope]         = useState<"single" | "bulk" | null>(null);
+  const [showEditScope, setShowEditScope] = useState(false);
+
+  function openTxEdit(tx: Transaction) {
+    setEditingTx(tx);
+    // Transações geradas por fatura não são editáveis pelo dashboard
+    if (tx.source === "invoice") {
+      toast.info("Esta transação é um pagamento de fatura. Edite pela tela de Faturas.");
+      return;
+    }
+    if (tx.recurrence_id) {
+      setShowEditScope(true);  // perguntar: só esta ou todas
+    } else {
+      setEditScope("single");  // editar direto
+    }
+  }
+
+  function closeTxEdit() {
+    setEditingTx(null);
+    setEditScope(null);
+    setShowEditScope(false);
+  }
 
   // ── Saldo da conta ───────────────────────────────────────────────────────
   const accountBalance = useAccountBalance();
@@ -810,11 +836,10 @@ function DashboardPage() {
                     </div>
                     {/* Itens do dia */}
                     {items.map((t, i) => (
-                      <div key={t.id}
-                        className={cn("flex items-center gap-3 px-4 py-3",
+                      <button key={t.id} type="button" onClick={() => openTxEdit(t)}
+                        className={cn("flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/30",
                           i < items.length - 1 && "border-b border-border/40"
                         )}>
-                        {/* Ícone categoria */}
                         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-xl"
                           style={{ background: t.settled ? "#fee2e2" : "#fef3c7" }}>
                           {categoryIconMap[t.category] ?? "📦"}
@@ -823,15 +848,20 @@ function DashboardPage() {
                           <p className="text-[15px] font-semibold text-foreground truncate">{t.title}</p>
                           <p className="text-xs text-muted-foreground mt-0.5">{t.category}</p>
                         </div>
-                        <div className="shrink-0 text-right">
-                          <p className="text-[15px] font-bold text-red-500">-{hidden(Math.abs(t.amount))}</p>
-                          <span className={cn("text-[10px] font-semibold rounded-full px-2 py-0.5",
-                            t.settled ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
-                          )}>
-                            {t.settled ? "Paga" : "Pendente"}
-                          </span>
+                        <div className="shrink-0 flex items-center gap-2">
+                          <div className="text-right">
+                            <p className="text-[15px] font-bold text-red-500">-{hidden(Math.abs(t.amount))}</p>
+                            <span className={cn("text-[10px] font-semibold rounded-full px-2 py-0.5",
+                              t.settled ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                            )}>
+                              {t.settled ? "Paga" : "Pendente"}
+                            </span>
+                          </div>
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                            <Pencil className="h-3.5 w-3.5"/>
+                          </div>
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 );
@@ -911,8 +941,8 @@ function DashboardPage() {
                       <span className="text-sm font-semibold text-emerald-600">+{fmtCurrency(dayTotal)}</span>
                     </div>
                     {items.map((t, i) => (
-                      <div key={t.id}
-                        className={cn("flex items-center gap-3 px-4 py-3",
+                      <button key={t.id} type="button" onClick={() => openTxEdit(t)}
+                        className={cn("flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/30",
                           i < items.length - 1 && "border-b border-border/40"
                         )}>
                         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-xl"
@@ -923,15 +953,20 @@ function DashboardPage() {
                           <p className="text-[15px] font-semibold text-foreground truncate">{t.title}</p>
                           <p className="text-xs text-muted-foreground mt-0.5">{t.category}</p>
                         </div>
-                        <div className="shrink-0 text-right">
-                          <p className="text-[15px] font-bold text-emerald-600">+{hidden(Math.abs(t.amount))}</p>
-                          <span className={cn("text-[10px] font-semibold rounded-full px-2 py-0.5",
-                            t.settled ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
-                          )}>
-                            {t.settled ? "Recebida" : "Pendente"}
-                          </span>
+                        <div className="shrink-0 flex items-center gap-2">
+                          <div className="text-right">
+                            <p className="text-[15px] font-bold text-emerald-600">+{hidden(Math.abs(t.amount))}</p>
+                            <span className={cn("text-[10px] font-semibold rounded-full px-2 py-0.5",
+                              t.settled ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                            )}>
+                              {t.settled ? "Recebida" : "Pendente"}
+                            </span>
+                          </div>
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                            <Pencil className="h-3.5 w-3.5"/>
+                          </div>
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 );
@@ -1002,7 +1037,9 @@ function DashboardPage() {
                       <span className="text-xs text-muted-foreground">/{mm}</span>
                     </div>
                     {items.map((t, i) => (
-                      <div key={t.id} className={cn("flex items-center gap-3 px-4 py-3", i < items.length-1 && "border-b border-border/40")}>
+                      <button key={t.id} type="button" onClick={() => openTxEdit(t)}
+                        className={cn("flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/30",
+                          i < items.length-1 && "border-b border-border/40")}>
                         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-xl" style={{ background:"#f1f5f9" }}>
                           {categoryIconMap[t.category] ?? "📦"}
                         </div>
@@ -1010,15 +1047,20 @@ function DashboardPage() {
                           <p className="text-[15px] font-semibold text-foreground truncate">{t.title}</p>
                           <p className="text-xs text-muted-foreground mt-0.5">{t.category}</p>
                         </div>
-                        <div className="shrink-0 text-right">
-                          <p className="text-[15px] font-bold text-slate-700">{hidden(Math.abs(t.amount))}</p>
-                          <span className={cn("text-[10px] font-semibold rounded-full px-2 py-0.5",
-                            t.settled ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
-                          )}>
-                            {t.settled ? "Paga" : "Pendente"}
-                          </span>
+                        <div className="shrink-0 flex items-center gap-2">
+                          <div className="text-right">
+                            <p className="text-[15px] font-bold text-slate-700">{hidden(Math.abs(t.amount))}</p>
+                            <span className={cn("text-[10px] font-semibold rounded-full px-2 py-0.5",
+                              t.settled ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                            )}>
+                              {t.settled ? "Paga" : "Pendente"}
+                            </span>
+                          </div>
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                            <Pencil className="h-3.5 w-3.5"/>
+                          </div>
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 );
@@ -1037,7 +1079,337 @@ function DashboardPage() {
 
         </div>{/* fim coluna direita */}
       </div>{/* fim grid desktop */}
+
+      {/* ══ MODAL DE ESCOPO (editar só esta / toda a série) ══════════ */}
+      {showEditScope && editingTx && (
+        <div className="fixed inset-0 z-[200] flex items-end md:items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={closeTxEdit}/>
+          <div className="relative z-10 w-full max-w-sm mx-4 md:mx-auto bg-background rounded-2xl overflow-hidden shadow-xl">
+            <div className="px-5 pt-5 pb-4 border-b">
+              <p className="text-base font-bold text-foreground">Editar transação</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                "{editingTx.title}" faz parte de uma série. O que deseja editar?
+              </p>
+            </div>
+            <div className="p-4 space-y-2">
+              <button onClick={() => { setEditScope("single"); setShowEditScope(false); }}
+                className="flex w-full items-start gap-3 rounded-xl border p-4 text-left hover:bg-muted/30 transition-colors">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 mt-0.5">
+                  <Pencil className="h-4 w-4 text-primary"/>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Editar somente esta</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Altera apenas o lançamento do dia {editingTx.date}</p>
+                </div>
+              </button>
+              <button onClick={() => { setEditScope("bulk"); setShowEditScope(false); }}
+                className="flex w-full items-start gap-3 rounded-xl border p-4 text-left hover:bg-muted/30 transition-colors">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 mt-0.5">
+                  <Receipt className="h-4 w-4 text-primary"/>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Editar esta e futuras</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Altera este e todos os lançamentos futuros da série</p>
+                </div>
+              </button>
+            </div>
+            <div className="px-5 pb-5">
+              <button onClick={closeTxEdit}
+                className="w-full h-10 rounded-xl border text-sm text-muted-foreground hover:bg-muted/30">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ MODAL DE EDIÇÃO (mesmo padrão visual das outras telas) ═══ */}
+      {editingTx && editScope && (
+        <DashboardEditTxDialog
+          tx={editingTx}
+          bulkEdit={editScope === "bulk"}
+          allTransactions={transactions}
+          categories={allCategories}
+          onClose={closeTxEdit}
+        />
+      )}
+
     </div>
+  );
+}
+
+// ── DashboardEditTxDialog ──────────────────────────────────────────────────
+// Diálogo de edição de transação embutido no dashboard,
+// mesmo padrão visual da tela de Transações.
+function DashboardEditTxDialog({
+  tx, bulkEdit, allTransactions, categories, onClose
+}: {
+  tx: Transaction;
+  bulkEdit: boolean;
+  allTransactions: Transaction[];
+  categories: ReturnType<typeof useCategories>;
+  onClose: () => void;
+}) {
+  const isIncome = tx.type === "income";
+  const accentHex = isIncome ? "#10b981" : tx.type === "expense" ? "#f43f5e" : "#4f46e5";
+
+  // ── Estado do formulário ──────────────────────────────────────────
+  const [type,          setType]          = useState<"income"|"expense">(tx.type);
+  const [title,         setTitle]         = useState(tx.title);
+  const [category,      setCategory]      = useState(tx.category);
+  const [amountDisplay, setAmountDisplay] = useState(
+    Math.abs(tx.amount).toLocaleString("pt-BR", { minimumFractionDigits:2, maximumFractionDigits:2 })
+  );
+  const now = new Date();
+  const txDate = (() => {
+    const [d, m, y] = tx.date.split("/").map(Number);
+    return new Date(y, m-1, d);
+  })();
+  const [dateIso, setDateIso] = useState(txDate.toISOString().split("T")[0]);
+  const [settled, setSettled] = useState(tx.settled);
+  const [saving,  setSaving]  = useState(false);
+  const [openCat, setOpenCat] = useState(false);
+  const [catSearch, setCatSearch] = useState("");
+
+  const isFuture = new Date(dateIso) > now;
+  const isPaid   = tx.settled;
+
+  function handleAmountChange(raw: string) {
+    const digits = raw.replace(/\D/g, "");
+    if (!digits) { setAmountDisplay(""); return; }
+    const val = (parseInt(digits,10)/100).toLocaleString("pt-BR",{ minimumFractionDigits:2, maximumFractionDigits:2 });
+    setAmountDisplay(val);
+  }
+
+  function parseAmount(): number {
+    return parseFloat(amountDisplay.replace(/\./g,"").replace(",",".")) || 0;
+  }
+
+  function brDate(iso: string) {
+    const [y, m, d] = iso.split("-");
+    return `${d}/${m}/${y}`;
+  }
+
+  async function handleSave() {
+    if (!title.trim()) { toast.error("Informe a descrição."); return; }
+    if (!category)     { toast.error("Selecione uma categoria."); return; }
+    const amount = (type === "expense" ? -1 : 1) * parseAmount();
+    const patch = { title: title.trim(), category, amount, type, date: brDate(dateIso), settled };
+
+    setSaving(true);
+    try {
+      if (bulkEdit && tx.recurrence_id) {
+        const installNum = tx.installment_number ?? 1;
+        const related = allTransactions.filter(
+          t => t.recurrence_id === tx.recurrence_id && (t.installment_number ?? 1) >= installNum
+        );
+        await Promise.all(related.map(t => updateTransaction(t.id, patch)));
+      } else {
+        await updateTransaction(tx.id, patch);
+      }
+      toast.success("Transação atualizada!");
+      onClose();
+    } catch {
+      toast.error("Erro ao salvar. Tente novamente.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!confirm(`Excluir "${tx.title}"?`)) return;
+    setSaving(true);
+    try {
+      if (bulkEdit && tx.recurrence_id) {
+        const { deleteTransactionSeries } = await import("@/lib/transactions-store");
+        await deleteTransactionSeries(tx.recurrence_id, tx.installment_number ?? 1);
+      } else {
+        await deleteTransaction(tx.id);
+      }
+      toast.success("Transação excluída.");
+      onClose();
+    } catch {
+      toast.error("Erro ao excluir.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const availableCategories = categories.filter(c => c.type === type || !c.type);
+  const selectedCat = availableCategories.find(c => c.name === category);
+  const accent = type === "income" ? "#10b981" : "#f43f5e";
+
+  return (
+    <>
+      <div className="fixed inset-0 z-[150] bg-black/50" onClick={onClose}/>
+      <div className="fixed inset-x-0 bottom-0 z-[151] flex flex-col md:inset-0 md:items-center md:justify-center">
+        <div className="relative flex flex-col overflow-hidden bg-background md:w-full md:max-w-lg md:rounded-2xl"
+          style={{ maxHeight:"93dvh" }}>
+
+          {/* Cabeçalho gradiente */}
+          <div className={cn("relative overflow-hidden px-5 pt-5 pb-5 text-white shrink-0")}
+            style={{ background: `linear-gradient(135deg, ${accent}dd, ${accent}99)` }}>
+            <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10"/>
+            <div className="absolute -left-6 -bottom-6 h-24 w-24 rounded-full bg-white/10"/>
+            <div className="relative">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="text-xs text-white/60 uppercase tracking-wide leading-none">
+                    {bulkEdit ? "Editar série" : "Editar transação"}
+                  </p>
+                  {isPaid && <span className="mt-1 inline-flex text-[10px] font-semibold rounded-full bg-white/20 px-2 py-0.5 text-white">Lançamento pago</span>}
+                </div>
+                <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 hover:bg-white/30">
+                  <X className="h-4 w-4"/>
+                </button>
+              </div>
+              {/* Toggle tipo */}
+              <div className="flex rounded-xl bg-white/15 p-1 gap-1 mb-4">
+                {(["expense","income"] as const).map(tp => (
+                  <button key={tp} type="button" onClick={() => setType(tp)}
+                    className={cn("flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold transition-all",
+                      type===tp ? "bg-white text-slate-800 shadow-sm" : "text-white/80 hover:text-white")}>
+                    {tp === "expense" ? <TrendingDown className="h-4 w-4"/> : <TrendingUp className="h-4 w-4"/>}
+                    {tp === "expense" ? "Despesa" : "Receita"}
+                  </button>
+                ))}
+              </div>
+              {/* Valor */}
+              <div>
+                <p className="text-xs text-white/60 mb-1">Valor</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl font-bold text-white/70">R$</span>
+                  <input inputMode="decimal" value={amountDisplay} onChange={e => handleAmountChange(e.target.value)}
+                    placeholder="0,00"
+                    className="bg-transparent text-4xl font-black text-white placeholder-white/40 outline-none w-full tracking-tight"/>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Campos */}
+          <div className="overflow-y-auto flex-1">
+            <div className="px-4 py-4 space-y-3">
+              {/* Descrição */}
+              <div className="rounded-2xl border bg-card px-4 py-3 space-y-1">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Descrição</p>
+                <input value={title} onChange={e => setTitle(e.target.value)}
+                  className="w-full bg-transparent text-[16px] font-semibold text-foreground outline-none placeholder-muted-foreground/50"/>
+              </div>
+              {/* Categoria */}
+              <button type="button" onClick={() => setOpenCat(true)}
+                className="w-full rounded-2xl border bg-card px-4 py-3.5 text-left flex items-center gap-3 hover:bg-muted/30 transition-colors">
+                {selectedCat ? (
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl"
+                    style={{ background: (selectedCat.color||"#6b7280")+"22" }}>
+                    {(selectedCat.icon?.codePointAt(0)??0)>0x2000 ? selectedCat.icon : "📦"}
+                  </div>
+                ) : (
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted"><span className="text-xs">📦</span></div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Categoria</p>
+                  <p className={cn("text-[16px] font-semibold mt-0.5", category?"text-foreground":"text-muted-foreground/50")}>
+                    {category || "Selecione a categoria"}
+                  </p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0"/>
+              </button>
+              {/* Data */}
+              <div className="rounded-2xl border bg-card px-4 py-3 space-y-2">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Data</p>
+                <DatePicker value={dateIso} onChange={setDateIso}/>
+              </div>
+              {/* Pago/Recebido */}
+              <div className="rounded-2xl border bg-card px-4 py-3.5 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">{type==="income"?"Recebida":"Paga"}</p>
+                  <p className="text-xs text-muted-foreground">{isFuture?"Antecipar efetivação":"Marca como concluída"}</p>
+                </div>
+                <Switch checked={settled} onCheckedChange={setSettled}/>
+              </div>
+              <div className="h-20 md:hidden"/>
+            </div>
+          </div>
+
+          {/* Botão mobile fixo */}
+          <div className="md:hidden fixed left-0 right-0 z-10 px-4 pt-3 pb-[env(safe-area-inset-bottom,12px)] bg-background/97 border-t"
+            style={{ bottom:"0px", backdropFilter:"blur(8px)" }}>
+            <button onClick={handleSave} disabled={saving}
+              className="w-full h-14 rounded-2xl text-white font-bold text-base shadow-lg transition-all active:scale-95 disabled:opacity-70"
+              style={{ background: accent, boxShadow:`0 6px 20px ${accent}44` }}>
+              {saving?"Salvando...":"Salvar alterações"}
+            </button>
+            <button onClick={handleDelete}
+              className="w-full mt-2 h-11 rounded-xl text-red-500 font-semibold text-sm flex items-center justify-center gap-2">
+              <Trash2 className="h-4 w-4"/> Excluir lançamento
+            </button>
+          </div>
+          {/* Botão desktop */}
+          <div className="hidden md:flex items-center justify-between border-t px-5 py-3 shrink-0">
+            <button onClick={handleDelete}
+              className="flex items-center gap-1.5 text-sm text-red-500 font-medium hover:text-red-600">
+              <Trash2 className="h-4 w-4"/> Excluir
+            </button>
+            <div className="flex gap-2">
+              <button onClick={onClose}
+                className="px-4 h-9 rounded-xl border text-sm text-muted-foreground hover:bg-muted/50">Cancelar</button>
+              <button onClick={handleSave} disabled={saving}
+                className="px-4 h-9 rounded-xl text-white font-semibold text-sm disabled:opacity-70 flex items-center gap-1.5"
+                style={{ background: accent }}>
+                <Save className="h-3.5 w-3.5"/> {saving?"Salvando...":"Salvar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* BottomSheet de Categoria */}
+      {openCat && (
+        <>
+          <div className="fixed inset-0 z-[300] bg-black/50" onClick={() => { setOpenCat(false); setCatSearch(""); }}/>
+          <div className="fixed bottom-0 left-0 right-0 z-[301] flex flex-col rounded-t-3xl bg-white dark:bg-card overflow-hidden" style={{ maxHeight:"80vh" }}>
+            <div className="flex justify-center pt-3 pb-1 shrink-0">
+              <div className="w-10 h-1.5 rounded-full bg-slate-200"/>
+            </div>
+            <div className="flex items-center justify-between px-5 py-3 shrink-0 border-b">
+              <h2 className="text-[18px] font-bold">Categoria</h2>
+              <button onClick={() => { setOpenCat(false); setCatSearch(""); }}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100">
+                <X className="h-4 w-4 text-slate-500"/>
+              </button>
+            </div>
+            <div className="px-4 pt-3 pb-3 shrink-0">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"/>
+                <input type="text" placeholder="Buscar..." value={catSearch} onChange={e => setCatSearch(e.target.value)}
+                  className="h-11 w-full rounded-2xl bg-slate-100 pl-11 pr-4 text-base outline-none"/>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              <div className="grid grid-cols-3 gap-3 px-4 pb-8">
+                {availableCategories.filter(c => c.name.toLowerCase().includes(catSearch.toLowerCase())).map(cat => {
+                  const isSel = category === cat.name;
+                  const color = cat.color || "#6b7280";
+                  const isEmoji = (cat.icon?.codePointAt(0)??0) > 0x2000;
+                  return (
+                    <button key={cat.name} type="button"
+                      onClick={() => { setCategory(cat.name); setOpenCat(false); setCatSearch(""); }}
+                      className="flex flex-col items-center gap-2 rounded-2xl border-2 py-4 px-2 text-center active:scale-95 transition-transform"
+                      style={isSel ? { background:color+"18", borderColor:color+"66" } : { borderColor:"transparent", background:"#f8fafc" }}>
+                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl text-2xl" style={{ background:color+"22" }}>
+                        {isEmoji ? cat.icon : "📦"}
+                      </div>
+                      <span className="text-[13px] font-semibold text-slate-700 leading-tight">{cat.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </>
   );
 }
 
