@@ -155,10 +155,15 @@ function DashboardPage() {
       toast.info("Esta transação é um pagamento de fatura. Edite pela tela de Faturas.");
       return;
     }
-    if (tx.recurrence_id) {
-      setShowEditScope(true);  // perguntar: só esta ou todas
+    // É uma série se: tem recurrence_id, OU foi marcada como recorrente, OU é parcelada
+    const isSeries =
+      !!tx.recurrence_id ||
+      tx.recurring === true ||
+      (tx.installments_total ?? 0) > 1;
+    if (isSeries) {
+      setShowEditScope(true);  // mostrar primeiro: "editar só esta" ou "editar todas"
     } else {
-      setEditScope("single");  // editar direto
+      setEditScope("single");  // avulsa: ir direto para edição
     }
   }
 
@@ -1076,8 +1081,8 @@ function DashboardPage() {
 
       {/* ══ MODAL DE ESCOPO (editar só esta / toda a série) ══════════ */}
       {showEditScope && editingTx && (
-        <div className="fixed inset-0 z-[200] flex items-end md:items-center justify-center">
-          <div className="absolute inset-0 bg-black/50" onClick={closeTxEdit}/>
+        <div className="fixed inset-0 z-[500] flex items-end md:items-center justify-center">
+          <div className="absolute inset-0 bg-black/60" onClick={closeTxEdit}/>
           <div className="relative z-10 w-full max-w-sm mx-4 md:mx-auto bg-background rounded-2xl overflow-hidden shadow-xl">
             <div className="px-5 pt-5 pb-4 border-b">
               <p className="text-base font-bold text-foreground">Editar transação</p>
@@ -1235,8 +1240,8 @@ function DashboardEditTxDialog({
 
   return (
     <>
-      <div className="fixed inset-0 z-[150] bg-black/50" onClick={onClose}/>
-      <div className="fixed inset-x-0 bottom-0 z-[151] flex flex-col md:inset-0 md:items-center md:justify-center">
+      <div className="fixed inset-0 z-[400] bg-black/50" onClick={onClose}/>
+      <div className="fixed inset-x-0 bottom-0 z-[401] flex flex-col md:inset-0 md:items-center md:justify-center">
         <div className="relative flex flex-col overflow-hidden bg-background md:w-full md:max-w-lg md:rounded-2xl"
           style={{ maxHeight:"93dvh" }}>
 
@@ -1361,8 +1366,8 @@ function DashboardEditTxDialog({
       {/* BottomSheet de Categoria */}
       {openCat && (
         <>
-          <div className="fixed inset-0 z-[300] bg-black/50" onClick={() => { setOpenCat(false); setCatSearch(""); }}/>
-          <div className="fixed bottom-0 left-0 right-0 z-[301] flex flex-col rounded-t-3xl bg-white dark:bg-card overflow-hidden" style={{ maxHeight:"80vh" }}>
+          <div className="fixed inset-0 z-[600] bg-black/50" onClick={() => { setOpenCat(false); setCatSearch(""); }}/>
+          <div className="fixed bottom-0 left-0 right-0 z-[601] flex flex-col rounded-t-3xl bg-white dark:bg-card overflow-hidden" style={{ maxHeight:"80vh" }}>
             <div className="flex justify-center pt-3 pb-1 shrink-0">
               <div className="w-10 h-1.5 rounded-full bg-slate-200"/>
             </div>
