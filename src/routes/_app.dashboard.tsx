@@ -139,6 +139,8 @@ function DashboardPage() {
   // ── Estados dos modais (só useState, sem dependência de monthTx) ─────────
   const [openExpenseModal, setOpenExpenseModal] = useState(false);
   const [openIncomeModal, setOpenIncomeModal] = useState(false);
+  // Modal de detalhe por categoria
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   // ── Saldo da conta ───────────────────────────────────────────────────────
   const accountBalance = useAccountBalance();
@@ -248,6 +250,17 @@ function DashboardPage() {
   const incomesByDay   = useMemo(() => groupByDay(monthTx.filter(t => t.type === "income")), [monthTx]);
   const incomePaid     = useMemo(() => monthTx.filter(t => t.type === "income" && t.settled).reduce((s, t) => s + Math.abs(t.amount), 0), [monthTx]);
   const incomePending  = useMemo(() => monthTx.filter(t => t.type === "income" && !t.settled).reduce((s, t) => s + Math.abs(t.amount), 0), [monthTx]);
+
+  // ── Transações da categoria selecionada (para o modal de categoria) ───────
+  const categoryTxs = useMemo(() =>
+    selectedCategory
+      ? monthTx.filter(t => t.type === "expense" && t.category === selectedCategory)
+              .sort((a, b) => b._d.getTime() - a._d.getTime())
+      : [],
+    [monthTx, selectedCategory]
+  );
+  const categoryTxsByDay = useMemo(() => groupByDay(categoryTxs), [categoryTxs]);
+  const categoryTotal    = useMemo(() => categoryTxs.reduce((s, t) => s + Math.abs(t.amount), 0), [categoryTxs]);
 
   // ── Itens unificados para "Últimas transações" ────────────────────────
   const recentItems=useMemo(():RecentItem[]=>{
@@ -514,23 +527,32 @@ function DashboardPage() {
               const icon=categoryIconMap[cat.name]??"📦";
               const barColor=NEUTRAL_BAR_COLORS[i%NEUTRAL_BAR_COLORS.length];
               return (
-                <div key={cat.name} className="flex items-center gap-3">
+                <button key={cat.name} type="button"
+                  onClick={() => setSelectedCategory(cat.name)}
+                  className="flex w-full items-center gap-3 text-left transition-all active:scale-[0.98] hover:opacity-80 rounded-xl">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted text-base">
                     {icon}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="mb-1 flex items-center justify-between gap-2">
                       <span className="truncate text-xs font-medium text-foreground">{cat.name}</span>
-                      <span className="shrink-0 text-xs font-semibold text-foreground">
-                        {hidden(cat.amount)}
-                        <span className="ml-1 font-normal text-muted-foreground">· {cat.percent}%</span>
-                      </span>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <span className="text-xs font-semibold text-foreground">
+                          {hidden(cat.amount)}
+                          <span className="ml-1 font-normal text-muted-foreground">· {cat.percent}%</span>
+                        </span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
+                          fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                          className="text-muted-foreground/50 shrink-0">
+                          <polyline points="9 18 15 12 9 6"/>
+                        </svg>
+                      </div>
                     </div>
                     <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
                       <div className={cn("h-full rounded-full transition-all duration-500",barColor)} style={{width:`${cat.percent}%`}}/>
                     </div>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -914,6 +936,104 @@ function DashboardPage() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ MODAL — Detalhe da Categoria ══════════════════════════════ */}
+      {selectedCategory && (
+        <div className="fixed inset-0 z-50 flex flex-col">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setSelectedCategory(null)} />
+          <div className="relative z-10 mt-auto md:m-auto w-full md:max-w-lg md:rounded-2xl flex flex-col overflow-hidden bg-background" style={{ maxHeight:"90dvh" }}>
+
+            {/* Cabeçalho com a cor da barra da categoria */}
+            <div className="relative overflow-hidden bg-gradient-to-br from-slate-700 to-slate-900 px-5 pt-5 pb-6 text-white shrink-0">
+              <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10"/>
+              <div className="absolute -left-6 -bottom-6 h-24 w-24 rounded-full bg-white/10"/>
+              <div className="relative">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/20 text-2xl">
+                      {categoryIconMap[selectedCategory] ?? "📦"}
+                    </div>
+                    <div>
+                      <p className="text-xs text-white/60 uppercase tracking-wide leading-none">Categoria</p>
+                      <p className="text-lg font-bold">{selectedCategory}</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setSelectedCategory(null)}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 hover:bg-white/30">
+                    <X className="h-4 w-4"/>
+                  </button>
+                </div>
+                <p className="mt-3 text-3xl font-black tracking-tight">{hidden(categoryTotal)}</p>
+                <div className="mt-3 flex gap-4">
+                  <div>
+                    <p className="text-[11px] text-white/60 uppercase tracking-wide">Lançamentos</p>
+                    <p className="text-base font-bold">{categoryTxs.length}</p>
+                  </div>
+                  <div className="w-px bg-white/20"/>
+                  <div>
+                    <p className="text-[11px] text-white/60 uppercase tracking-wide">Mês</p>
+                    <p className="text-base font-bold">{MONTHS[selectedMonth]}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Lista agrupada por data */}
+            <div className="overflow-y-auto flex-1 pb-[env(safe-area-inset-bottom,16px)]">
+              {categoryTxsByDay.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                  <TrendingDown className="h-10 w-10 mb-3 opacity-30"/>
+                  <p className="text-sm">Nenhuma despesa nesta categoria</p>
+                </div>
+              ) : categoryTxsByDay.map(([date, items]) => {
+                const d = items[0]._d;
+                const DAY_NAMES = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+                const weekday  = DAY_NAMES[d.getDay()];
+                const dd       = String(d.getDate()).padStart(2,"0");
+                const mm       = String(d.getMonth()+1).padStart(2,"0");
+                const dayTotal = items.reduce((s,t) => s + Math.abs(t.amount), 0);
+                return (
+                  <div key={date}>
+                    <div className="flex items-center justify-between px-4 pt-4 pb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base font-bold text-foreground">{weekday}, {dd}</span>
+                        <span className="text-xs text-muted-foreground">/{mm}</span>
+                      </div>
+                      <span className="text-sm font-semibold text-slate-700">-{fmtCurrency(dayTotal)}</span>
+                    </div>
+                    {items.map((t, i) => (
+                      <div key={t.id} className={cn("flex items-center gap-3 px-4 py-3", i < items.length-1 && "border-b border-border/40")}>
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-xl" style={{ background:"#f1f5f9" }}>
+                          {categoryIconMap[t.category] ?? "📦"}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[15px] font-semibold text-foreground truncate">{t.title}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{t.category}</p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className="text-[15px] font-bold text-slate-700">-{hidden(Math.abs(t.amount))}</p>
+                          <span className={cn("text-[10px] font-semibold rounded-full px-2 py-0.5",
+                            t.settled ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                          )}>
+                            {t.settled ? "Paga" : "Pendente"}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center justify-between border-t px-5 py-3 shrink-0">
+              <button onClick={() => setSelectedCategory(null)}
+                className="text-sm font-medium text-muted-foreground hover:text-foreground">Fechar</button>
+              <button onClick={() => { setSelectedCategory(null); router.navigate({to:"/transacoes"}); }}
+                className="text-sm text-primary font-semibold hover:underline">Ver todas →</button>
             </div>
           </div>
         </div>
