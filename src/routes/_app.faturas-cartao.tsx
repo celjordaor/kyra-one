@@ -180,14 +180,32 @@ function FaturasCartaoPage() {
         </div>
 
         {/* ── Linha 2: Pills (competência · status · vencimento) ── */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {/* Pill competência (mês/ano) */}
-          <span className={cn(
-            "rounded-full px-2.5 py-0.5 text-[11px] font-semibold",
-            highlight ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
-          )}>
-            {inv.competence}
-          </span>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Pill competência — mês/ano em destaque com dois níveis tipográficos */}
+          {(() => {
+            const [mm, yyyy] = inv.competence.split("/");
+            const monthNames = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+            const monthName = monthNames[(parseInt(mm, 10) - 1)] ?? mm;
+            return (
+              <span className={cn(
+                "inline-flex items-center gap-1 rounded-xl px-3 py-1.5",
+                highlight ? "bg-white/20" : "bg-indigo-50 dark:bg-indigo-950/40"
+              )}>
+                <span className={cn(
+                  "text-[15px] font-black leading-none tracking-tight",
+                  highlight ? "text-white" : "text-indigo-700 dark:text-indigo-300"
+                )}>
+                  {monthName}
+                </span>
+                <span className={cn(
+                  "text-[12px] font-semibold leading-none",
+                  highlight ? "text-white/70" : "text-indigo-400 dark:text-indigo-500"
+                )}>
+                  {yyyy}
+                </span>
+              </span>
+            );
+          })()}
 
           {/* Pill status */}
           <span className={cn(
