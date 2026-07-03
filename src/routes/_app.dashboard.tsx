@@ -1,6 +1,6 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { TrendingUp, TrendingDown, PiggyBank, ChevronLeft, ChevronRight, ChevronDown, CalendarDays, Eye, EyeOff, AlertCircle, Check, User, LogOut, KeyRound, CreditCard, Plus, Receipt, Shield, ListChecks, Settings, Wallet } from "lucide-react";
+import { TrendingUp, TrendingDown, PiggyBank, ChevronLeft, ChevronRight, ChevronDown, CalendarDays, Eye, EyeOff, AlertCircle, Check, User, LogOut, KeyRound, CreditCard, Plus, Receipt, Shield, ListChecks, Settings, Wallet, X } from "lucide-react";
 import { useTransactions, parseBrDate, toggleSettled } from "@/lib/transactions-store";
 import { useCategories } from "@/lib/categories-store";
 import { useAccountBalance, saveAccountBalance } from "@/lib/account-balance-store";
@@ -135,6 +135,54 @@ function DashboardPage() {
   const [showRecent,setShowRecent]=useState(false); // "Últimas movimentações" — colapsada por padrão
   const allCategories=useCategories();
   const categoryIconMap=useMemo(()=>Object.fromEntries(allCategories.map(c=>[c.name,c.icon??"📦"])),[allCategories]);
+
+  // ── Modal de Despesas ────────────────────────────────────────────────────
+  const [openExpenseModal, setOpenExpenseModal] = useState(false);
+
+  // Todas as despesas do mês, agrupadas por data (dd/MM/yyyy) desc
+  const expensesByDay = useMemo(() => {
+    const items = monthTx
+      .filter(t => t.type === "expense")
+      .sort((a, b) => b._d.getTime() - a._d.getTime());
+
+    const map: Record<string, typeof items> = {};
+    for (const t of items) {
+      const key = t.date; // dd/mm/yyyy
+      if (!map[key]) map[key] = [];
+      map[key].push(t);
+    }
+    return Object.entries(map).sort((a, b) => {
+      const [da, ma, ya] = a[0].split("/").map(Number);
+      const [db, mb, yb] = b[0].split("/").map(Number);
+      return new Date(yb, mb - 1, db).getTime() - new Date(ya, ma - 1, da).getTime();
+    });
+  }, [monthTx]);
+
+  const expensePaid   = useMemo(() => monthTx.filter(t => t.type === "expense" && t.settled).reduce((s, t) => s + Math.abs(t.amount), 0), [monthTx]);
+  const expensePending = useMemo(() => monthTx.filter(t => t.type === "expense" && !t.settled).reduce((s, t) => s + Math.abs(t.amount), 0), [monthTx]);
+
+  // ── Modal de Receitas ────────────────────────────────────────────────────
+  const [openIncomeModal, setOpenIncomeModal] = useState(false);
+
+  const incomesByDay = useMemo(() => {
+    const items = monthTx
+      .filter(t => t.type === "income")
+      .sort((a, b) => b._d.getTime() - a._d.getTime());
+
+    const map: Record<string, typeof items> = {};
+    for (const t of items) {
+      if (!map[t.date]) map[t.date] = [];
+      map[t.date].push(t);
+    }
+    return Object.entries(map).sort((a, b) => {
+      const [da, ma, ya] = a[0].split("/").map(Number);
+      const [db, mb, yb] = b[0].split("/").map(Number);
+      return new Date(yb, mb - 1, db).getTime() - new Date(ya, ma - 1, da).getTime();
+    });
+  }, [monthTx]);
+
+  const incomePaid    = useMemo(() => monthTx.filter(t => t.type === "income" && t.settled).reduce((s, t) => s + Math.abs(t.amount), 0), [monthTx]);
+  const incomePending = useMemo(() => monthTx.filter(t => t.type === "income" && !t.settled).reduce((s, t) => s + Math.abs(t.amount), 0), [monthTx]);
 
   // ── Saldo da conta ───────────────────────────────────────────────────────
   const accountBalance = useAccountBalance();
@@ -418,14 +466,22 @@ function DashboardPage() {
 
       {/* Income / Expense */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-xl border bg-card p-4 shadow-sm">
-          <div className="flex items-center gap-2"><div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100"><TrendingUp className="h-4 w-4 text-emerald-600"/></div><span className="text-xs text-muted-foreground">Receitas</span></div>
+        <button type="button" onClick={() => setOpenIncomeModal(true)}
+          className="rounded-xl border bg-card p-4 shadow-sm text-left transition-all active:scale-[0.97] hover:shadow-md hover:border-emerald-200">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2"><div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100"><TrendingUp className="h-4 w-4 text-emerald-600"/></div><span className="text-xs text-muted-foreground">Receitas</span></div>
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50"/>
+          </div>
           <p className="mt-2 text-lg font-bold text-emerald-600">{hidden(income)}</p>
-        </div>
-        <div className="rounded-xl border bg-card p-4 shadow-sm">
-          <div className="flex items-center gap-2"><div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-100"><TrendingDown className="h-4 w-4 text-red-500"/></div><span className="text-xs text-muted-foreground">Despesas</span></div>
+        </button>
+        <button type="button" onClick={() => setOpenExpenseModal(true)}
+          className="rounded-xl border bg-card p-4 shadow-sm text-left transition-all active:scale-[0.97] hover:shadow-md hover:border-red-200">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2"><div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-100"><TrendingDown className="h-4 w-4 text-red-500"/></div><span className="text-xs text-muted-foreground">Despesas</span></div>
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50"/>
+          </div>
           <p className="mt-2 text-lg font-bold text-red-500">{hidden(expense)}</p>
-        </div>
+        </button>
       </div>
 
       {/* ── Pendências — logo abaixo das receitas/despesas ── */}
@@ -678,6 +734,213 @@ function DashboardPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ══ MODAL DESPESAS ═══════════════════════════════════════════════ */}
+      {openExpenseModal && (
+        <div className="fixed inset-0 z-50 flex flex-col">
+          {/* Overlay */}
+          <div className="absolute inset-0 bg-black/50" onClick={() => setOpenExpenseModal(false)} />
+
+          {/* Sheet — sobe do rodapé no mobile, centraliza no desktop */}
+          <div className="relative z-10 mt-auto md:m-auto w-full md:max-w-lg md:rounded-2xl flex flex-col overflow-hidden bg-background"
+            style={{ maxHeight: "90dvh" }}>
+
+            {/* Cabeçalho vermelho */}
+            <div className="relative overflow-hidden bg-gradient-to-br from-red-500 to-rose-600 px-5 pt-5 pb-6 text-white shrink-0">
+              <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10"/>
+              <div className="absolute -left-6 -bottom-6 h-24 w-24 rounded-full bg-white/10"/>
+              <div className="relative">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20">
+                      <TrendingDown className="h-5 w-5"/>
+                    </div>
+                    <div>
+                      <p className="text-xs text-white/70 leading-none">Despesas</p>
+                      <p className="text-sm font-semibold">{MONTHS[selectedMonth]} {selectedYear}</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setOpenExpenseModal(false)}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 hover:bg-white/30">
+                    <X className="h-4 w-4"/>
+                  </button>
+                </div>
+                <p className="mt-3 text-3xl font-black tracking-tight">{hidden(expense)}</p>
+                <div className="mt-3 flex gap-4">
+                  <div>
+                    <p className="text-[11px] text-white/60 uppercase tracking-wide">Pagas</p>
+                    <p className="text-base font-bold text-white/90">{hidden(expensePaid)}</p>
+                  </div>
+                  <div className="w-px bg-white/20"/>
+                  <div>
+                    <p className="text-[11px] text-white/60 uppercase tracking-wide">Pendentes</p>
+                    <p className="text-base font-bold text-white/90">{hidden(expensePending)}</p>
+                  </div>
+                  <div className="w-px bg-white/20"/>
+                  <div>
+                    <p className="text-[11px] text-white/60 uppercase tracking-wide">Lançamentos</p>
+                    <p className="text-base font-bold text-white/90">{monthTx.filter(t=>t.type==="expense").length}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Lista agrupada por data */}
+            <div className="overflow-y-auto flex-1 pb-[env(safe-area-inset-bottom,16px)]">
+              {expensesByDay.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                  <TrendingDown className="h-10 w-10 mb-3 opacity-30"/>
+                  <p className="text-sm">Nenhuma despesa neste mês</p>
+                </div>
+              ) : expensesByDay.map(([date, items]) => {
+                const [dd, mm] = date.split("/");
+                const dayNames = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+                const [d, m, y] = date.split("/").map(Number);
+                const weekday = dayNames[new Date(y, m - 1, d).getDay()];
+                const dayTotal = items.reduce((s, t) => s + Math.abs(t.amount), 0);
+                return (
+                  <div key={date}>
+                    {/* Separador de dia */}
+                    <div className="flex items-center justify-between px-4 pt-4 pb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base font-bold text-foreground">{weekday}, {dd}</span>
+                        <span className="text-xs text-muted-foreground">/{mm}</span>
+                      </div>
+                      <span className="text-sm font-semibold text-red-500">-{fmtCurrency(dayTotal)}</span>
+                    </div>
+                    {/* Itens do dia */}
+                    {items.map((t, i) => (
+                      <div key={t.id}
+                        className={cn("flex items-center gap-3 px-4 py-3",
+                          i < items.length - 1 && "border-b border-border/40"
+                        )}>
+                        {/* Ícone categoria */}
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-xl"
+                          style={{ background: t.settled ? "#fee2e2" : "#fef3c7" }}>
+                          {categoryIconMap[t.category] ?? "📦"}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[15px] font-semibold text-foreground truncate">{t.title}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{t.category}</p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className="text-[15px] font-bold text-red-500">-{hidden(Math.abs(t.amount))}</p>
+                          <span className={cn("text-[10px] font-semibold rounded-full px-2 py-0.5",
+                            t.settled ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                          )}>
+                            {t.settled ? "Paga" : "Pendente"}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ MODAL RECEITAS ═══════════════════════════════════════════════ */}
+      {openIncomeModal && (
+        <div className="fixed inset-0 z-50 flex flex-col">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setOpenIncomeModal(false)} />
+
+          <div className="relative z-10 mt-auto md:m-auto w-full md:max-w-lg md:rounded-2xl flex flex-col overflow-hidden bg-background"
+            style={{ maxHeight: "90dvh" }}>
+
+            {/* Cabeçalho verde */}
+            <div className="relative overflow-hidden bg-gradient-to-br from-emerald-500 to-teal-600 px-5 pt-5 pb-6 text-white shrink-0">
+              <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10"/>
+              <div className="absolute -left-6 -bottom-6 h-24 w-24 rounded-full bg-white/10"/>
+              <div className="relative">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20">
+                      <TrendingUp className="h-5 w-5"/>
+                    </div>
+                    <div>
+                      <p className="text-xs text-white/70 leading-none">Receitas</p>
+                      <p className="text-sm font-semibold">{MONTHS[selectedMonth]} {selectedYear}</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setOpenIncomeModal(false)}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 hover:bg-white/30">
+                    <X className="h-4 w-4"/>
+                  </button>
+                </div>
+                <p className="mt-3 text-3xl font-black tracking-tight">{hidden(income)}</p>
+                <div className="mt-3 flex gap-4">
+                  <div>
+                    <p className="text-[11px] text-white/60 uppercase tracking-wide">Recebidas</p>
+                    <p className="text-base font-bold text-white/90">{hidden(incomePaid)}</p>
+                  </div>
+                  <div className="w-px bg-white/20"/>
+                  <div>
+                    <p className="text-[11px] text-white/60 uppercase tracking-wide">Pendentes</p>
+                    <p className="text-base font-bold text-white/90">{hidden(incomePending)}</p>
+                  </div>
+                  <div className="w-px bg-white/20"/>
+                  <div>
+                    <p className="text-[11px] text-white/60 uppercase tracking-wide">Lançamentos</p>
+                    <p className="text-base font-bold text-white/90">{monthTx.filter(t=>t.type==="income").length}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="overflow-y-auto flex-1 pb-[env(safe-area-inset-bottom,16px)]">
+              {incomesByDay.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                  <TrendingUp className="h-10 w-10 mb-3 opacity-30"/>
+                  <p className="text-sm">Nenhuma receita neste mês</p>
+                </div>
+              ) : incomesByDay.map(([date, items]) => {
+                const [dd, mm] = date.split("/");
+                const dayNames = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+                const [d, m, y] = date.split("/").map(Number);
+                const weekday = dayNames[new Date(y, m - 1, d).getDay()];
+                const dayTotal = items.reduce((s, t) => s + Math.abs(t.amount), 0);
+                return (
+                  <div key={date}>
+                    <div className="flex items-center justify-between px-4 pt-4 pb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base font-bold text-foreground">{weekday}, {dd}</span>
+                        <span className="text-xs text-muted-foreground">/{mm}</span>
+                      </div>
+                      <span className="text-sm font-semibold text-emerald-600">+{fmtCurrency(dayTotal)}</span>
+                    </div>
+                    {items.map((t, i) => (
+                      <div key={t.id}
+                        className={cn("flex items-center gap-3 px-4 py-3",
+                          i < items.length - 1 && "border-b border-border/40"
+                        )}>
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-xl"
+                          style={{ background: t.settled ? "#d1fae5" : "#fef3c7" }}>
+                          {categoryIconMap[t.category] ?? "📦"}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[15px] font-semibold text-foreground truncate">{t.title}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{t.category}</p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className="text-[15px] font-bold text-emerald-600">+{hidden(Math.abs(t.amount))}</p>
+                          <span className={cn("text-[10px] font-semibold rounded-full px-2 py-0.5",
+                            t.settled ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                          )}>
+                            {t.settled ? "Recebida" : "Pendente"}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
         </div>{/* fim coluna direita */}
       </div>{/* fim grid desktop */}
     </div>
