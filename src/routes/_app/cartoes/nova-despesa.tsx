@@ -158,6 +158,7 @@ function FieldRow({ icon, label, children, last = false, onClick, error }: {
 // ── Página ─────────────────────────────────────────────────────────────────
 function NovaDespesaPage() {
   const router = useRouter();
+  const { cardId: urlCardId } = Route.useSearch(); // cardId da URL (quando vem de uma fatura específica)
   const { cards, invoices, fetchCards, ensureInvoices, fetchInvoices, addExpense } = useCardStore();
   const allCats    = useCategories();
   const categories = allCats.filter(c => c.active && c.type === "expense");
@@ -195,8 +196,12 @@ function NovaDespesaPage() {
   useEffect(() => { if (cards.length === 0) fetchCards(); }, []);
   useEffect(() => {
     if (!cards.length) return;
+    // Se veio de uma fatura específica (?cardId=...), pré-seleciona esse cartão.
+    // Sem ?cardId, usa o cartão padrão (comportamento dos botões do menu/nav).
     if (!watch("card_id")) {
-      const def = cards.find(c => c.is_default && c.active) ?? cards.find(c => c.active);
+      const def = urlCardId
+        ? (cards.find(c => c.id === urlCardId && c.active) ?? cards.find(c => c.is_default && c.active) ?? cards.find(c => c.active))
+        : (cards.find(c => c.is_default && c.active) ?? cards.find(c => c.active));
       if (def) setValue("card_id", def.id);
     }
   }, [cards]);
@@ -221,13 +226,14 @@ function NovaDespesaPage() {
         purchaseDate: data.purchase_date, installments: data.installments,
         isRecurring: data.is_recurring, observations: data.observations });
       toast.success("Despesa lançada!");
-      router.navigate({ to: "/cartoes/$cardId", params: { cardId: selectedCard.id } });
+      // Se veio de uma fatura específica, volta para ela — senão vai para o detalhe do cartão
+      router.history.back();
     } catch { toast.error("Erro ao lançar despesa."); }
   };
 
   return (
     <div className="w-full bg-slate-50 dark:bg-background md:max-w-xl md:mx-auto">
-      <form id="nova-despesa-form" onSubmit={handleSubmit(onSubmit)} style={{ display:"block", width:"100%", margin:0 }}>
+      <form onSubmit={handleSubmit(onSubmit)} style={{ display:"block", width:"100%", margin:0 }}>
 
         {/* HEADER */}
         <div style={{ display:"block", background:"#4f46e5", color:"white",
@@ -338,7 +344,7 @@ function NovaDespesaPage() {
                 </div>
                 <div style={{ flex:1, minWidth:0 }}>
                   <p style={{ fontSize:"1rem", fontWeight:500, color:"#1e293b" }}>Despesa recorrente</p>
-                  <p style={{ fontSize:"0.75rem", color:"#94a3b8", marginTop:"0.125rem" }}>Despesa recorrente no cartão de crédito</p>
+                  <p style={{ fontSize:"0.75rem", color:"#94a3b8", marginTop:"0.125rem" }}>Lançada nas próximas 12 faturas</p>
                 </div>
                 <Controller name="is_recurring" control={control} render={({ field }) => (
                   <Switch checked={!!field.value} onCheckedChange={v => { field.onChange(v); if (v) setValue("installments", 1); }}
@@ -357,41 +363,18 @@ function NovaDespesaPage() {
             </FieldRow>
           </TxSection>
 
-          {/* Espaçador mobile: empurra conteúdo acima do botão fixo */}
-          <div style={{ height:"6rem" }} className="md:hidden" />
-
+          {/* BOTÃO */}
+          <div style={{ display:"block", marginLeft:"1rem", marginRight:"1rem", marginTop:"0.5rem" }}>
+            <button type="submit" disabled={isSubmitting}
+              style={{ display:"block", width:"100%", height:"3.75rem", fontSize:"1.0625rem",
+                fontWeight:700, color:"white", background:"#4f46e5", border:"none",
+                borderRadius:"1rem", cursor:"pointer", opacity: isSubmitting ? 0.7 : 1,
+                boxShadow:"0 6px 20px rgba(79,70,229,0.4)" }}>
+              {isSubmitting ? "Salvando..." : "✓  Lançar despesa"}
+            </button>
+          </div>
         </div>
       </form>
-
-      {/* BOTÃO — fixo no rodapé mobile, inline no desktop */}
-      {/* Mobile/PWA: fixed bottom, acima do bottom nav (68px) + safe area */}
-      <div className="md:hidden"
-        style={{
-          position:"fixed", left:0, right:0, bottom:"68px", zIndex:20,
-          padding:"12px 16px calc(env(safe-area-inset-bottom, 12px) + 0px) 16px",
-        background:"rgba(255,255,255,0.97)",
-          backdropFilter:"blur(8px)",
-          borderTop:"1px solid rgba(0,0,0,0.06)",
-        }}>
-        <button type="submit" form="nova-despesa-form" disabled={isSubmitting}
-          style={{ display:"block", width:"100%", height:"56px", fontSize:"1.0625rem",
-            fontWeight:700, color:"white", background:"#4f46e5", border:"none",
-            borderRadius:"1rem", cursor:"pointer", opacity: isSubmitting ? 0.7 : 1,
-            boxShadow:"0 6px 20px rgba(79,70,229,0.4)", transition:"all 0.15s" }}>
-          {isSubmitting ? "Salvando..." : "✓  Lançar despesa"}
-        </button>
-      </div>
-
-      {/* Desktop: botão inline dentro do form */}
-      <div className="hidden md:block" style={{ marginLeft:"1rem", marginRight:"1rem", marginTop:"0.5rem", marginBottom:"1rem" }}>
-        <button type="submit" form="nova-despesa-form" disabled={isSubmitting}
-          style={{ display:"block", width:"100%", height:"3.75rem", fontSize:"1.0625rem",
-            fontWeight:700, color:"white", background:"#4f46e5", border:"none",
-            borderRadius:"1rem", cursor:"pointer", opacity: isSubmitting ? 0.7 : 1,
-            boxShadow:"0 6px 20px rgba(79,70,229,0.4)" }}>
-          {isSubmitting ? "Salvando..." : "✓  Lançar despesa"}
-        </button>
-      </div>
 
       {/* CARTÃO */}
       <BottomSheet open={openCard} onClose={() => setOpenCard(false)} title="Cartão" maxHeight="65vh">

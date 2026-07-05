@@ -155,16 +155,26 @@ function FaturaDetailPage() {
         <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10"/>
         <div className="absolute -left-8 -bottom-8 h-32 w-32 rounded-full bg-white/10"/>
         <div className="relative">
-          {/* Voltar + título */}
-          <div className="flex items-center gap-3 mb-5">
+          {/* Voltar + botão lançar despesa */}
+          <div className="flex items-center justify-between mb-5">
             <button onClick={() => router.history.back()}
               className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors">
               <ArrowLeft className="h-5 w-5"/>
             </button>
-            <div>
+            <div className="text-center">
               <p className="text-xs text-white/60 leading-none uppercase tracking-wide">Fatura</p>
-              <p className="text-lg font-bold leading-tight">{card.name} · {invoice.competence}</p>
+              <p className="text-base font-bold leading-tight">{card.name} · {invoice.competence}</p>
             </div>
+            {/* Lançar despesa nesta fatura — passa cardId para pré-selecionar o cartão correto */}
+            {!isPaid ? (
+              <button
+                onClick={() => router.navigate({ to: "/cartoes/nova-despesa", search: { cardId } })}
+                className="flex items-center gap-1.5 rounded-full bg-white/20 hover:bg-white/30 px-3 h-9 text-sm font-bold transition-colors">
+                <span className="text-base leading-none">+</span> Despesa
+              </button>
+            ) : (
+              <div className="w-9"/>
+            )}
           </div>
 
           {/* Total em destaque */}
@@ -256,16 +266,12 @@ function FaturaDetailPage() {
               const [yyyy, mm, dd] = date.split("-").map(Number);
               const d = new Date(yyyy, mm - 1, dd);
               const weekday = DAY_NAMES[d.getDay()];
-              const dayTotal = items.reduce((s, i) => s + i.amount, 0);
               return (
                 <div key={date}>
-                  {/* Separador de dia */}
-                  <div className="flex items-center justify-between pt-4 pb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-base font-bold text-foreground">{weekday}, {dd}</span>
-                      <span className="text-xs text-muted-foreground">/{mm.toString().padStart(2,"0")}</span>
-                    </div>
-                    <span className="text-sm font-semibold text-indigo-600">-{fmt(dayTotal)}</span>
+                  {/* Separador de dia — sem total */}
+                  <div className="flex items-center gap-2 pt-4 pb-2">
+                    <span className="text-base font-bold text-foreground">{weekday}, {dd}</span>
+                    <span className="text-xs text-muted-foreground">/{mm.toString().padStart(2,"0")}</span>
                   </div>
 
                   {/* Itens do dia */}
@@ -303,7 +309,7 @@ function FaturaDetailPage() {
                         </div>
 
                         <div className="shrink-0 flex items-center gap-2">
-                          <p className="text-[15px] font-bold text-indigo-600">-{fmt(item.amount)}</p>
+                          <p className="text-[15px] font-bold text-indigo-600">{fmt(item.amount)}</p>
                           <div className={cn("flex h-7 w-7 items-center justify-center rounded-full",
                             isPaid ? "bg-muted text-muted-foreground" : "bg-indigo-50 text-indigo-500"
                           )}>
