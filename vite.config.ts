@@ -30,28 +30,22 @@ export default defineConfig({
         lang: "pt-BR",
         categories: ["finance", "productivity"],
         icons: [
-          {
-            src: "/icons/icon-192.png",
-            sizes: "192x192",
-            type: "image/png",
-          },
-          {
-            src: "/icons/icon-512.png",
-            sizes: "512x512",
-            type: "image/png",
-          },
-          {
-            src: "/icons/icon-512.png",
-            sizes: "512x512",
-            type: "image/png",
-            purpose: "maskable",
-          },
+          { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+          { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+          { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
+        // ── Share Target API ────────────────────────────────────────────
+        // Registra o JadeOne como destino de compartilhamento no Android.
+        // Texto da notificação do banco/cartão chega como ?text=... na rota
+        // /share-intent. Uso: toque longo na notificação → Compartilhar → JadeOne
+        share_target: {
+          action: "/share-intent",
+          method: "GET",
+          params: { title: "title", text: "text", url: "url" },
+        },
       },
       workbox: {
-        // Cache de assets estáticos (JS, CSS, imagens)
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
-        // Estratégia: tenta rede primeiro, cai no cache se offline
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
