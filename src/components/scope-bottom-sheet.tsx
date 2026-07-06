@@ -62,13 +62,20 @@ export function ScopeBottomSheet({
       {/* Overlay */}
       <div className="fixed inset-0 z-[500] bg-black/50 backdrop-blur-sm" onClick={onClose}/>
 
-      {/* Bottom sheet */}
+      {/* Bottom sheet mobile / modal centrado no desktop */}
       <div
-        className="fixed bottom-0 left-0 right-0 z-[501] rounded-t-3xl bg-white dark:bg-card overflow-hidden shadow-2xl"
+        className={cn(
+          "fixed z-[501] bg-white dark:bg-card overflow-hidden shadow-2xl",
+          // Mobile: bottom sheet
+          "bottom-0 left-0 right-0 rounded-t-3xl",
+          // Desktop: modal centrado e compacto
+          "md:bottom-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2",
+          "md:w-full md:max-w-md md:rounded-2xl"
+        )}
         style={{ maxHeight: "90dvh" }}
       >
-        {/* Handle */}
-        <div className="flex justify-center pt-3 pb-1">
+        {/* Handle — só no mobile */}
+        <div className="flex justify-center pt-3 pb-1 md:hidden">
           <div className="w-10 h-1.5 rounded-full bg-slate-200 dark:bg-muted"/>
         </div>
 

@@ -1562,7 +1562,10 @@ function PendingSection({transactions,showValues,selectedMonth,selectedYear,card
                       <span className="text-xs text-muted-foreground">/{mm}</span>
                     </div>
                     {items.map((t, i) => (
-                      <div key={t.id} className={cn("flex items-center gap-3 px-4 py-3", i < items.length-1 && "border-b border-border/40")}>
+                      <button key={t.id} type="button"
+                        onClick={(e) => { e.stopPropagation(); handleClickEdit(t, e); }}
+                        className={cn("flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/30",
+                          i < items.length-1 && "border-b border-border/40")}>
                         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-xl" style={{ background:"#fef3c7" }}>
                           {categoryIconMap[t.category] ?? "📦"}
                         </div>
@@ -1575,18 +1578,13 @@ function PendingSection({transactions,showValues,selectedMonth,selectedYear,card
                             <p className="text-[15px] font-bold text-amber-600">{showValues?fmtCurrency(Math.abs(t.amount)):"••••"}</p>
                             <span className="text-[10px] font-semibold rounded-full px-2 py-0.5 bg-amber-100 text-amber-700">Pendente</span>
                           </div>
-                          <button onClick={(e) => handleClickEdit(t, e)}
-                            className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors"
-                            title="Editar despesa">
-                            <Pencil className="h-4 w-4"/>
-                          </button>
-                          <button onClick={() => handleSettle(t)}
+                          <button onClick={(e) => { e.stopPropagation(); handleSettle(t); }}
                             className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-500 text-emerald-500 hover:bg-emerald-500/10 transition-colors"
                             title="Marcar como paga">
                             <Check className="h-4 w-4"/>
                           </button>
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 );
@@ -1647,7 +1645,10 @@ function PendingSection({transactions,showValues,selectedMonth,selectedYear,card
                       <span className="text-xs text-muted-foreground">/{mm}</span>
                     </div>
                     {items.map((t, i) => (
-                      <div key={t.id} className={cn("flex items-center gap-3 px-4 py-3", i < items.length-1 && "border-b border-border/40")}>
+                      <button key={t.id} type="button"
+                        onClick={(e) => { e.stopPropagation(); handleClickEdit(t, e); }}
+                        className={cn("flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/30",
+                          i < items.length-1 && "border-b border-border/40")}>
                         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-xl" style={{ background:"#d1fae5" }}>
                           {categoryIconMap[t.category] ?? "📦"}
                         </div>
@@ -1660,18 +1661,13 @@ function PendingSection({transactions,showValues,selectedMonth,selectedYear,card
                             <p className="text-[15px] font-bold text-emerald-600">+{showValues?fmtCurrency(Math.abs(t.amount)):"••••"}</p>
                             <span className="text-[10px] font-semibold rounded-full px-2 py-0.5 bg-amber-100 text-amber-700">Pendente</span>
                           </div>
-                          <button onClick={(e) => handleClickEdit(t, e)}
-                            className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors"
-                            title="Editar receita">
-                            <Pencil className="h-4 w-4"/>
-                          </button>
-                          <button onClick={() => handleSettle(t)}
+                          <button onClick={(e) => { e.stopPropagation(); handleSettle(t); }}
                             className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-500 text-emerald-500 hover:bg-emerald-500/10 transition-colors"
                             title="Marcar como recebida">
                             <Check className="h-4 w-4"/>
                           </button>
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 );
