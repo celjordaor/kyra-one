@@ -6,6 +6,7 @@ import { useCategories } from "@/lib/categories-store";
 import { useAccountBalance, saveAccountBalance } from "@/lib/account-balance-store";
 import { useCardStore, type Invoice, type CreditCard as CreditCardType } from "@/lib/card-store";
 import { DatePicker } from "@/components/cartoes/date-picker";
+import { ScopeBottomSheet } from "@/components/scope-bottom-sheet";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
@@ -1079,48 +1080,21 @@ function DashboardPage() {
         </div>{/* fim coluna direita */}
       </div>{/* fim grid desktop */}
 
-      {/* ══ MODAL DE ESCOPO (editar só esta / toda a série) ══════════ */}
-      {showEditScope && editingTx && (
-        <div className="fixed inset-0 z-[500] flex items-end md:items-center justify-center">
-          <div className="absolute inset-0 bg-black/60" onClick={closeTxEdit}/>
-          <div className="relative z-10 w-full max-w-sm mx-4 md:mx-auto bg-background rounded-2xl overflow-hidden shadow-xl">
-            <div className="px-5 pt-5 pb-4 border-b">
-              <p className="text-base font-bold text-foreground">Editar transação</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                "{editingTx.title}" faz parte de uma série. O que deseja editar?
-              </p>
-            </div>
-            <div className="p-4 space-y-2">
-              <button onClick={() => { setEditScope("single"); setShowEditScope(false); }}
-                className="flex w-full items-start gap-3 rounded-xl border p-4 text-left hover:bg-muted/30 transition-colors">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 mt-0.5">
-                  <Pencil className="h-4 w-4 text-primary"/>
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">Editar somente esta</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Altera apenas o lançamento do dia {editingTx.date}</p>
-                </div>
-              </button>
-              <button onClick={() => { setEditScope("bulk"); setShowEditScope(false); }}
-                className="flex w-full items-start gap-3 rounded-xl border p-4 text-left hover:bg-muted/30 transition-colors">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 mt-0.5">
-                  <Receipt className="h-4 w-4 text-primary"/>
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">Editar esta e futuras</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Altera este e todos os lançamentos futuros da série</p>
-                </div>
-              </button>
-            </div>
-            <div className="px-5 pb-5">
-              <button onClick={closeTxEdit}
-                className="w-full h-10 rounded-xl border text-sm text-muted-foreground hover:bg-muted/30">
-                Cancelar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ══ MODAL DE ESCOPO — ScopeBottomSheet padronizado ══════════ */}
+      <ScopeBottomSheet
+        open={showEditScope && !!editingTx}
+        onClose={closeTxEdit}
+        expenseType={
+          editingTx
+            ? (editingTx.installments_total ?? 0) > 1 ? "installment" : "recurring"
+            : "generic"
+        }
+        title={editingTx?.title}
+        onSelect={(scope) => {
+          setEditScope(scope);
+          setShowEditScope(false);
+        }}
+      />
 
       {/* ══ MODAL DE EDIÇÃO (mesmo padrão visual das outras telas) ═══ */}
       {editingTx && editScope && (

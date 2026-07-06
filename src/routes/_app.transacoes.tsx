@@ -27,6 +27,10 @@ import {
   TYPE_CLASS, TYPE_LABEL, fmt as fmtExp,
   type UnifiedItem, type InvoiceStatus,
 } from "@/components/cartoes/expense-detail-modal";
+import {
+  EditTransactionDialog,
+} from "@/components/transactions/edit-transaction-dialog";
+import { ScopeBottomSheet } from "@/components/scope-bottom-sheet";
 
 export const Route = createFileRoute("/_app/transacoes")({
   head: () => ({ meta: [{ title: "Transações — Finanças Pessoais" }] }),
@@ -532,16 +536,21 @@ function TransacoesPage() {
       />
 
       {/* Modal de escopo de edição: apenas essa ou todas */}
-      <EditScopeModal
-        transaction={editScopeTarget}
+      <ScopeBottomSheet
         open={!!editScopeTarget}
         onClose={() => setEditScopeTarget(null)}
-        onEditSingle={() => {
-          if (editScopeTarget) { setBulkEdit(false); setEditingId(editScopeTarget.id); }
-          setEditScopeTarget(null);
-        }}
-        onEditAll={() => {
-          if (editScopeTarget) { setBulkEdit(true); setEditingId(editScopeTarget.id); }
+        expenseType={
+          editScopeTarget
+            ? isInstallmentTransaction(editScopeTarget)
+              ? "installment"
+              : "recurring"
+            : "generic"
+        }
+        title={editScopeTarget?.title}
+        onSelect={(scope) => {
+          if (!editScopeTarget) return;
+          if (scope === "single") { setBulkEdit(false); setEditingId(editScopeTarget.id); }
+          else                    { setBulkEdit(true);  setEditingId(editScopeTarget.id); }
           setEditScopeTarget(null);
         }}
       />

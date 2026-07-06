@@ -3,6 +3,7 @@ import { Lock, Save, Trash2, Eye, Pencil, ShoppingBag, RotateCcw, Layers, X, Sea
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/cartoes/date-picker";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ScopeBottomSheet, type ScopeType } from "@/components/scope-bottom-sheet";
 import { supabase } from "@/lib/supabase";
 import { useCategories } from "@/lib/categories-store";
 import { useCardStore, type ExpenseType } from "@/lib/card-store";
@@ -159,9 +160,30 @@ export function ExpenseDetailModal({
     setSaving(true);
     try {
       const patch = { description: description.trim(), category, amount, purchase_date: date };
-      const table = item.isInstallment ? "card_installments" : "card_expenses";
-      const { error } = await supabase.from(table).update(patch).eq("id", item.id);
-      if (error) throw error;
+
+      if (editScope === "bulk" && isSeries) {
+        // Atualiza este e todos os próximos da mesma série
+        if (item.expense_type === "recurring") {
+          await supabase.from("card_expenses").update(patch)
+            .eq("description", item.description).eq("expense_type", "recurring")
+            .gte("purchase_date", item.purchase_date);
+        } else if (item.expense_type === "installment") {
+          if (item.isInstallment && item.parentExpenseId && item.installmentNumber !== undefined) {
+            await supabase.from("card_installments").update(patch)
+              .eq("parent_expense_id", item.parentExpenseId)
+              .gte("installment_number", item.installmentNumber);
+          } else {
+            await supabase.from("card_expenses").update(patch).eq("id", item.id);
+            await supabase.from("card_installments").update(patch).eq("parent_expense_id", item.id);
+          }
+        }
+      } else {
+        // Atualiza apenas este
+        const table = item.isInstallment ? "card_installments" : "card_expenses";
+        const { error } = await supabase.from(table).update(patch).eq("id", item.id);
+        if (error) throw error;
+      }
+
       await recalcTotal(item.invoiceId);
       toast.success("Lançamento atualizado!");
       onSaved();
@@ -171,8 +193,9 @@ export function ExpenseDetailModal({
 
   function handleDelete() {
     if (!item || !canEdit) return;
-    if (item.expense_type === "recurring" || item.expense_type === "installment") {
-      setShowDeleteOptions(true);
+    // Para recorrentes/parceladas: usa o escopo já selecionado no ScopeBottomSheet
+    if (isSeries && editScope === "bulk") {
+      deleteFuture();
       return;
     }
     setConfirmSingle(true);
@@ -226,8 +249,32 @@ export function ExpenseDetailModal({
 
   const [openCat, setOpenCat]   = useState(false);
   const [catSearch, setCatSearch] = useState("");
+  // Escopo de edição: mostrado PRIMEIRO para recorrentes/parceladas (antes do formulário)
+  const [editScope, setEditScope] = useState<ScopeType | null>(null);
+
+  const isSeries = item
+    ? item.expense_type === "recurring" || item.expense_type === "installment"
+    : false;
+
+  // Resetar escopo ao abrir/fechar
+  useEffect(() => {
+    if (!open) setEditScope(null);
+  }, [open]);
 
   if (!item) return null;
+
+  // Para recorrentes/parceladas editáveis: mostrar ScopeBottomSheet primeiro
+  if (open && isSeries && canEdit && !editScope) {
+    return (
+      <ScopeBottomSheet
+        open={true}
+        onClose={onClose}
+        onSelect={setEditScope}
+        expenseType={item.expense_type === "installment" ? "installment" : "recurring"}
+        title={item.description}
+      />
+    );
+  }
 
   const selectedCat = categories.find(c => c.name === category);
   const isEmoji = (icon?: string) => (icon?.codePointAt(0) ?? 0) > 0x2000;
