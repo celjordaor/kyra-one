@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet, Link, useLocation, Navigate, useRouter } from "@tanstack/react-router";
-import { Home, Receipt, User, PlusCircle, CreditCard, TrendingUp, TrendingDown, X, Tag, ChevronRight, MoreHorizontal, Target, Lock } from "lucide-react";
+import { Home, Receipt, User, PlusCircle, CreditCard, TrendingUp, TrendingDown, X, Tag, ChevronRight, MoreHorizontal, Target, Lock, Settings, LayoutDashboard, Layers } from "lucide-react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/lib/auth";
 import { useSubscription } from "@/lib/subscription-store";
@@ -14,10 +14,11 @@ export const Route = createFileRoute("/_app")({
 });
 
 const navItems = [
-  { to: "/dashboard",  label: "Início",     icon: Home },
-  { to: "/transacoes", label: "Transações", icon: Receipt },
-  { to: "/cartoes",    label: "Cartões",    icon: CreditCard },
-  { to: "/mais",       label: "Mais",        icon: MoreHorizontal },
+  { to: "/dashboard",      label: "Início",     icon: Home },
+  { to: "/transacoes",     label: "Transações", icon: Receipt },
+  { to: "/cartoes",        label: "Cartões",    icon: CreditCard },
+  { to: "/faturas-cartao", label: "Faturas",    icon: Tag },
+  { to: "/mais",           label: "Config.",    icon: Settings },
 ];
 
 function AppLayout() {
@@ -28,12 +29,11 @@ function AppLayout() {
   const isAdvancado = subscription?.isAdvancado ?? false;
   const [addMenuOpen, setAddMenuOpen] = useState(false);
 
-  // ── Extensão automática de recorrentes + backfill de recurrence_id ─────
-  // Roda uma vez por sessão, após a autenticação
+  // Extensão automática de recorrentes + backfill de recurrence_id (roda 1x por sessão)
   useEffect(() => {
     if (!session) return;
     extendRecurringIfNeeded().catch(err =>
-      console.warn("[extendRecurring] erro:", err)
+      console.warn("[extendRecurring]", err)
     );
   }, [session?.user?.id]);
 
@@ -70,112 +70,99 @@ function AppLayout() {
           </div>
         )}
 
-        {/* ══ SIDEBAR DESKTOP (hidden on mobile) ════════════════════════ */}
+        {/* ══ SIDEBAR DESKTOP ═══════════════════════════════════════════ */}
         <aside className="hidden md:flex flex-col fixed inset-y-0 left-0 w-64 border-r bg-card z-30 shadow-sm">
 
           {/* Brand */}
           <Link to="/dashboard"
-            className="flex items-center gap-3 px-5 py-5 border-b hover:bg-accent/30 transition-colors">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary font-bold text-primary-foreground text-lg">
-              J
-            </div>
+            className="flex items-center gap-3 px-5 py-5 border-b hover:bg-accent/30 transition-colors shrink-0">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary font-bold text-primary-foreground text-lg">J</div>
             <div>
               <p className="font-bold text-foreground leading-none">JadeOne</p>
               <p className="text-[11px] text-muted-foreground mt-0.5">Finanças Pessoais</p>
             </div>
           </Link>
 
-          {/* Nav principal */}
-          <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
-            {navItems.map(({ to, label, icon: Icon }) => {
-              const isActive = pathname === to || pathname.startsWith(to + "/");
-              return (
+          {/* ── Botões de lançamento (destaque) ── */}
+          <div className="px-3 pt-4 pb-2 shrink-0">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-2 pb-2">Lançar</p>
+            <div className="grid grid-cols-3 gap-1.5">
+              <button onClick={()=>router.navigate({to:"/nova-transacao",search:{type:"income"}})}
+                className="flex flex-col items-center gap-1 rounded-xl py-2.5 px-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-colors">
+                <TrendingUp className="h-4 w-4"/>
+                <span className="text-[10px] font-semibold leading-none">Receita</span>
+              </button>
+              <button onClick={()=>router.navigate({to:"/nova-transacao",search:{type:"expense"}})}
+                className="flex flex-col items-center gap-1 rounded-xl py-2.5 px-1 bg-red-50 hover:bg-red-100 text-red-600 transition-colors">
+                <TrendingDown className="h-4 w-4"/>
+                <span className="text-[10px] font-semibold leading-none">Despesa</span>
+              </button>
+              <button onClick={()=>router.navigate({to:"/cartoes/nova-despesa"})}
+                className="flex flex-col items-center gap-1 rounded-xl py-2.5 px-1 bg-blue-50 hover:bg-blue-100 text-blue-600 transition-colors">
+                <CreditCard className="h-4 w-4"/>
+                <span className="text-[10px] font-semibold leading-none">Cartão</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="mx-3 border-t mb-1"/>
+
+          {/* ── Navegação principal ── */}
+          <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-0.5">
+            {[
+              {to:"/dashboard",    label:"Início",      icon:Home},
+              {to:"/transacoes",   label:"Transações",  icon:Receipt},
+              {to:"/cartoes",      label:"Cartões",     icon:CreditCard},
+              {to:"/faturas-cartao",label:"Faturas",    icon:Tag},
+              {to:"/categorias",   label:"Categorias",  icon:Layers},
+            ].map(({to,label,icon:Icon})=>{
+              const isActive=pathname===to||pathname.startsWith(to+"/");
+              return(
                 <Link key={to} to={to}
-                  className={cn(
-                    "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-                    isActive
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                  className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                    isActive?"bg-primary/10 text-primary":"text-muted-foreground hover:bg-accent hover:text-foreground"
                   )}>
-                  <Icon className="h-4 w-4 shrink-0" />
-                  {label}
+                  <Icon className="h-4 w-4 shrink-0"/>{label}
                 </Link>
               );
             })}
-
-            {/* Categorias */}
-            <Link to="/categorias"
-              className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-                pathname === "/categorias"
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
-              )}>
-              <Tag className="h-4 w-4 shrink-0" />
-              Categorias
-            </Link>
-
-            {/* Metas e Orçamentos */}
-            {isAdvancado ? (
+            {isAdvancado?(
               <Link to="/metas"
-                className={cn(
-                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-                  pathname === "/metas"
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                  pathname==="/metas"?"bg-primary/10 text-primary":"text-muted-foreground hover:bg-accent hover:text-foreground"
                 )}>
-                <Target className="h-4 w-4 shrink-0" />
-                Metas e Orçamentos
+                <Target className="h-4 w-4 shrink-0"/>Metas e Orçamentos
               </Link>
-            ) : (
-              <Link to="/mais"
-                className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors opacity-60">
-                <Target className="h-4 w-4 shrink-0" />
-                Metas e Orçamentos
-                <Lock className="h-3 w-3 ml-auto" />
-              </Link>
+            ):(
+              <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground opacity-50 cursor-not-allowed">
+                <Target className="h-4 w-4 shrink-0"/>Metas e Orçamentos
+                <Lock className="h-3 w-3 ml-auto"/>
+              </div>
             )}
-
-            {/* Perfil (sidebar desktop mantém o acesso) */}
             <Link to="/perfil"
-              className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-                pathname === "/perfil"
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
+              className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                pathname==="/perfil"?"bg-primary/10 text-primary":"text-muted-foreground hover:bg-accent hover:text-foreground"
               )}>
-              <User className="h-4 w-4 shrink-0" />
-              Perfil
+              <User className="h-4 w-4 shrink-0"/>Perfil
             </Link>
           </nav>
 
-          {/* Ações rápidas */}
-          <div className="p-3 border-t space-y-0.5">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground px-3 pb-1.5">
-              Lançar
-            </p>
-            <button
-              onClick={() => router.navigate({ to: "/nova-transacao", search: { type: "income" } })}
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors">
-              <TrendingUp className="h-4 w-4 shrink-0" /> Receita
-            </button>
-            <button
-              onClick={() => router.navigate({ to: "/nova-transacao", search: { type: "expense" } })}
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors">
-              <TrendingDown className="h-4 w-4 shrink-0" /> Despesa
-            </button>
-            <button
-              onClick={() => router.navigate({ to: "/cartoes/nova-despesa" })}
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors">
-              <CreditCard className="h-4 w-4 shrink-0" /> Despesa Cartão
-            </button>
+          {/* ── Configurações (último) ── */}
+          <div className="px-3 pb-4 pt-1 border-t shrink-0">
+            <Link to="/mais"
+              className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                pathname==="/mais"?"bg-primary/10 text-primary":"text-muted-foreground hover:bg-accent hover:text-foreground"
+              )}>
+              <Settings className="h-4 w-4 shrink-0"/>Configurações
+            </Link>
           </div>
         </aside>
 
-        {/* ══ CONTEÚDO PRINCIPAL ════════════════════════════════════════ */}
-        <div className="md:ml-64">
+                {/* ══ CONTEÚDO PRINCIPAL ════════════════════════════════════════ */}
+        <div className="md:ml-64" style={{ overflowX:"hidden" }}>
           {showBanner && <div className="h-10 md:block hidden" />}
-          <main className="md:pb-8" style={{ paddingBottom: "calc(72px + env(safe-area-inset-bottom, 20px))" }}>
+          <main style={{ paddingBottom:"calc(72px + env(safe-area-inset-bottom, 20px))" }}
+            className="md:pb-0 md:min-h-screen">
             <Outlet />
           </main>
         </div>
@@ -219,44 +206,32 @@ function AppLayout() {
         <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 border-t border-border/60 bg-card/98 backdrop-blur-md">
           <div className="flex w-full items-stretch" style={{ height: "68px" }}>
 
-            {navItems.slice(0, 2).map(({ to, label, icon: Icon }) => {
-              const isActive = pathname === to || pathname.startsWith(to + "/");
-              return (
-                <Link key={to} to={to}
-                  className="flex flex-1 flex-col items-center justify-center gap-1 h-full">
-                  <Icon className={cn("h-[26px] w-[26px]",
-                    isActive ? "text-primary" : "text-muted-foreground"
-                  )} />
-                  <span className={cn("text-[11px] font-semibold",
-                    isActive ? "text-primary" : "text-muted-foreground"
-                  )}>{label}</span>
-                </Link>
-              );
-            })}
-
-            {/* Botão central + */}
+            {/* ── Adicionar: PRIMEIRA posição, ícone maior e destaque ── */}
             <button onClick={() => setAddMenuOpen(!addMenuOpen)}
-              className="flex flex-1 flex-col items-center justify-center gap-1 h-full">
+              className="flex flex-1 flex-col items-center justify-center h-full"
+              style={{ gap: "3px" }}>
               <div className={cn(
-                "flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition-all duration-200",
+                "flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition-all duration-200",
                 addMenuOpen && "rotate-45 shadow-lg shadow-primary/30"
               )}>
-                {addMenuOpen ? <X className="h-5 w-5" /> : <PlusCircle className="h-5 w-5" />}
+                {addMenuOpen ? <X className="h-6 w-6" /> : <PlusCircle className="h-6 w-6" />}
               </div>
-              <span className={cn("text-[11px] font-semibold",
+              <span className={cn("text-[10px] font-semibold text-center leading-none",
                 addMenuOpen ? "text-primary" : "text-muted-foreground"
               )}>Adicionar</span>
             </button>
 
-            {navItems.slice(2).map(({ to, label, icon: Icon }) => {
+            {/* ── Demais itens do nav ── */}
+            {navItems.map(({ to, label, icon: Icon }) => {
               const isActive = pathname === to || pathname.startsWith(to + "/");
               return (
                 <Link key={to} to={to}
-                  className="flex flex-1 flex-col items-center justify-center gap-1 h-full">
-                  <Icon className={cn("h-[26px] w-[26px]",
+                  className="flex flex-1 flex-col items-center justify-center h-full"
+                  style={{ gap: "3px" }}>
+                  <Icon className={cn("h-[24px] w-[24px] shrink-0",
                     isActive ? "text-primary" : "text-muted-foreground"
                   )} />
-                  <span className={cn("text-[11px] font-semibold",
+                  <span className={cn("text-[10px] font-semibold text-center leading-none",
                     isActive ? "text-primary" : "text-muted-foreground"
                   )}>{label}</span>
                 </Link>
