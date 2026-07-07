@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/select";
 import { useCategories } from "@/lib/categories-store";
 import { useTransactions, parseBrDate } from "@/lib/transactions-store";
+import { supabase } from "@/lib/supabase";
 import {
   useBudgets,
   useGoals,
@@ -170,22 +171,81 @@ function BudgetsSection() {
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState<Budget | null>(null);
 
+  // ── Despesas de cartão de crédito por mês de compra ───────────────────────
+  // Buscamos card_expenses e card_installments pelo purchase_date (data da compra),
+  // não pela data de vencimento da fatura. Assim "Alimentação" de julho aparece
+  // no orçamento de julho mesmo que a fatura só vença em agosto.
+  const [cardExpenses, setCardExpenses] = useState<
+    { category: string; amount: number; purchase_date: string }[]
+  >([]);
+
+  useEffect(() => {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm   = String(now.getMonth() + 1).padStart(2, "0");
+    const monthStart = `${yyyy}-${mm}-01`;
+    const monthEnd   = `${yyyy}-${mm}-31`;
+
+    Promise.all([
+      supabase
+        .from("card_expenses")
+        .select("category, amount, purchase_date")
+        .gte("purchase_date", monthStart)
+        .lte("purchase_date", monthEnd),
+      supabase
+        .from("card_installments")
+        .select("category, amount, purchase_date")
+        .gte("purchase_date", monthStart)
+        .lte("purchase_date", monthEnd),
+    ]).then(([expRes, instRes]) => {
+      setCardExpenses([
+        ...(expRes.data  ?? []),
+        ...(instRes.data ?? []),
+      ]);
+    }).catch(() => {});
+  }, []);
+
   const expenseCategories = useMemo(
     () => categories.filter((c) => c.type === "expense" && c.active),
     [categories],
   );
 
   const spentByCategory = useMemo(() => {
-    const now = new Date();
-    const map = new Map<string, number>();
+    const now    = new Date();
+    const curMon = now.getMonth();
+    const curYr  = now.getFullYear();
+    const map    = new Map<string, number>();
+
+    // ── Transações normais ─────────────────────────────────────────────────
     transactions.forEach((t) => {
       if (t.type !== "expense") return;
+
+      // Exclui pagamentos de fatura gerados automaticamente pelo payInvoice.
+      // Esses registros têm título no formato "Fatura <Cartão> – MM/YYYY"
+      // e categoria "Cartão de Crédito". Eles não representam gastos reais
+      // por categoria — as compras individuais são contadas abaixo via card_expenses.
+      if (
+        t.category === "Cartão de Crédito" &&
+        /^Fatura .+ – \d{2}\/\d{4}$/.test(t.title)
+      ) return;
+
       const d = parseBrDate(t.date);
-      if (d.getMonth() !== now.getMonth() || d.getFullYear() !== now.getFullYear()) return;
+      if (d.getMonth() !== curMon || d.getFullYear() !== curYr) return;
       map.set(t.category, (map.get(t.category) ?? 0) + Math.abs(t.amount));
     });
+
+    // ── Despesas de cartão de crédito (por data da compra) ─────────────────
+    // Inclui card_expenses (avulsas, recorrentes, parceladas 1ª parcela)
+    // e card_installments (parcelas 2..N). O purchase_date é sempre a data
+    // real da compra, não a data de vencimento da fatura.
+    const monthPrefix = `${curYr}-${String(curMon + 1).padStart(2, "0")}`;
+    cardExpenses.forEach((e) => {
+      if (!e.purchase_date.startsWith(monthPrefix)) return;
+      map.set(e.category, (map.get(e.category) ?? 0) + Math.abs(e.amount));
+    });
+
     return map;
-  }, [transactions]);
+  }, [transactions, cardExpenses]);
 
   return (
     <div className="space-y-3">
