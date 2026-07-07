@@ -4,6 +4,7 @@ import { ArrowLeft, Plus, Pencil, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   useCategories, addCategory, updateCategory, deleteCategory,
   type Category, type CategoryType,
@@ -172,10 +173,17 @@ function CategoriasPage() {
     }
   };
 
+  const [deletingCat, setDeletingCat] = useState<{ id: string; name: string } | null>(null);
+
   const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Excluir a categoria "${name}"?`)) return;
-    await deleteCategory(id);
+    setDeletingCat({ id, name });
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingCat) return;
+    await deleteCategory(deletingCat.id);
     toast.success("Categoria excluída.");
+    setDeletingCat(null);
   };
 
   return (
@@ -269,6 +277,15 @@ function CategoriasPage() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deletingCat}
+        title="Excluir categoria"
+        description={`Deseja excluir a categoria "${deletingCat?.name}"? Essa ação não pode ser desfeita.`}
+        confirmLabel="Excluir"
+        onConfirm={confirmDelete}
+        onClose={() => setDeletingCat(null)}
+      />
     </div>
   );
 }

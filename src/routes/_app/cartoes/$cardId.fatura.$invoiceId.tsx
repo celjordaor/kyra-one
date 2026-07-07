@@ -5,6 +5,7 @@ import {
   Eye, Pencil, Lock, CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useCardStore, type ExpenseType } from "@/lib/card-store";
 import { useCategories } from "@/lib/categories-store";
 import { cn } from "@/lib/utils";
@@ -52,8 +53,9 @@ function FaturaDetailPage() {
     [categories]
   );
 
-  const [paying, setPaying]       = useState(false);
-  const [reversing, setReversing] = useState(false);
+  const [paying, setPaying]             = useState(false);
+  const [reversing, setReversing]       = useState(false);
+  const [confirmReverse, setConfirmReverse] = useState(false);
   const [loading, setLoading]     = useState(true);
 
   const card    = cards.find(c => c.id === cardId);
@@ -115,7 +117,10 @@ function FaturaDetailPage() {
   };
 
   const handleReverse = async () => {
-    if (!confirm("Estornar esta fatura? A transação será removida.")) return;
+    setConfirmReverse(true);
+  };
+
+  const doReverse = async () => {
     setReversing(true);
     try { await reverseInvoice(invoiceId); toast.success("Fatura estornada."); }
     catch { toast.error("Erro ao estornar."); }
@@ -325,6 +330,15 @@ function FaturaDetailPage() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmReverse}
+        title="Estornar fatura"
+        description="Estornar esta fatura irá remover a transação de pagamento registrada. Essa ação não pode ser desfeita."
+        confirmLabel="Estornar"
+        onConfirm={() => { setConfirmReverse(false); doReverse(); }}
+        onClose={() => setConfirmReverse(false)}
+      />
     </div>
   );
 }

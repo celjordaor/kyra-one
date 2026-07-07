@@ -6,6 +6,7 @@ import { useCategories } from "@/lib/categories-store";
 import { useAccountBalance, saveAccountBalance } from "@/lib/account-balance-store";
 import { useCardStore, type Invoice, type CreditCard as CreditCardType } from "@/lib/card-store";
 import { DatePicker } from "@/components/cartoes/date-picker";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ScopeBottomSheet } from "@/components/scope-bottom-sheet";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
@@ -1189,13 +1190,23 @@ function DashboardEditTxDialog({
     }
   }
 
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
   async function handleDelete() {
-    if (!confirm(`Excluir "${tx.title}"?`)) return;
+    setConfirmDelete(true);
+  }
+
+  async function doDelete() {
+    setConfirmDelete(false);
     setSaving(true);
     try {
-      if (bulkEdit && tx.recurrence_id) {
+      if (editScope === "bulk" && tx.recurrence_id) {
         const { deleteTransactionSeries } = await import("@/lib/transactions-store");
-        await deleteTransactionSeries(tx.recurrence_id, tx.installment_number ?? 1);
+        if (tx.recurring) {
+          await deleteTransactionSeries(tx.recurrence_id, tx.installment_number ?? 1, tx.date);
+        } else {
+          await deleteTransactionSeries(tx.recurrence_id, tx.installment_number ?? 1);
+        }
       } else {
         await deleteTransaction(tx.id);
       }
@@ -1382,6 +1393,15 @@ function DashboardEditTxDialog({
           </div>
         </>
       )}
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Excluir transação"
+        description={`Deseja excluir "${tx.title}"${editScope === "bulk" ? " e todos os lançamentos futuros da série" : ""}? Essa ação não pode ser desfeita.`}
+        confirmLabel="Excluir"
+        onConfirm={doDelete}
+        onClose={() => setConfirmDelete(false)}
+      />
     </>
   );
 }

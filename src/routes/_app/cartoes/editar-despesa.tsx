@@ -7,8 +7,8 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useCategories } from "@/lib/categories-store";
-import { useCardStore } from "@/lib/card-store";
 import { DatePicker } from "@/components/cartoes/date-picker";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -188,7 +188,8 @@ function EditarDespesaPage() {
   const [openCat,    setOpenCat]    = useState(false);
   const [catSearch,  setCatSearch]  = useState("");
   const [openEdit,   setOpenEdit]   = useState(false);
-  const [openDelete, setOpenDelete] = useState(false);
+  const [openDelete, setOpenDelete]     = useState(false);
+  const [confirmSingle, setConfirmSingle] = useState(false);
   const [editPatch,  setEditPatch]  = useState<Record<string, unknown> | null>(null);
 
   // Carregar dados do Supabase
@@ -212,10 +213,11 @@ function EditarDespesaPage() {
   }, [expenseId, isInstallment]);
 
   // ── Recalcular total da fatura ─────────────────────────────────────────
-  // FIX: delega para a implementação única e canônica em card-store.ts
-  // (recalcInvoiceTotal), em vez de duplicar a query aqui.
   async function recalcTotal(invId: string) {
-    await useCardStore.getState().recalcInvoiceTotal(invId);
+    const { data: expData }  = await supabase.from("card_expenses").select("amount").eq("invoice_id", invId);
+    const { data: instData } = await supabase.from("card_installments").select("amount").eq("invoice_id", invId);
+    const total = [...(expData ?? []), ...(instData ?? [])].reduce((s, r) => s + (r.amount ?? 0), 0);
+    await supabase.from("invoices").update({ total_amount: total }).eq("id", invId);
   }
 
   // ── Salvar ─────────────────────────────────────────────────────────────
@@ -268,12 +270,11 @@ function EditarDespesaPage() {
 
   // ── Excluir ────────────────────────────────────────────────────────────
   function handleDelete() {
-    if (expenseType === "single") { doDeleteSingle(); return; }
+    if (expenseType === "single") { setConfirmSingle(true); return; }
     setOpenDelete(true);
   }
 
   async function doDeleteSingle() {
-    if (!confirm("Excluir esta despesa?")) return;
     setSaving(true);
     try {
       const table = isInstallment ? "card_installments" : "card_expenses";
@@ -321,7 +322,8 @@ function EditarDespesaPage() {
   const typeColor = TYPE_COLOR[expenseType];
 
   return (
-    <div className="w-screen max-w-[100vw] overflow-x-hidden min-h-screen bg-slate-50 dark:bg-background md:w-full md:max-w-2xl md:mx-auto md:overflow-x-visible">
+    <div style={{ width:"100vw", maxWidth:"100vw", overflowX:"hidden" }}
+      className="min-h-screen bg-slate-50 dark:bg-background md:max-w-2xl md:mx-auto">
 
       {/* HEADER */}
       <div style={{ background: canEdit ? "#4f46e5" : "#64748b", paddingTop:"calc(env(safe-area-inset-top,0px) + 1rem)" }}
@@ -500,6 +502,16 @@ function EditarDespesaPage() {
         onSingle={() => { setOpenDelete(false); doDeleteSingle(); }}
         onFuture={doDeleteFuture}
         loading={saving}
+      />
+
+      {/* CONFIRM: EXCLUSÃO AVULSA */}
+      <ConfirmDialog
+        open={confirmSingle}
+        title="Excluir despesa"
+        description={`Deseja excluir "${description}"? Essa ação não pode ser desfeita.`}
+        confirmLabel="Excluir"
+        onConfirm={() => { setConfirmSingle(false); doDeleteSingle(); }}
+        onClose={() => setConfirmSingle(false)}
       />
     </div>
   );
