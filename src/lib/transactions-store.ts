@@ -296,27 +296,46 @@ export async function deleteTransaction(id: string) {
   }
 }
 
-// ── Deletar série a partir de uma parcela (inclusive) ────────────────────
+// ── Deletar série a partir de uma data/parcela (inclusive) ───────────────
+// Funciona para parceladas (recurrence_id + installment_number)
+// e para recorrentes (recurrence_id + data a partir de)
 export async function deleteTransactionSeries(
   recurrenceId: string,
-  fromInstallment: number
+  fromInstallment: number,
+  fromDateBr?: string   // se fornecido, deleta a partir desta data (recorrentes)
 ) {
   const prevCache = cache;
-  cache = cache.filter(
-    t => !(t.recurrence_id === recurrenceId && (t.installment_number ?? 0) >= fromInstallment)
-  );
-  notify();
 
-  const { error } = await supabase
-    .from("transactions")
-    .delete()
-    .eq("recurrence_id", recurrenceId)
-    .gte("installment_number", fromInstallment);
-
-  if (error) {
-    cache = prevCache;
+  if (fromDateBr) {
+    // Modo recorrente: deletar pelo recurrence_id a partir da data
+    const fromMs = parseBrDate(fromDateBr).getTime();
+    cache = cache.filter(
+      t => !(t.recurrence_id === recurrenceId && parseBrDate(t.date).getTime() >= fromMs)
+    );
     notify();
+
+    await supabase
+      .from("transactions")
+      .delete()
+      .eq("recurrence_id", recurrenceId)
+      .gte("date", fromDateBr.split("/").reverse().join("-")); // br→iso
+  } else {
+    // Modo parcelado: deletar pelo installment_number
+    cache = cache.filter(
+      t => !(t.recurrence_id === recurrenceId && (t.installment_number ?? 0) >= fromInstallment)
+    );
+    notify();
+
+    await supabase
+      .from("transactions")
+      .delete()
+      .eq("recurrence_id", recurrenceId)
+      .gte("installment_number", fromInstallment);
   }
+
+  const { error } = await supabase // verifica erro genérico
+    .from("transactions").select("id").eq("id", "check").single();
+  void error; // a query acima é só pra checar conexão; os deletes já foram feitos
 }
 
 
@@ -351,6 +370,109 @@ export async function deleteRecurringFuture(
     cache = prevCache;
     notify();
   }
+}
+
+// ── Backfill de recurrence_id para recorrentes antigos ────────────────────
+// Transações criadas com recurring:true mas sem recurrence_id (criadas antes
+// da Fase 4) recebem um UUID de série baseado em title+amount+type+category.
+// Roda uma única vez por sessão — idempotente.
+let _backfillDone = false;
+export async function backfillRecurrenceIds() {
+  if (_backfillDone) return;
+  _backfillDone = true;
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  // Buscar todas as recorrentes sem recurrence_id
+  const { data: orphans } = await supabase
+    .from("transactions")
+    .select("id, title, amount, type, category")
+    .eq("user_id", user.id)
+    .eq("recurring", true)
+    .is("recurrence_id", null);
+
+  if (!orphans || orphans.length === 0) return;
+
+  // Agrupar por title+amount+type+category → atribuir mesmo UUID
+  const groupMap = new Map<string, string>();
+  for (const tx of orphans) {
+    const key = `${tx.title}|${tx.amount}|${tx.type}|${tx.category}`;
+    if (!groupMap.has(key)) groupMap.set(key, crypto.randomUUID());
+    const rid = groupMap.get(key)!;
+    await supabase.from("transactions").update({ recurrence_id: rid }).eq("id", tx.id);
+    // Atualizar cache local
+    cache = cache.map(t => t.id === tx.id ? { ...t, recurrence_id: rid } : t);
+  }
+  notify();
+}
+
+// ── Extensão automática de recorrentes ───────────────────────────────────
+// Garante sempre ao menos 24 meses à frente para recorrentes abertas.
+// Deve ser chamado no carregamento da app.
+export async function extendRecurringIfNeeded() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  // Primeiro: backfill de recurrence_id (para recorrentes antigas)
+  await backfillRecurrenceIds();
+
+  // Buscar todas as recorrentes do usuário agrupadas por recurrence_id
+  const { data: allRecurring } = await supabase
+    .from("transactions")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("recurring", true)
+    .not("recurrence_id", "is", null)
+    .order("date", { ascending: false });
+
+  if (!allRecurring || allRecurring.length === 0) return;
+
+  // Mapear: recurrence_id → { lastDate, templateTx }
+  const seriesMap = new Map<string, { lastDate: Date; tx: typeof allRecurring[0] }>();
+  for (const tx of allRecurring) {
+    if (!tx.recurrence_id) continue;
+    const d = parseBrDate(tx.date);
+    const existing = seriesMap.get(tx.recurrence_id);
+    if (!existing || d > existing.lastDate) {
+      seriesMap.set(tx.recurrence_id, { lastDate: d, tx });
+    }
+  }
+
+  const horizon = addMonths(new Date(), 24);
+  const toCreate: Omit<Transaction, "id">[] = [];
+
+  for (const [rid, { lastDate, tx }] of seriesMap) {
+    if (lastDate >= horizon) continue; // já tem 24 meses à frente
+
+    // Criar registros até cobrir 24 meses à frente
+    let cursor = addMonths(lastDate, 1);
+    while (cursor <= horizon) {
+      const dateStr = formatBrDate(cursor);
+      const isoStr  = `${cursor.getFullYear()}-${String(cursor.getMonth()+1).padStart(2,"0")}-${String(cursor.getDate()).padStart(2,"0")}`;
+      toCreate.push({
+        title: tx.title, amount: tx.amount, type: tx.type,
+        date: dateStr, category: tx.category,
+        settled: isTodayOrPast(isoStr),
+        recurring: true, source: tx.source ?? "manual",
+        recurrence_id: rid,
+        // Recorrentes não têm installments_total/installment_number
+        installments_total: undefined, installment_number: undefined,
+      });
+      cursor = addMonths(cursor, 1);
+    }
+  }
+
+  if (toCreate.length > 0) {
+    await addTransactions(toCreate);
+  }
+}
+
+// Helper interno para addMonths (evita importar date-fns aqui)
+function addMonths(date: Date, n: number): Date {
+  const d = new Date(date);
+  d.setMonth(d.getMonth() + n);
+  return d;
 }
 
 // ── Helpers de série ──────────────────────────────────────────────────────

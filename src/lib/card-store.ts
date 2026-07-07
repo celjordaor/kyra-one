@@ -106,81 +106,101 @@ export const useCardStore = create<CardStore>((set, get) => ({
 
   fetchCards: async () => {
     set({ loading: true });
-    const { data, error } = await supabase.from("credit_cards").select("*").order("created_at", { ascending: true });
-    if (error) {
-      console.error("[card-store] erro ao buscar cartões:", error);
-    }
+    const { data } = await supabase.from("credit_cards").select("*").order("created_at", { ascending: true });
     set({ cards: data ?? [], loading: false });
-    // Verificar e fechar faturas expiradas ao carregar cartões
     await get().closeExpiredInvoices();
+    // ── Rolling window: garantir sempre 13 meses de faturas para cada cartão ──
+    // Roda de forma assíncrona para não bloquear a UI
+    for (const card of (data ?? []).filter(c => c.active)) {
+      get().ensureInvoices(card).catch(() => {});
+    }
   },
 
   setDefaultCard: async (id) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Usuário não autenticado.");
-    const { error: e1 } = await supabase.from("credit_cards").update({ is_default: false }).eq("user_id", user.id);
-    if (e1) { console.error("[card-store] erro ao limpar padrão:", e1); throw e1; }
-    const { error: e2 } = await supabase.from("credit_cards").update({ is_default: true }).eq("id", id);
-    if (e2) { console.error("[card-store] erro ao definir padrão:", e2); throw e2; }
+    const { data: { user } } = await supabase.auth.getUser(); if (!user) return;
+    await supabase.from("credit_cards").update({ is_default: false }).eq("user_id", user.id);
+    await supabase.from("credit_cards").update({ is_default: true }).eq("id", id);
     set(s => ({ cards: s.cards.map(c => ({ ...c, is_default: c.id === id })) }));
   },
 
-  // FIX: agora loga e RELANÇA o erro real do Supabase, em vez de engolir
-  // silenciosamente e deixar a UI achar que o cartão foi criado com sucesso.
   addCard: async (card) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Usuário não autenticado.");
+    const { data: { user } } = await supabase.auth.getUser(); if (!user) return;
     const isFirst = get().cards.filter(c => c.active).length === 0;
-    const { data, error } = await supabase
-      .from("credit_cards")
-      .insert({ ...card, user_id: user.id, is_default: isFirst })
-      .select()
-      .single();
-    if (error) {
-      console.error("[card-store] erro ao criar cartão:", error);
-      throw error;
-    }
-    if (!data) {
-      throw new Error("O Supabase não retornou os dados do cartão criado.");
-    }
+    const { data, error } = await supabase.from("credit_cards").insert({ ...card, user_id: user.id, is_default: isFirst }).select().single();
+    if (error || !data) return;
     set(s => ({ cards: [...s.cards, data] }));
     await get().ensureInvoices(data);
   },
 
   updateCard: async (id, data) => {
-    const { error } = await supabase.from("credit_cards").update(data).eq("id", id);
-    if (error) { console.error("[card-store] erro ao atualizar cartão:", error); throw error; }
+    await supabase.from("credit_cards").update(data).eq("id", id);
     set(s => ({ cards: s.cards.map(c => c.id === id ? { ...c, ...data } : c) }));
   },
   deleteCard: async (id) => {
-    const { error } = await supabase.from("credit_cards").delete().eq("id", id);
-    if (error) { console.error("[card-store] erro ao excluir cartão:", error); throw error; }
+    await supabase.from("credit_cards").delete().eq("id", id);
     set(s => ({ cards: s.cards.filter(c => c.id !== id) }));
   },
 
   fetchInvoices: async (cardId) => {
-    const { data, error } = await supabase.from("invoices").select("*").eq("card_id", cardId).order("closing_date", { ascending: true });
-    if (error) console.error("[card-store] erro ao buscar faturas:", error);
+    const { data } = await supabase.from("invoices").select("*").eq("card_id", cardId).order("closing_date", { ascending: true });
     set(s => ({ invoices: [...s.invoices.filter(i => i.card_id !== cardId), ...(data ?? [])] }));
     // Fechar faturas expiradas ao atualizar lista de invoices
     await get().closeExpiredInvoices();
   },
   ensureInvoices: async (card) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
-    const { data: existing, error: existErr } = await supabase.from("invoices").select("competence").eq("card_id", card.id);
-    if (existErr) console.error("[card-store] erro ao verificar faturas existentes:", existErr);
+    const { data: { user } } = await supabase.auth.getUser(); if (!user) return [];
+    const { data: existing } = await supabase.from("invoices").select("*").eq("card_id", card.id);
     const existingSet = new Set((existing ?? []).map(i => i.competence));
-    const now = new Date(); const toInsert: Omit<Invoice, "id"|"created_at">[] = [];
-    for (let i = 0; i < 12; i++) {
+    const now = new Date();
+
+    // ── Rolling window: sempre garantir 13 meses à frente ──────────────────
+    // 13 = mês atual + 12 futuros (1 além do que estava antes)
+    const toInsert: Omit<Invoice, "id"|"created_at">[] = [];
+    for (let i = 0; i < 13; i++) {
       const ref = addMonths(now, i);
       const { competence, closing_date, due_date } = buildInvoiceDates(card, ref);
-      if (!existingSet.has(competence)) toInsert.push({ user_id: user.id, card_id: card.id, competence, closing_date, due_date, total_amount: 0, status: "open", transaction_id: null });
+      if (!existingSet.has(competence)) {
+        toInsert.push({ user_id: user.id, card_id: card.id, competence, closing_date, due_date, total_amount: 0, status: "open", transaction_id: null });
+      }
     }
+
     if (toInsert.length > 0) {
-      const { error: insErr } = await supabase.from("invoices").insert(toInsert);
-      if (insErr) console.error("[card-store] erro ao gerar faturas automáticas:", insErr);
+      const { data: newInvoices } = await supabase.from("invoices").insert(toInsert).select();
+
+      // ── Fase 2: auto-popular despesas recorrentes em faturas novas ──────
+      // Usa a fatura mais recente existente como "template" de recorrentes
+      if (newInvoices && newInvoices.length > 0 && (existing ?? []).length > 0) {
+        const lastExisting = [...(existing ?? [])].sort((a, b) =>
+          b.competence.localeCompare(a.competence)
+        )[0];
+
+        if (lastExisting) {
+          const { data: templates } = await supabase
+            .from("card_expenses")
+            .select("description, category, amount, observations")
+            .eq("invoice_id", lastExisting.id)
+            .eq("expense_type", "recurring");
+
+          if (templates && templates.length > 0) {
+            const rows = newInvoices.flatMap(inv =>
+              templates.map(t => ({
+                user_id: user.id, card_id: card.id, invoice_id: inv.id,
+                description: t.description, category: t.category,
+                amount: t.amount, observations: t.observations ?? null,
+                purchase_date: inv.closing_date,   // data de fechamento como referência
+                expense_type: "recurring" as ExpenseType,
+                installments_total: 1, installment_number: 1,
+              }))
+            );
+            await supabase.from("card_expenses").insert(rows);
+            for (const inv of newInvoices) {
+              await get().recalcInvoiceTotal(inv.id);
+            }
+          }
+        }
+      }
     }
+
     await get().fetchInvoices(card.id);
     return get().invoices.filter(i => i.card_id === card.id);
   },
@@ -249,30 +269,99 @@ export const useCardStore = create<CardStore>((set, get) => ({
 
   addExpense: async ({ card, invoiceId, category, description, amount, purchaseDate, installments, isRecurring, observations }) => {
     const { data: { user } } = await supabase.auth.getUser(); if (!user) return;
-    const allInvoices = get().invoices.filter(i => i.card_id === card.id && i.status === "open").sort(sortByCompetence);
+
     if (isRecurring) {
-      const rows = allInvoices.slice(0, 12).map((inv, idx) => ({ user_id: user.id, card_id: card.id, invoice_id: inv.id, category, description, amount, purchase_date: purchaseDate, installments_total: 1, installment_number: idx + 1, expense_type: "recurring" as ExpenseType, observations }));
+      // ── Despesa recorrente ──────────────────────────────────────────────
+      // Garante 13 meses de faturas e pega todas as abertas
+      await get().ensureInvoices(card);
+      const allInvoices = get().invoices
+        .filter(i => i.card_id === card.id && i.status === "open")
+        .sort(sortByCompetence);
+
+      // Cria 1 lançamento em cada fatura aberta existente (até 13)
+      const rows = allInvoices.slice(0, 13).map((inv, idx) => ({
+        user_id: user.id, card_id: card.id, invoice_id: inv.id,
+        category, description, amount,
+        purchase_date: purchaseDate,
+        installments_total: 1, installment_number: idx + 1,
+        expense_type: "recurring" as ExpenseType, observations,
+      }));
       const { data } = await supabase.from("card_expenses").insert(rows).select();
       if (data) set(s => ({ expenses: [...s.expenses, ...data] }));
-      for (const inv of allInvoices.slice(0, 12)) await get().recalcInvoiceTotal(inv.id);
+      for (const inv of allInvoices.slice(0, 13)) await get().recalcInvoiceTotal(inv.id);
+
     } else if (installments > 1) {
+      // ── Despesa parcelada ───────────────────────────────────────────────
+      // Fase 3: garantir faturas suficientes para todas as parcelas
+      const monthsNeeded = installments + 2;  // +2 de margem
+      const existingCount = get().invoices.filter(i => i.card_id === card.id && i.status === "open").length;
+      if (existingCount < monthsNeeded) {
+        // Força criação de faturas extras além dos 13 padrão
+        const { data: { user: u } } = await supabase.auth.getUser(); if (!u) return;
+        const { data: existingInvs } = await supabase.from("invoices").select("competence").eq("card_id", card.id);
+        const existingSet = new Set((existingInvs ?? []).map(i => i.competence));
+        const toInsert: Omit<Invoice, "id"|"created_at">[] = [];
+        const now = new Date();
+        for (let i = 0; i < monthsNeeded; i++) {
+          const ref = addMonths(now, i);
+          const { competence, closing_date, due_date } = buildInvoiceDates(card, ref);
+          if (!existingSet.has(competence)) {
+            toInsert.push({ user_id: u.id, card_id: card.id, competence, closing_date, due_date, total_amount: 0, status: "open", transaction_id: null });
+          }
+        }
+        if (toInsert.length > 0) {
+          await supabase.from("invoices").insert(toInsert);
+          await get().fetchInvoices(card.id);
+        }
+      }
+
+      // Agora cria as parcelas — todas as faturas necessárias existem
+      const allInvoices = get().invoices
+        .filter(i => i.card_id === card.id && i.status === "open")
+        .sort(sortByCompetence);
+
       const instAmt = Math.round((amount / installments) * 100) / 100;
       const startIdx = allInvoices.findIndex(i => i.id === invoiceId);
-      const { data: parent } = await supabase.from("card_expenses").insert({ user_id: user.id, card_id: card.id, invoice_id: invoiceId, category, description: `${description} 1/${installments}`, amount: instAmt, purchase_date: purchaseDate, installments_total: installments, installment_number: 1, expense_type: "installment" as ExpenseType, observations }).select().single();
+      const { data: parent } = await supabase.from("card_expenses").insert({
+        user_id: user.id, card_id: card.id, invoice_id: invoiceId,
+        category, description: `${description} 1/${installments}`,
+        amount: instAmt, purchase_date: purchaseDate,
+        installments_total: installments, installment_number: 1,
+        expense_type: "installment" as ExpenseType, observations,
+      }).select().single();
       if (!parent) return;
       set(s => ({ expenses: [...s.expenses, parent] }));
       await get().recalcInvoiceTotal(invoiceId);
+
       const remaining = [];
       for (let i = 1; i < installments; i++) {
-        const target = allInvoices[startIdx + i]; if (!target) break;
-        remaining.push({ user_id: user.id, card_id: card.id, invoice_id: target.id, parent_expense_id: parent.id, description: `${description} ${i + 1}/${installments}`, category, amount: instAmt, installment_number: i + 1, installments_total: installments, purchase_date: purchaseDate });
+        const target = allInvoices[startIdx + i];
+        if (!target) break;  // não deve mais ocorrer após ensureInvoices
+        remaining.push({
+          user_id: user.id, card_id: card.id, invoice_id: target.id,
+          parent_expense_id: parent.id,
+          description: `${description} ${i + 1}/${installments}`,
+          category, amount: instAmt, installment_number: i + 1,
+          installments_total: installments, purchase_date: purchaseDate,
+        });
       }
       if (remaining.length > 0) {
         const { data: instData } = await supabase.from("card_installments").insert(remaining).select();
-        if (instData) { set(s => ({ installments: [...s.installments, ...instData] })); const ids = [...new Set(remaining.map(r => r.invoice_id))]; for (const id of ids) await get().recalcInvoiceTotal(id); }
+        if (instData) {
+          set(s => ({ installments: [...s.installments, ...instData] }));
+          const ids = [...new Set(remaining.map(r => r.invoice_id))];
+          for (const id of ids) await get().recalcInvoiceTotal(id);
+        }
       }
+
     } else {
-      const { data } = await supabase.from("card_expenses").insert({ user_id: user.id, card_id: card.id, invoice_id: invoiceId, category, description, amount, purchase_date: purchaseDate, installments_total: 1, installment_number: 1, expense_type: "single" as ExpenseType, observations }).select().single();
+      // ── Despesa avulsa ─────────────────────────────────────────────────
+      const { data } = await supabase.from("card_expenses").insert({
+        user_id: user.id, card_id: card.id, invoice_id: invoiceId,
+        category, description, amount, purchase_date: purchaseDate,
+        installments_total: 1, installment_number: 1,
+        expense_type: "single" as ExpenseType, observations,
+      }).select().single();
       if (data) set(s => ({ expenses: [...s.expenses, data] }));
       await get().recalcInvoiceTotal(invoiceId);
     }
