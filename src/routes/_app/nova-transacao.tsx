@@ -214,17 +214,12 @@ function NovaTransacaoPage() {
       setSuccess(`${label} parcelada em ${repeatMonths}x!`);
     } else {
       const count = recurring ? RECURRING_MONTHS : 1;
-      const rid   = recurring ? crypto.randomUUID() : undefined;  // UUID compartilhado para toda a série
       addTransactions(Array.from({ length: count }, (_, i) => {
         const dt = new Date(base); dt.setMonth(dt.getMonth() + i);
         const iso = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
-        return {
-          title: data.title, amount: signed, type: tipo,
+        return { title: data.title, amount: signed, type: tipo,
           date: formatBrDate(dt), category: data.category,
-          settled: i === 0 ? settled : isTodayOrPast(iso),
-          recurring, source: "manual" as const,
-          recurrence_id: rid,               // ← une todos da série pelo mesmo UUID
-        };
+          settled: i === 0 ? settled : isTodayOrPast(iso), recurring, source: "manual" as const };
       }));
       setSuccess(recurring ? `${label} recorrente criada!` : `${label} adicionada!`);
     }
@@ -236,7 +231,7 @@ function NovaTransacaoPage() {
 
   return (
     <div className="bg-slate-50 dark:bg-background md:max-w-2xl md:mx-auto" style={{ width: "100%", maxWidth: "min(100%, 672px)", minHeight: "100dvh" }}>
-      <form onSubmit={handleSubmit(onSubmit)} className="w-full">
+      <form id="nova-tx-form" onSubmit={handleSubmit(onSubmit)} className="w-full">
 
         {/* ── HEADER ────────────────────────────────────────────────── */}
         <div className={cn(headerBg, "w-full text-white px-4 pb-8")}
@@ -361,7 +356,11 @@ function NovaTransacaoPage() {
         </TxSection>
 
         {/* ── BOTÃO ─────────────────────────────────────────────────── */}
-        <div className="mx-4 mt-2 mb-4">
+        {/* Mobile: espaçador para o botão fixo não cobrir o conteúdo   */}
+        <div className="md:hidden" style={{ height: "8.5rem" }} />
+
+        {/* Desktop: botão inline dentro do scroll do modal             */}
+        <div className="hidden md:block mx-4 mt-2 mb-4">
           <button type="submit" disabled={isSubmitting}
             className="w-full rounded-2xl text-white font-bold transition-all active:scale-95 disabled:opacity-70"
             style={{ height: "60px", fontSize: "17px", backgroundColor: accentHex, boxShadow: `0 6px 20px ${accentHex}44` }}>
@@ -375,6 +374,35 @@ function NovaTransacaoPage() {
           )}
         </div>
       </form>
+
+      {/* ── BOTÃO SUSPENSO — fixo acima do menu inferior, apenas mobile ── */}
+      <div
+        className="md:hidden fixed left-0 right-0 z-40 px-4 pt-3 pb-3"
+        style={{ bottom: "calc(68px + env(safe-area-inset-bottom, 0px))" }}>
+        <button
+          type="submit"
+          form="nova-tx-form"
+          disabled={isSubmitting}
+          className="w-full rounded-2xl text-white font-bold disabled:opacity-70"
+          style={{
+            height: "56px", fontSize: "17px",
+            backgroundColor: accentHex,
+            boxShadow: `0 6px 24px ${accentHex}66`,
+            border: "none", cursor: "pointer",
+            transition: "opacity 0.15s, transform 0.1s",
+          }}
+          onTouchStart={e => { (e.currentTarget as HTMLElement).style.transform = "scale(0.97)"; }}
+          onTouchEnd={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1)"; }}
+        >
+          {isSubmitting ? "Salvando..." : isIncome ? "✓  Registrar receita" : "✓  Registrar despesa"}
+        </button>
+        {success && (
+          <div className="mt-2 flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold text-white"
+            style={{ backgroundColor: accentHex }}>
+            <CheckCircle2 className="h-5 w-5 shrink-0" /> {success}
+          </div>
+        )}
+      </div>
 
       {/* ── BOTTOM SHEET: CATEGORIA ───────────────────────────────────── */}
       <BottomSheet open={openCat} onClose={() => { setOpenCat(false); setCatSearch(""); }}
