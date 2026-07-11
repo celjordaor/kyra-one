@@ -22,15 +22,30 @@ const navItems = [
   { to: "/mais",           label: "Config.",    icon: Settings },
 ];
 
-// ── Nav items mobile bottom bar: Início | Cartões | [+] | Faturas | Config ──
-// Transações foi removida do nav mobile — fica no dashboard como atalho
-const mobileNavLeft  = [
-  { to: "/dashboard", label: "Início",  icon: Home },
-  { to: "/cartoes",   label: "Cartões", icon: CreditCard },
+// ── Nav items mobile — com cor de ícone e fundo para estilo visual ───────
+const mobileNavLeft: { to: string; label: string; icon: React.ElementType; iconBg: string; iconColor: string; activeBg: string; activeColor: string }[] = [
+  {
+    to: "/dashboard", label: "Início", icon: Home,
+    iconBg: "bg-indigo-100",  iconColor: "text-indigo-500",
+    activeBg: "bg-indigo-500", activeColor: "text-indigo-600",
+  },
+  {
+    to: "/cartoes", label: "Cartões", icon: CreditCard,
+    iconBg: "bg-blue-100",    iconColor: "text-blue-500",
+    activeBg: "bg-blue-500",   activeColor: "text-blue-600",
+  },
 ];
-const mobileNavRight = [
-  { to: "/faturas-cartao", label: "Faturas", icon: Tag },
-  { to: "/mais",           label: "Config.", icon: Settings },
+const mobileNavRight: typeof mobileNavLeft = [
+  {
+    to: "/faturas-cartao", label: "Faturas", icon: Tag,
+    iconBg: "bg-amber-100",    iconColor: "text-amber-500",
+    activeBg: "bg-amber-500",  activeColor: "text-amber-600",
+  },
+  {
+    to: "/mais", label: "Config.", icon: Settings,
+    iconBg: "bg-slate-100",    iconColor: "text-slate-500",
+    activeBg: "bg-slate-400",  activeColor: "text-slate-600",
+  },
 ];
 
 function AppLayout() {
@@ -214,60 +229,84 @@ function AppLayout() {
         )}
 
         {/* ══ BOTTOM NAV — PWA / MOBILE ══════════════════════════════════ */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 border-t border-border/60 bg-card/98 backdrop-blur-md">
-          <div className="flex w-full items-stretch" style={{ height: "68px" }}>
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30"
+          style={{
+            background: "rgba(255,255,255,0.97)",
+            backdropFilter: "blur(16px)",
+            boxShadow: "0 -1px 0 rgba(0,0,0,0.06), 0 -4px 20px rgba(0,0,0,0.05)",
+          }}>
+          <div className="flex w-full items-center px-2" style={{ height: "68px" }}>
 
             {/* ── Esquerda: Início + Cartões ── */}
-            {mobileNavLeft.map(({ to, label, icon: Icon }) => {
-              const isActive = pathname === to || pathname.startsWith(to + "/");
+            {mobileNavLeft.map(({ to, label, icon: Icon, iconBg, iconColor, activeBg, activeColor }) => {
+              const isActive = pathname === to || (to !== "/dashboard" && pathname.startsWith(to + "/"));
               return (
-                <Link key={to} to={to}
-                  className="flex flex-1 flex-col items-center justify-center h-full"
-                  style={{ gap: "3px" }}>
-                  <Icon className={cn("h-[24px] w-[24px] shrink-0",
-                    isActive ? "text-primary" : "text-muted-foreground"
-                  )} />
-                  <span className={cn("text-[10px] font-semibold leading-none",
-                    isActive ? "text-primary" : "text-muted-foreground"
+                <button key={to} type="button"
+                  onClick={() => router.navigate({ to })}
+                  className="flex flex-1 flex-col items-center justify-center gap-1.5 h-full transition-all active:scale-95">
+                  {/* Caixa do ícone */}
+                  <div className={cn(
+                    "flex h-9 w-9 items-center justify-center rounded-xl transition-all duration-200",
+                    isActive ? activeBg : iconBg
+                  )}>
+                    <Icon className={cn(
+                      "h-[19px] w-[19px] transition-colors duration-200",
+                      isActive ? "text-white" : iconColor
+                    )} />
+                  </div>
+                  <span className={cn(
+                    "text-[10px] font-semibold leading-none transition-colors",
+                    isActive ? activeColor : "text-slate-400"
                   )}>{label}</span>
-                </Link>
+                </button>
               );
             })}
 
-            {/* ── Centro: botão Adicionar destacado ── */}
-            <button onClick={() => setAddMenuOpen(!addMenuOpen)}
-              className="flex flex-1 flex-col items-center justify-center h-full"
-              style={{ gap: "3px" }}>
+            {/* ── Centro: botão Adicionar ── */}
+            <button type="button" onClick={() => setAddMenuOpen(!addMenuOpen)}
+              className="flex flex-1 flex-col items-center justify-center gap-1.5 h-full active:scale-95 transition-transform">
               <div className={cn(
-                "flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition-all duration-200",
-                addMenuOpen && "rotate-45 shadow-lg shadow-primary/30"
+                "flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition-all duration-200",
+                addMenuOpen
+                  ? "bg-slate-700 shadow-slate-700/30 rotate-45"
+                  : "bg-primary shadow-primary/30"
               )}>
-                {addMenuOpen ? <X className="h-6 w-6" /> : <PlusCircle className="h-6 w-6" />}
+                {addMenuOpen
+                  ? <X className="h-6 w-6 text-white"/>
+                  : <PlusCircle className="h-6 w-6 text-white"/>}
               </div>
-              <span className={cn("text-[10px] font-semibold leading-none",
-                addMenuOpen ? "text-primary" : "text-muted-foreground"
+              <span className={cn(
+                "text-[10px] font-semibold leading-none",
+                addMenuOpen ? "text-slate-500" : "text-primary"
               )}>Adicionar</span>
             </button>
 
             {/* ── Direita: Faturas + Configurações ── */}
-            {mobileNavRight.map(({ to, label, icon: Icon }) => {
+            {mobileNavRight.map(({ to, label, icon: Icon, iconBg, iconColor, activeBg, activeColor }) => {
               const isActive = pathname === to || pathname.startsWith(to + "/");
               return (
-                <Link key={to} to={to}
-                  className="flex flex-1 flex-col items-center justify-center h-full"
-                  style={{ gap: "3px" }}>
-                  <Icon className={cn("h-[24px] w-[24px] shrink-0",
-                    isActive ? "text-primary" : "text-muted-foreground"
-                  )} />
-                  <span className={cn("text-[10px] font-semibold leading-none",
-                    isActive ? "text-primary" : "text-muted-foreground"
+                <button key={to} type="button"
+                  onClick={() => router.navigate({ to })}
+                  className="flex flex-1 flex-col items-center justify-center gap-1.5 h-full transition-all active:scale-95">
+                  <div className={cn(
+                    "flex h-9 w-9 items-center justify-center rounded-xl transition-all duration-200",
+                    isActive ? activeBg : iconBg
+                  )}>
+                    <Icon className={cn(
+                      "h-[19px] w-[19px] transition-colors duration-200",
+                      isActive ? "text-white" : iconColor
+                    )} />
+                  </div>
+                  <span className={cn(
+                    "text-[10px] font-semibold leading-none transition-colors",
+                    isActive ? activeColor : "text-slate-400"
                   )}>{label}</span>
-                </Link>
+                </button>
               );
             })}
 
           </div>
-          {/* Safe area spacer */}
+          {/* Safe area iOS */}
           <div style={{ height: "env(safe-area-inset-bottom, 0px)" }} />
         </nav>
       </div>
