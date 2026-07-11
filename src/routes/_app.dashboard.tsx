@@ -1,6 +1,6 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { TrendingUp, TrendingDown, PiggyBank, ChevronLeft, ChevronRight, ChevronDown, CalendarDays, Eye, EyeOff, AlertCircle, Check, User, LogOut, KeyRound, CreditCard, Plus, Receipt, Shield, ListChecks, Settings, Wallet, X, Pencil, Save, Trash2, Search } from "lucide-react";
+import { TrendingUp, TrendingDown, PiggyBank, ChevronLeft, ChevronRight, ChevronDown, CalendarDays, Eye, EyeOff, AlertCircle, Check, User, LogOut, KeyRound, CreditCard, Plus, Receipt, Shield, ListChecks, Settings, Wallet, X, Pencil, Save, Trash2, Search, ClipboardPaste, AlertCircle as AlertIcon } from "lucide-react";
 import { useTransactions, parseBrDate, toggleSettled, updateTransaction, deleteTransaction, deleteTransactionSeries, type Transaction } from "@/lib/transactions-store";
 import { useCategories } from "@/lib/categories-store";
 import { useAccountBalance, saveAccountBalance } from "@/lib/account-balance-store";
@@ -25,6 +25,69 @@ export const Route = createFileRoute("/_app/dashboard")({
 });
 
 const MONTHS = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+
+// ══════════════════════════════════════════════════════════════════════════
+// PARSER DE NOTIFICAÇÕES BANCÁRIAS — 100% client-side, sem API
+// ══════════════════════════════════════════════════════════════════════════
+type ParseResult = { amount: number; merchant: string; isCard: boolean; cardHint: string | null; confidence: number };
+
+const BANK_PATTERNS = [
+  { hint: "Nubank",    rx: /nubank/i },
+  { hint: "Itaú",     rx: /ita[uú]/i },
+  { hint: "Bradesco",  rx: /bradesco/i },
+  { hint: "C6",        rx: /\bc6\b|c6\s*bank/i },
+  { hint: "Inter",     rx: /\binter\b/i },
+  { hint: "Santander", rx: /santander/i },
+  { hint: "Caixa",     rx: /\bcaixa\b/i },
+  { hint: "XP",        rx: /\bxp\b/i },
+  { hint: "PicPay",    rx: /picpay/i },
+  { hint: "Porto",     rx: /\bporto\b/i },
+  { hint: "BTG",       rx: /\bbtg\b/i },
+  { hint: "SemParar",  rx: /sem\s*parar/i },
+];
+const CARD_WORDS  = /cartão|crédito|compra\s+aprovada|aprovada?\s+no\s+cart|limite|fatura/i;
+const DEBIT_WORDS = /d[eé]bito|pix|ted|doc|transfer[eê]ncia|conta\s+corrente/i;
+const AMOUNT_RX   = [
+  /R\$\s*([\d]+(?:\.\d{3})*(?:,\d{2})?)/i,
+  /(?:valor|compra|débito|crédito)[:\s]+R?\$?\s*([\d]+(?:\.\d{3})*(?:,\d{2})?)/i,
+  /([\d]+(?:\.\d{3})*,\d{2})/,
+];
+const MERCHANT_RX = [
+  /\b(?:no|na|no\(a\))\s+([A-Za-zÀ-ú][A-Za-zÀ-ú0-9\s&.'-]{2,40?}?)(?:\s+aprovada?|\s+R\$|[.,!]|$)/i,
+  /\bem\s+([A-Za-zÀ-ú][A-Za-zÀ-ú0-9\s&.'-]{2,40?}?)(?:\s+aprovada?|\s+R\$|[.,!]|$)/i,
+  /R\$\s*[\d.,]+\s*[-–]\s*([A-Za-zÀ-ú][A-Za-zÀ-ú0-9\s&.'-]{2,40?}?)(?:[.,!]|$)/i,
+  /:\s*([A-Za-zÀ-ú][A-Za-zÀ-ú0-9\s&.'-]{3,40?}?)\s+R\$/i,
+];
+const NOISE = /\b(compra|aprovada?|realizada?|cartão|crédito|débito|fatura|banco|app|pix|ted|doc)\b/gi;
+
+function parseNotifText(text: string): ParseResult {
+  const r: ParseResult = { amount: 0, merchant: "", isCard: true, cardHint: null, confidence: 0 };
+  if (!text.trim()) return r;
+  for (const rx of AMOUNT_RX) {
+    const m = text.match(rx);
+    if (m?.[1]) {
+      const v = parseFloat(m[1].replace(/\./g,"").replace(",","."));
+      if (v > 0) { r.amount = v; r.confidence += 0.4; break; }
+    }
+  }
+  const hasCard  = CARD_WORDS.test(text);
+  const hasDebit = DEBIT_WORDS.test(text);
+  r.isCard = hasDebit && !hasCard ? false : true;
+  if (hasCard || hasDebit) r.confidence += 0.2;
+  for (const { hint, rx } of BANK_PATTERNS) {
+    if (rx.test(text)) { r.cardHint = hint; r.confidence += 0.1; break; }
+  }
+  for (const rx of MERCHANT_RX) {
+    const m = text.match(rx);
+    if (m?.[1]) {
+      const clean = m[1].replace(NOISE," ").replace(/\s{2,}/g," ").trim()
+        .split(" ").map(w => w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(" ").trim();
+      if (clean.length >= 3) { r.merchant = clean; r.confidence += 0.3; break; }
+    }
+  }
+  r.confidence = Math.min(r.confidence, 1);
+  return r;
+}
 // Paleta neutra (slate) usada no gráfico de barras de "Gastos por categoria"
 const NEUTRAL_BAR_COLORS = ["bg-slate-800","bg-slate-600","bg-slate-500","bg-slate-400","bg-slate-300","bg-slate-200"];
 const fmtCurrency = (v: number) => new Intl.NumberFormat("pt-BR",{ style:"currency", currency:"BRL" }).format(v);
@@ -133,6 +196,95 @@ function DashboardPage() {
   const now=new Date();
   const [selectedMonth,setSelectedMonth]=useState(now.getMonth());
   const [selectedYear,setSelectedYear]=useState(now.getFullYear());
+
+  // ── Estados do modal de clipboard ──────────────────────────────────────
+  const [openClip,      setOpenClip]      = useState(false);
+  const [clipText,      setClipText]      = useState("");
+  const [clipParsed,    setClipParsed]    = useState<ParseResult | null>(null);
+  const [clipMode,      setClipMode]      = useState<"card"|"expense"|"income">("card");
+  const [clipAmtDisp,   setClipAmtDisp]   = useState("");
+  const [clipAmtVal,    setClipAmtVal]    = useState(0);
+  const [clipDesc,      setClipDesc]      = useState("");
+  const [clipCategory,  setClipCategory]  = useState("");
+  const [clipCardId,    setClipCardId]    = useState<string|null>(null);
+  const [clipDate,      setClipDate]      = useState(new Date().toISOString().split("T")[0]);
+  const [clipSettled,   setClipSettled]   = useState(false);
+  const [clipSaving,    setClipSaving]    = useState(false);
+  const [clipOpenCat,   setClipOpenCat]   = useState(false);
+  const [clipCatSearch, setClipCatSearch] = useState("");
+
+  async function handleClipboard() {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text.trim()) { toast.info("Clipboard vazio — copie o texto da notificação primeiro."); return; }
+      const parsed = parseNotifText(text);
+      setClipText(text);
+      setClipParsed(parsed);
+      setClipMode(parsed.isCard ? "card" : "expense");
+      setClipAmtDisp(parsed.amount > 0 ? parsed.amount.toLocaleString("pt-BR",{minimumFractionDigits:2}) : "");
+      setClipAmtVal(parsed.amount);
+      setClipDesc(parsed.merchant);
+      setClipCategory("");
+      setClipDate(new Date().toISOString().split("T")[0]);
+      setClipSettled(false);
+      // Auto-seleciona cartão pelo hint
+      if (parsed.cardHint && cards.length > 0) {
+        const hint = parsed.cardHint.toLowerCase();
+        const match = cards.find(c => c.name.toLowerCase().includes(hint) || c.bank.toLowerCase().includes(hint));
+        if (match) { setClipCardId(match.id); fetchInvoices(match.id); }
+        else setClipCardId(null);
+      } else setClipCardId(null);
+      setOpenClip(true);
+    } catch {
+      toast.error("Permissão negada para ler o clipboard. Tente colar manualmente.");
+    }
+  }
+
+  function handleClipAmtChange(raw: string) {
+    const digits = raw.replace(/\D/g,"");
+    if (!digits) { setClipAmtDisp(""); setClipAmtVal(0); return; }
+    const v = parseInt(digits,10)/100;
+    setClipAmtDisp(v.toLocaleString("pt-BR",{minimumFractionDigits:2}));
+    setClipAmtVal(v);
+  }
+
+  async function saveClipExpense() {
+    if (!clipAmtVal || clipAmtVal <= 0) { toast.error("Informe o valor."); return; }
+    if (!clipDesc.trim()) { toast.error("Informe a descrição."); return; }
+    if (!clipCategory)    { toast.error("Selecione a categoria."); return; }
+    setClipSaving(true);
+    try {
+      if (clipMode === "card") {
+        if (!clipCardId) { toast.error("Selecione o cartão."); setClipSaving(false); return; }
+        const card = cards.find(c=>c.id===clipCardId);
+        if (!card) { toast.error("Cartão não encontrado."); setClipSaving(false); return; }
+        const inv = invoices.filter(i=>i.card_id===clipCardId&&i.status==="open").sort((a,b)=>a.competence.localeCompare(b.competence))[0];
+        if (!inv) { toast.error("Nenhuma fatura aberta para este cartão."); setClipSaving(false); return; }
+        await useCardStore.getState().addExpense({
+          card, invoiceId: inv.id, category: clipCategory,
+          description: clipDesc.trim(), amount: clipAmtVal,
+          purchaseDate: clipDate, installments: 1, isRecurring: false,
+        });
+        toast.success("Lançado no cartão!", { description: `${card.name} · ${fmtCurrency(clipAmtVal)}` });
+      } else {
+        const { addTransactions } = await import("@/lib/transactions-store");
+        const [y,m,d] = clipDate.split("-");
+        await addTransactions([{
+          title: clipDesc.trim(),
+          amount: clipMode==="expense" ? -clipAmtVal : clipAmtVal,
+          type: clipMode==="expense" ? "expense" : "income",
+          date: `${d}/${m}/${y}`,
+          category: clipCategory,
+          settled: clipSettled,
+          recurring: false,
+          source: "manual",
+        }]);
+        toast.success(clipMode==="income" ? "Receita registrada!" : "Despesa registrada!", { description: `${clipDesc.trim()} · ${fmtCurrency(clipAmtVal)}` });
+      }
+      setOpenClip(false);
+    } catch { toast.error("Erro ao salvar. Tente novamente."); }
+    finally { setClipSaving(false); }
+  }
   const [showValues,setShowValues]=useState(true);
   const [billReminders,setBillReminders]=useState(DEFAULT_NOTIFS.billReminders);
   const [showRecent,setShowRecent]=useState(false); // "Últimas movimentações" — colapsada por padrão
@@ -453,6 +605,21 @@ function DashboardPage() {
         <button onClick={goNextMonth} className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-foreground hover:bg-muted/80"><ChevronRight className="h-5 w-5"/></button>
       </div>
 
+      {/* ── Botão de lançamento por clipboard ── */}
+      <button
+        onClick={handleClipboard}
+        className="flex w-full items-center gap-3 rounded-2xl border border-dashed border-primary/30 bg-primary/5 px-4 py-3 text-left transition-colors hover:bg-primary/10 active:scale-[0.98]"
+      >
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+          <ClipboardPaste className="h-5 w-5 text-primary"/>
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-primary">Lançar do clipboard</p>
+          <p className="text-xs text-muted-foreground">Copie a notificação do banco e toque aqui</p>
+        </div>
+        <span className="text-[10px] font-bold text-primary/60 uppercase tracking-wide">Novo</span>
+      </button>
+
       {/* Balance Cards — Saldo do mês + Saldo da conta (mesma linha) */}
       <div className="grid grid-cols-2 gap-3">
         <div className="relative overflow-hidden rounded-2xl bg-primary p-5 text-primary-foreground shadow-lg shadow-primary/20">
@@ -592,6 +759,26 @@ function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* ── Atalho para Transações (mobile) ────────────────────────────── */}
+      {/* Visível apenas no mobile, já que no desktop o menu lateral tem Transações */}
+      <div className="md:hidden">
+        <button type="button" onClick={() => router.navigate({ to: "/transacoes" })}
+          className="flex w-full items-center gap-3 rounded-2xl border bg-card px-4 py-3.5 shadow-sm text-left transition-colors hover:bg-muted/30 active:scale-[0.98]">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+            <Receipt className="h-5 w-5 text-primary"/>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[15px] font-semibold text-foreground">Transações</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Ver todas as receitas e despesas</p>
+          </div>
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+            fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+            className="text-muted-foreground/50 shrink-0">
+            <polyline points="9 18 15 12 9 6"/>
+          </svg>
+        </button>
+      </div>
 
       </div>{/* fim coluna esquerda */}
 
@@ -1106,6 +1293,216 @@ function DashboardPage() {
           categories={allCategories}
           onClose={closeTxEdit}
         />
+      )}
+
+      {/* ══ MODAL DE CLIPBOARD ═══════════════════════════════════════ */}
+      {openClip && (
+        <>
+          <div className="fixed inset-0 z-[400] bg-black/50" onClick={() => setOpenClip(false)}/>
+          <div className="fixed inset-x-0 bottom-0 z-[401] flex flex-col md:inset-0 md:items-center md:justify-center">
+            <div className="relative flex flex-col overflow-hidden bg-background md:w-full md:max-w-lg md:rounded-2xl" style={{ maxHeight:"93dvh" }}>
+
+              {/* Cabeçalho gradiente — cor muda conforme modo */}
+              <div className={cn(
+                "relative overflow-hidden px-5 pt-5 pb-5 text-white shrink-0",
+                clipMode==="income" ? "bg-gradient-to-br from-emerald-500 to-teal-600"
+                : clipMode==="card" ? "bg-gradient-to-br from-indigo-600 to-violet-700"
+                :                     "bg-gradient-to-br from-red-500 to-rose-600"
+              )}>
+                <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10"/>
+                <div className="absolute -left-6 -bottom-6 h-24 w-24 rounded-full bg-white/10"/>
+                <div className="relative">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <p className="text-xs text-white/60 uppercase tracking-wide">Novo lançamento</p>
+                      {clipParsed && (
+                        <p className="text-xs text-white/50 italic mt-0.5 max-w-[220px] truncate">
+                          "{clipText.slice(0,60)}{clipText.length>60?"...":""}"
+                        </p>
+                      )}
+                    </div>
+                    <button onClick={() => setOpenClip(false)}
+                      className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 hover:bg-white/30">
+                      <X className="h-4 w-4"/>
+                    </button>
+                  </div>
+
+                  {/* Toggle Cartão / Despesa / Receita */}
+                  <div className="flex rounded-xl bg-white/15 p-1 gap-1 mb-4">
+                    {([
+                      { key:"card",    label:"Cartão",  Icon:CreditCard   },
+                      { key:"expense", label:"Despesa", Icon:TrendingDown  },
+                      { key:"income",  label:"Receita", Icon:TrendingUp    },
+                    ] as const).map(({ key,label,Icon }) => (
+                      <button key={key} type="button" onClick={() => setClipMode(key)}
+                        className={cn("flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition-all",
+                          clipMode===key ? "bg-white text-slate-800 shadow-sm" : "text-white/80 hover:text-white")}>
+                        <Icon className="h-3.5 w-3.5"/> {label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Valor */}
+                  <div>
+                    <p className="text-xs text-white/60 mb-1">Valor</p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl font-bold text-white/70">R$</span>
+                      <input inputMode="decimal" value={clipAmtDisp}
+                        onChange={e => handleClipAmtChange(e.target.value)}
+                        placeholder="0,00"
+                        className="bg-transparent text-4xl font-black text-white placeholder-white/30 outline-none w-full tracking-tight"/>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Campos */}
+              <div className="overflow-y-auto flex-1">
+                <div className="px-4 py-4 space-y-3">
+
+                  {/* Alerta baixa confiança */}
+                  {clipParsed && clipParsed.confidence < 0.5 && (
+                    <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                      <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5"/>
+                      <p className="text-xs text-amber-700">Identificação parcial — confira os dados antes de salvar.</p>
+                    </div>
+                  )}
+
+                  {/* Seletor de cartão */}
+                  {clipMode==="card" && (
+                    <div className="rounded-2xl border bg-card px-4 py-3.5 space-y-3">
+                      <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Cartão</p>
+                      <div className="flex flex-wrap gap-2">
+                        {cards.filter(c=>c.active).map(c => (
+                          <button key={c.id} type="button"
+                            onClick={() => { setClipCardId(c.id); fetchInvoices(c.id); }}
+                            className={cn("flex items-center gap-2 rounded-full border-2 px-3 py-1.5 text-sm font-semibold transition-all",
+                              clipCardId===c.id ? "border-indigo-500 bg-indigo-50 text-indigo-700" : "border-border text-foreground hover:border-indigo-300")}>
+                            <CreditCard className="h-3.5 w-3.5"/> {c.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Descrição */}
+                  <div className="rounded-2xl border bg-card px-4 py-3 space-y-1">
+                    <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Descrição</p>
+                    <input value={clipDesc} onChange={e => setClipDesc(e.target.value)}
+                      placeholder="Nome do estabelecimento"
+                      className="w-full bg-transparent text-[16px] font-semibold text-foreground outline-none placeholder-muted-foreground/50"/>
+                  </div>
+
+                  {/* Categoria */}
+                  <button type="button" onClick={() => setClipOpenCat(true)}
+                    className="w-full rounded-2xl border bg-card px-4 py-3.5 text-left flex items-center gap-3 hover:bg-muted/30 transition-colors">
+                    {(() => {
+                      const cat = allCategories.find(c=>c.name===clipCategory);
+                      const color = cat?.color||"#6b7280";
+                      const isEmoji = (cat?.icon?.codePointAt(0)??0)>0x2000;
+                      return cat ? (
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl" style={{ background:color+"22" }}>
+                          {isEmoji ? cat.icon : "📦"}
+                        </div>
+                      ) : (
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted"><span className="text-xs">📦</span></div>
+                      );
+                    })()}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Categoria</p>
+                      <p className={cn("text-[16px] font-semibold mt-0.5", clipCategory?"text-foreground":"text-muted-foreground/50")}>
+                        {clipCategory || "Selecione a categoria"}
+                      </p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0"/>
+                  </button>
+
+                  {/* Data */}
+                  <div className="rounded-2xl border bg-card px-4 py-3 space-y-2">
+                    <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Data</p>
+                    <DatePicker value={clipDate} onChange={setClipDate}/>
+                  </div>
+
+                  {/* Paga/Recebida */}
+                  {clipMode!=="card" && (
+                    <div className="rounded-2xl border bg-card px-4 py-3.5 flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">{clipMode==="income"?"Recebida":"Paga"}</p>
+                        <p className="text-xs text-muted-foreground">Marcar como concluída agora</p>
+                      </div>
+                      <Switch checked={clipSettled} onCheckedChange={setClipSettled}/>
+                    </div>
+                  )}
+                  <div className="h-20 md:hidden"/>
+                </div>
+              </div>
+
+              {/* Botão fixo mobile */}
+              <div className="md:hidden fixed left-0 right-0 z-10 px-4 pt-3 pb-[env(safe-area-inset-bottom,12px)] bg-background/97 border-t"
+                style={{ bottom:"0px", backdropFilter:"blur(8px)" }}>
+                <button onClick={saveClipExpense} disabled={clipSaving}
+                  className={cn("w-full h-14 rounded-2xl text-white font-bold text-base shadow-lg transition-all active:scale-95 disabled:opacity-70",
+                    clipMode==="income" ? "bg-emerald-600" : clipMode==="card" ? "bg-indigo-600" : "bg-red-500")}>
+                  {clipSaving?"Salvando...": clipMode==="card"?"Lançar no cartão": clipMode==="income"?"Registrar receita":"Registrar despesa"}
+                </button>
+              </div>
+              {/* Botão desktop */}
+              <div className="hidden md:flex gap-3 px-4 pb-4 pt-2 border-t shrink-0">
+                <button onClick={() => setOpenClip(false)}
+                  className="flex-1 h-11 rounded-xl border text-sm text-muted-foreground hover:bg-muted/50">Cancelar</button>
+                <button onClick={saveClipExpense} disabled={clipSaving}
+                  className={cn("flex-1 h-11 rounded-xl text-white font-semibold text-sm disabled:opacity-70",
+                    clipMode==="income"?"bg-emerald-600":clipMode==="card"?"bg-indigo-600":"bg-red-500")}>
+                  {clipSaving?"Salvando...":"Salvar"}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* BottomSheet de categoria para o clipboard modal */}
+          {clipOpenCat && (
+            <>
+              <div className="fixed inset-0 z-[500] bg-black/50" onClick={() => { setClipOpenCat(false); setClipCatSearch(""); }}/>
+              <div className="fixed bottom-0 left-0 right-0 z-[501] flex flex-col rounded-t-3xl bg-white dark:bg-card overflow-hidden" style={{ maxHeight:"80vh" }}>
+                <div className="flex justify-center pt-3 pb-1 shrink-0"><div className="w-10 h-1.5 rounded-full bg-slate-200"/></div>
+                <div className="flex items-center justify-between px-5 py-3 shrink-0 border-b">
+                  <h2 className="text-[18px] font-bold">Categoria</h2>
+                  <button onClick={() => { setClipOpenCat(false); setClipCatSearch(""); }}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100"><X className="h-4 w-4 text-slate-500"/></button>
+                </div>
+                <div className="px-4 pt-3 pb-3 shrink-0">
+                  <div className="relative">
+                    <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"/>
+                    <input type="text" placeholder="Buscar..." value={clipCatSearch} onChange={e => setClipCatSearch(e.target.value)}
+                      className="h-11 w-full rounded-2xl bg-slate-100 pl-11 pr-4 text-base outline-none"/>
+                  </div>
+                </div>
+                <div className="flex-1 overflow-y-auto overscroll-contain">
+                  <div className="grid grid-cols-3 gap-3 px-4 pb-8">
+                    {allCategories
+                      .filter(c => (clipMode==="income" ? c.type==="income" : c.type==="expense"||!c.type) && c.name.toLowerCase().includes(clipCatSearch.toLowerCase()))
+                      .map(cat => {
+                        const isSel = clipCategory===cat.name;
+                        const color = cat.color||"#6b7280";
+                        const isEmoji = (cat.icon?.codePointAt(0)??0)>0x2000;
+                        return (
+                          <button key={cat.name} type="button"
+                            onClick={() => { setClipCategory(cat.name); setClipOpenCat(false); setClipCatSearch(""); }}
+                            className="flex flex-col items-center gap-2 rounded-2xl border-2 py-4 px-2 text-center active:scale-95 transition-transform"
+                            style={isSel?{background:color+"18",borderColor:color+"66"}:{borderColor:"transparent",background:"#f8fafc"}}>
+                            <div className="flex h-14 w-14 items-center justify-center rounded-2xl text-2xl" style={{ background:color+"22" }}>
+                              {isEmoji?cat.icon:"📦"}
+                            </div>
+                            <span className="text-[13px] font-semibold text-slate-700 leading-tight">{cat.name}</span>
+                          </button>
+                        );
+                      })}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </>
       )}
 
     </div>

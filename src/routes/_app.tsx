@@ -13,12 +13,24 @@ export const Route = createFileRoute("/_app")({
   component: AppLayout,
 });
 
+// ── Nav items desktop (sidebar) — mantém Transações ──────────────────────
 const navItems = [
   { to: "/dashboard",      label: "Início",     icon: Home },
   { to: "/transacoes",     label: "Transações", icon: Receipt },
   { to: "/cartoes",        label: "Cartões",    icon: CreditCard },
   { to: "/faturas-cartao", label: "Faturas",    icon: Tag },
   { to: "/mais",           label: "Config.",    icon: Settings },
+];
+
+// ── Nav items mobile bottom bar: Início | Cartões | [+] | Faturas | Config ──
+// Transações foi removida do nav mobile — fica no dashboard como atalho
+const mobileNavLeft  = [
+  { to: "/dashboard", label: "Início",  icon: Home },
+  { to: "/cartoes",   label: "Cartões", icon: CreditCard },
+];
+const mobileNavRight = [
+  { to: "/faturas-cartao", label: "Faturas", icon: Tag },
+  { to: "/mais",           label: "Config.", icon: Settings },
 ];
 
 function AppLayout() {
@@ -201,12 +213,28 @@ function AppLayout() {
           </div>
         )}
 
-        {/* Bottom nav — apenas mobile */}
         {/* ══ BOTTOM NAV — PWA / MOBILE ══════════════════════════════════ */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 border-t border-border/60 bg-card/98 backdrop-blur-md">
           <div className="flex w-full items-stretch" style={{ height: "68px" }}>
 
-            {/* ── Adicionar: PRIMEIRA posição, ícone maior e destaque ── */}
+            {/* ── Esquerda: Início + Cartões ── */}
+            {mobileNavLeft.map(({ to, label, icon: Icon }) => {
+              const isActive = pathname === to || pathname.startsWith(to + "/");
+              return (
+                <Link key={to} to={to}
+                  className="flex flex-1 flex-col items-center justify-center h-full"
+                  style={{ gap: "3px" }}>
+                  <Icon className={cn("h-[24px] w-[24px] shrink-0",
+                    isActive ? "text-primary" : "text-muted-foreground"
+                  )} />
+                  <span className={cn("text-[10px] font-semibold leading-none",
+                    isActive ? "text-primary" : "text-muted-foreground"
+                  )}>{label}</span>
+                </Link>
+              );
+            })}
+
+            {/* ── Centro: botão Adicionar destacado ── */}
             <button onClick={() => setAddMenuOpen(!addMenuOpen)}
               className="flex flex-1 flex-col items-center justify-center h-full"
               style={{ gap: "3px" }}>
@@ -216,13 +244,13 @@ function AppLayout() {
               )}>
                 {addMenuOpen ? <X className="h-6 w-6" /> : <PlusCircle className="h-6 w-6" />}
               </div>
-              <span className={cn("text-[10px] font-semibold text-center leading-none",
+              <span className={cn("text-[10px] font-semibold leading-none",
                 addMenuOpen ? "text-primary" : "text-muted-foreground"
               )}>Adicionar</span>
             </button>
 
-            {/* ── Demais itens do nav ── */}
-            {navItems.map(({ to, label, icon: Icon }) => {
+            {/* ── Direita: Faturas + Configurações ── */}
+            {mobileNavRight.map(({ to, label, icon: Icon }) => {
               const isActive = pathname === to || pathname.startsWith(to + "/");
               return (
                 <Link key={to} to={to}
@@ -231,7 +259,7 @@ function AppLayout() {
                   <Icon className={cn("h-[24px] w-[24px] shrink-0",
                     isActive ? "text-primary" : "text-muted-foreground"
                   )} />
-                  <span className={cn("text-[10px] font-semibold text-center leading-none",
+                  <span className={cn("text-[10px] font-semibold leading-none",
                     isActive ? "text-primary" : "text-muted-foreground"
                   )}>{label}</span>
                 </Link>
@@ -240,7 +268,7 @@ function AppLayout() {
 
           </div>
           {/* Safe area spacer */}
-          <div style={{ height: "env(safe-area-inset-bottom, 0px)", backgroundColor: "transparent" }} />
+          <div style={{ height: "env(safe-area-inset-bottom, 0px)" }} />
         </nav>
       </div>
     </TooltipProvider>
