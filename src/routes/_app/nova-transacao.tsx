@@ -356,11 +356,14 @@ function NovaTransacaoPage() {
         </TxSection>
 
         {/* ── BOTÃO ─────────────────────────────────────────────────── */}
-        {/* Mobile: espaçador para o botão fixo não cobrir o conteúdo   */}
-        <div className="md:hidden" style={{ height: "8.5rem" }} />
-
-        {/* Desktop: botão inline dentro do scroll do modal             */}
-        <div className="hidden md:block mx-4 mt-2 mb-4">
+        {/* Sticky: acompanha o scroll mas "gruda" acima do nav mobile  */}
+        <div
+          className="mx-4 mt-2 mb-4 md:mx-4 md:mt-2 md:mb-4"
+          style={{
+            /* Mobile: sticky acima do menu inferior (68px + safe area + 8px folga) */
+            position: "sticky",
+            bottom: "calc(68px + env(safe-area-inset-bottom, 0px) + 8px)",
+          }}>
           <button type="submit" disabled={isSubmitting}
             className="w-full rounded-2xl text-white font-bold transition-all active:scale-95 disabled:opacity-70"
             style={{ height: "60px", fontSize: "17px", backgroundColor: accentHex, boxShadow: `0 6px 20px ${accentHex}44` }}>
@@ -374,43 +377,6 @@ function NovaTransacaoPage() {
           )}
         </div>
       </form>
-
-      {/* ── BOTÃO SUSPENSO — fixo acima do menu inferior, apenas mobile ── */}
-      <div
-        className="md:hidden fixed left-0 right-0 z-40 px-4"
-        style={{
-          bottom: 0,
-          /* paddingBottom empurra o botão para cima do nav (68px) + safe area + folga (12px) */
-          paddingBottom: "calc(68px + env(safe-area-inset-bottom, 0px) + 12px)",
-          paddingTop: "12px",
-          background: "rgba(248,250,252,0.97)",
-          backdropFilter: "blur(10px)",
-          WebkitBackdropFilter: "blur(10px)",
-        }}>
-        <button
-          type="submit"
-          form="nova-tx-form"
-          disabled={isSubmitting}
-          className="w-full rounded-2xl text-white font-bold disabled:opacity-70"
-          style={{
-            height: "56px", fontSize: "17px",
-            backgroundColor: accentHex,
-            boxShadow: `0 6px 24px ${accentHex}66`,
-            border: "none", cursor: "pointer",
-            transition: "transform 0.1s",
-          }}
-          onTouchStart={e => { (e.currentTarget as HTMLElement).style.transform = "scale(0.97)"; }}
-          onTouchEnd={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1)"; }}
-        >
-          {isSubmitting ? "Salvando..." : isIncome ? "✓  Registrar receita" : "✓  Registrar despesa"}
-        </button>
-        {success && (
-          <div className="mt-2 flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold text-white"
-            style={{ backgroundColor: accentHex }}>
-            <CheckCircle2 className="h-5 w-5 shrink-0" /> {success}
-          </div>
-        )}
-      </div>
 
       {/* ── BOTTOM SHEET: CATEGORIA ───────────────────────────────────── */}
       <BottomSheet open={openCat} onClose={() => { setOpenCat(false); setCatSearch(""); }}
