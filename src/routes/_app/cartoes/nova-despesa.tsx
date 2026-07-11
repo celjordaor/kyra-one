@@ -158,7 +158,6 @@ function FieldRow({ icon, label, children, last = false, onClick, error }: {
 // ── Página ─────────────────────────────────────────────────────────────────
 function NovaDespesaPage() {
   const router = useRouter();
-  const { cardId: urlCardId } = Route.useSearch(); // cardId da URL (quando vem de uma fatura específica)
   const { cards, invoices, fetchCards, ensureInvoices, fetchInvoices, addExpense } = useCardStore();
   const allCats    = useCategories();
   const categories = allCats.filter(c => c.active && c.type === "expense");
@@ -196,12 +195,8 @@ function NovaDespesaPage() {
   useEffect(() => { if (cards.length === 0) fetchCards(); }, []);
   useEffect(() => {
     if (!cards.length) return;
-    // Se veio de uma fatura específica (?cardId=...), pré-seleciona esse cartão.
-    // Sem ?cardId, usa o cartão padrão (comportamento dos botões do menu/nav).
     if (!watch("card_id")) {
-      const def = urlCardId
-        ? (cards.find(c => c.id === urlCardId && c.active) ?? cards.find(c => c.is_default && c.active) ?? cards.find(c => c.active))
-        : (cards.find(c => c.is_default && c.active) ?? cards.find(c => c.active));
+      const def = cards.find(c => c.is_default && c.active) ?? cards.find(c => c.active);
       if (def) setValue("card_id", def.id);
     }
   }, [cards]);
@@ -226,14 +221,13 @@ function NovaDespesaPage() {
         purchaseDate: data.purchase_date, installments: data.installments,
         isRecurring: data.is_recurring, observations: data.observations });
       toast.success("Despesa lançada!");
-      // Se veio de uma fatura específica, volta para ela — senão vai para o detalhe do cartão
-      router.history.back();
+      router.navigate({ to: "/cartoes/$cardId", params: { cardId: selectedCard.id } });
     } catch { toast.error("Erro ao lançar despesa."); }
   };
 
   return (
     <div className="w-full bg-slate-50 dark:bg-background md:max-w-xl md:mx-auto">
-      <form onSubmit={handleSubmit(onSubmit)} style={{ display:"block", width:"100%", margin:0 }}>
+      <form id="nova-despesa-form" onSubmit={handleSubmit(onSubmit)} style={{ display:"block", width:"100%", margin:0 }}>
 
         {/* HEADER */}
         <div style={{ display:"block", background:"#4f46e5", color:"white",
@@ -363,18 +357,40 @@ function NovaDespesaPage() {
             </FieldRow>
           </TxSection>
 
-          {/* BOTÃO */}
-          <div style={{ display:"block", marginLeft:"1rem", marginRight:"1rem", marginTop:"0.5rem" }}>
-            <button type="submit" disabled={isSubmitting}
-              style={{ display:"block", width:"100%", height:"3.75rem", fontSize:"1.0625rem",
-                fontWeight:700, color:"white", background:"#4f46e5", border:"none",
-                borderRadius:"1rem", cursor:"pointer", opacity: isSubmitting ? 0.7 : 1,
-                boxShadow:"0 6px 20px rgba(79,70,229,0.4)" }}>
-              {isSubmitting ? "Salvando..." : "✓  Lançar despesa"}
-            </button>
-          </div>
+          {/* Espaçador para o botão fixo não cobrir o conteúdo */}
+          <div style={{ height: "6rem" }} />
         </div>
       </form>
+
+      {/* ── BOTÃO SUSPENSO — fixo no rodapé, não rola com o conteúdo ── */}
+      <div
+        className="fixed left-0 right-0 z-20 px-4 pt-3"
+        style={{
+          bottom: 0,
+          paddingBottom: "max(env(safe-area-inset-bottom, 0px), 16px)",
+          background: "rgba(255,255,255,0.97)",
+          backdropFilter: "blur(12px)",
+          borderTop: "1px solid rgba(0,0,0,0.06)",
+          boxShadow: "0 -4px 20px rgba(0,0,0,0.06)",
+        }}>
+        <button
+          type="submit"
+          form="nova-despesa-form"
+          disabled={isSubmitting}
+          style={{
+            display: "block", width: "100%", height: "3.5rem",
+            fontSize: "1.0625rem", fontWeight: 700, color: "white",
+            background: isSubmitting ? "#818cf8" : "#4f46e5",
+            border: "none", borderRadius: "1rem", cursor: "pointer",
+            boxShadow: "0 6px 20px rgba(79,70,229,0.35)",
+            transition: "opacity 0.15s, transform 0.1s",
+          }}
+          onTouchStart={e => { (e.currentTarget as HTMLElement).style.transform = "scale(0.97)"; }}
+          onTouchEnd={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1)"; }}
+        >
+          {isSubmitting ? "Salvando..." : "✓  Lançar despesa"}
+        </button>
+      </div>
 
       {/* CARTÃO */}
       <BottomSheet open={openCard} onClose={() => setOpenCard(false)} title="Cartão" maxHeight="65vh">
