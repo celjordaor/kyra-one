@@ -356,14 +356,7 @@ function NovaTransacaoPage() {
         </TxSection>
 
         {/* ── BOTÃO ─────────────────────────────────────────────────── */}
-        {/* Sticky: acompanha o scroll mas "gruda" acima do nav mobile  */}
-        <div
-          className="mx-4 mt-2 mb-4 md:mx-4 md:mt-2 md:mb-4"
-          style={{
-            /* Mobile: sticky acima do menu inferior (68px + safe area + 8px folga) */
-            position: "sticky",
-            bottom: "calc(68px + env(safe-area-inset-bottom, 0px) + 8px)",
-          }}>
+        <div className="mx-4 mt-2 mb-4">
           <button type="submit" disabled={isSubmitting}
             className="w-full rounded-2xl text-white font-bold transition-all active:scale-95 disabled:opacity-70"
             style={{ height: "60px", fontSize: "17px", backgroundColor: accentHex, boxShadow: `0 6px 20px ${accentHex}44` }}>

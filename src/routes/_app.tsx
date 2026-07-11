@@ -188,8 +188,10 @@ function AppLayout() {
                 {/* ══ CONTEÚDO PRINCIPAL ════════════════════════════════════════ */}
         <div className="md:ml-64" style={{ overflowX:"hidden" }}>
           {showBanner && <div className="h-10 md:block hidden" />}
-          <main style={{ paddingBottom:"calc(72px + env(safe-area-inset-bottom, 20px))" }}
-            className="md:pb-0 md:min-h-screen">
+          <main
+            className="md:pb-0 md:min-h-screen"
+            style={{ paddingBottom:"calc(88px + env(safe-area-inset-bottom, 0px))" }}>
+            {/* 88px = 68px (nav) + 20px folga — garante que botões não ficam atrás do nav */}
             <Outlet />
           </main>
         </div>
