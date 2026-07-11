@@ -357,14 +357,31 @@ function NovaDespesaPage() {
             </FieldRow>
           </TxSection>
 
-          {/* Espaçador para o botão fixo não cobrir o conteúdo */}
-          <div style={{ height: "6rem" }} />
+          {/* Espaçador para o botão fixo não cobrir o conteúdo (mobile only) */}
+          <div className="md:hidden" style={{ height: "6rem" }} />
+
+          {/* ── BOTÃO DESKTOP — inline no final do formulário ── */}
+          <div className="hidden md:block" style={{ padding: "0.5rem 1rem 1.5rem" }}>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              style={{
+                display: "block", width: "100%", height: "3.5rem",
+                fontSize: "1.0625rem", fontWeight: 700, color: "white",
+                background: isSubmitting ? "#818cf8" : "#4f46e5",
+                border: "none", borderRadius: "1rem", cursor: "pointer",
+                boxShadow: "0 6px 20px rgba(79,70,229,0.35)",
+                transition: "opacity 0.15s",
+              }}>
+              {isSubmitting ? "Salvando..." : "✓  Lançar despesa"}
+            </button>
+          </div>
         </div>
       </form>
 
-      {/* ── BOTÃO SUSPENSO — fixo no rodapé, não rola com o conteúdo ── */}
+      {/* ── BOTÃO SUSPENSO — fixo no rodapé, apenas mobile ── */}
       <div
-        className="fixed left-0 right-0 z-20 px-4 pt-3"
+        className="md:hidden fixed left-0 right-0 z-20 px-4 pt-3"
         style={{
           bottom: 0,
           paddingBottom: "max(env(safe-area-inset-bottom, 0px), 16px)",
