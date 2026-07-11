@@ -377,8 +377,16 @@ function NovaTransacaoPage() {
 
       {/* ── BOTÃO SUSPENSO — fixo acima do menu inferior, apenas mobile ── */}
       <div
-        className="md:hidden fixed left-0 right-0 z-40 px-4 pt-3 pb-3"
-        style={{ bottom: "calc(68px + env(safe-area-inset-bottom, 0px))" }}>
+        className="md:hidden fixed left-0 right-0 z-40 px-4"
+        style={{
+          bottom: 0,
+          /* paddingBottom empurra o botão para cima do nav (68px) + safe area + folga (12px) */
+          paddingBottom: "calc(68px + env(safe-area-inset-bottom, 0px) + 12px)",
+          paddingTop: "12px",
+          background: "rgba(248,250,252,0.97)",
+          backdropFilter: "blur(10px)",
+          WebkitBackdropFilter: "blur(10px)",
+        }}>
         <button
           type="submit"
           form="nova-tx-form"
@@ -389,7 +397,7 @@ function NovaTransacaoPage() {
             backgroundColor: accentHex,
             boxShadow: `0 6px 24px ${accentHex}66`,
             border: "none", cursor: "pointer",
-            transition: "opacity 0.15s, transform 0.1s",
+            transition: "transform 0.1s",
           }}
           onTouchStart={e => { (e.currentTarget as HTMLElement).style.transform = "scale(0.97)"; }}
           onTouchEnd={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1)"; }}
