@@ -231,7 +231,7 @@ function NovaTransacaoPage() {
 
   return (
     <div className="bg-slate-50 dark:bg-background md:max-w-2xl md:mx-auto" style={{ width: "100%", maxWidth: "min(100%, 672px)", minHeight: "100dvh" }}>
-      <form onSubmit={handleSubmit(onSubmit)} className="w-full">
+      <form id="nova-tx-form" onSubmit={handleSubmit(onSubmit)} className="w-full">
 
         {/* ── HEADER ────────────────────────────────────────────────── */}
         <div className={cn(headerBg, "w-full text-white px-4 pb-8")}
@@ -356,7 +356,12 @@ function NovaTransacaoPage() {
         </TxSection>
 
         {/* ── BOTÃO ─────────────────────────────────────────────────── */}
-        <div className="mx-4 mt-2 mb-4">
+
+        {/* Espaçador mobile: mesmo padrão do lançamento de despesa em cartão */}
+        <div className="md:hidden" style={{ height: "8.5rem" }} />
+
+        {/* Botão desktop — inline no formulário */}
+        <div className="hidden md:block mx-4 mt-2 mb-4">
           <button type="submit" disabled={isSubmitting}
             className="w-full rounded-2xl text-white font-bold transition-all active:scale-95 disabled:opacity-70"
             style={{ height: "60px", fontSize: "17px", backgroundColor: accentHex, boxShadow: `0 6px 20px ${accentHex}44` }}>
@@ -369,9 +374,43 @@ function NovaTransacaoPage() {
             </div>
           )}
         </div>
-        {/* Espaçador: empurra o conteúdo para que o botão fique acima do menu inferior no mobile */}
-        <div style={{ height: "100px" }} />
       </form>
+
+      {/* Botão mobile — fixo no rodapé, mesmo padrão do lançamento de despesa em cartão */}
+      <div
+        className="md:hidden fixed left-0 right-0 z-40 px-4"
+        style={{
+          bottom: 0,
+          paddingBottom: "calc(68px + env(safe-area-inset-bottom, 0px) + 12px)",
+          paddingTop: "12px",
+          background: "rgba(248,250,252,0.97)",
+          backdropFilter: "blur(10px)",
+          WebkitBackdropFilter: "blur(10px)",
+        }}>
+        <button
+          type="submit"
+          form="nova-tx-form"
+          disabled={isSubmitting}
+          style={{
+            display: "block", width: "100%", height: "56px",
+            fontSize: "17px", fontWeight: 700, color: "white",
+            background: accentHex,
+            border: "none", borderRadius: "1rem", cursor: "pointer",
+            boxShadow: `0 6px 24px ${accentHex}66`,
+            transition: "transform 0.1s",
+          }}
+          onTouchStart={e => { (e.currentTarget as HTMLElement).style.transform = "scale(0.97)"; }}
+          onTouchEnd={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1)"; }}
+        >
+          {isSubmitting ? "Salvando..." : isIncome ? "✓  Registrar receita" : "✓  Registrar despesa"}
+        </button>
+        {success && (
+          <div className="mt-2 flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold text-white"
+            style={{ backgroundColor: accentHex }}>
+            <CheckCircle2 className="h-5 w-5 shrink-0" /> {success}
+          </div>
+        )}
+      </div>
 
       {/* ── BOTTOM SHEET: CATEGORIA ───────────────────────────────────── */}
       <BottomSheet open={openCat} onClose={() => { setOpenCat(false); setCatSearch(""); }}
