@@ -230,7 +230,7 @@ function NovaTransacaoPage() {
   };
 
   return (
-    <div className="bg-slate-50 dark:bg-background md:max-w-2xl md:mx-auto" style={{ width: "100%", maxWidth: "min(100%, 672px)", minHeight: "100dvh" }}>
+    <div className="bg-slate-50 dark:bg-background md:max-w-2xl md:mx-auto" style={{ width: "100%", maxWidth: "min(100%, 672px)" }}>
       <form id="nova-tx-form" onSubmit={handleSubmit(onSubmit)} className="w-full">
 
         {/* ── HEADER ────────────────────────────────────────────────── */}
@@ -369,6 +369,8 @@ function NovaTransacaoPage() {
             </div>
           )}
         </div>
+        {/* Espaçador mobile: garante que o botão fica acima do menu inferior */}
+        <div className="md:hidden" style={{ height: "88px" }} />
       </form>
 
       {/* ── BOTTOM SHEET: CATEGORIA ───────────────────────────────────── */}
