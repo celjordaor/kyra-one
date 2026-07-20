@@ -1,4 +1,4 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+﻿import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   TrendingUp, TrendingDown, Search, SlidersHorizontal,
@@ -27,13 +27,10 @@ import {
   TYPE_CLASS, TYPE_LABEL, fmt as fmtExp,
   type UnifiedItem, type InvoiceStatus,
 } from "@/components/cartoes/expense-detail-modal";
-import {
-  EditTransactionDialog,
-} from "@/components/transactions/edit-transaction-dialog";
 import { ScopeBottomSheet } from "@/components/scope-bottom-sheet";
 
 export const Route = createFileRoute("/_app/transacoes")({
-  head: () => ({ meta: [{ title: "Transações — Finanças Pessoais" }] }),
+  head: () => ({ meta: [{ title: "TransaÃ§Ãµes â€” FinanÃ§as Pessoais" }] }),
   validateSearch: (search: Record<string, unknown>) => ({
     month: typeof search.month === "string" ? search.month : undefined,
   }),
@@ -52,7 +49,7 @@ function brDateToIso(br: string): string {
 const fmt = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
-// ── Pills de filtro ────────────────────────────────────────────────────
+// â”€â”€ Pills de filtro â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const FILTER_OPTIONS = [
   { key: "Todas",    label: "Todas",    Icon: LayoutList,  activeClass: "bg-primary text-primary-foreground",  iconClass: "text-muted-foreground" },
   { key: "Receitas", label: "Receitas", Icon: TrendingUp,  activeClass: "bg-emerald-500 text-white",           iconClass: "text-emerald-500" },
@@ -68,14 +65,14 @@ const STATUS_FILTER_OPTIONS = [
 ] as const;
 type StatusFilter = (typeof STATUS_FILTER_OPTIONS)[number]["key"];
 
-const MONTHS = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+const MONTHS = ["Janeiro","Fevereiro","MarÃ§o","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 type SortKey = "date-desc" | "date-asc" | "amount-desc" | "amount-asc" | "title-asc";
 const SORT_LABELS: Record<SortKey, string> = {
   "date-desc": "Data (mais recente)", "date-asc": "Data (mais antiga)",
-  "amount-desc": "Valor (maior)", "amount-asc": "Valor (menor)", "title-asc": "Título (A–Z)",
+  "amount-desc": "Valor (maior)", "amount-asc": "Valor (menor)", "title-asc": "TÃ­tulo (Aâ€“Z)",
 };
 
-// ── Cabeçalho colapsável ───────────────────────────────────────────────
+// â”€â”€ CabeÃ§alho colapsÃ¡vel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function SectionHeader({
   title, count, countColor = "bg-muted-foreground/20 text-muted-foreground",
   open, onToggle, right,
@@ -147,7 +144,7 @@ function TransacoesPage() {
   const goPrevMonth = () => { if (selectedMonth===0){setSelectedMonth(11);setSelectedYear(y=>y-1);}else setSelectedMonth(m=>m-1); };
   const goNextMonth = () => { if (selectedMonth===11){setSelectedMonth(0);setSelectedYear(y=>y+1);}else setSelectedMonth(m=>m+1); };
 
-  // ── Transações regulares ───────────────────────────────────────────────
+  // â”€â”€ TransaÃ§Ãµes regulares â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const filteredRegular = useMemo(() => {
     if (activeFilter === "Faturas") return [];
     return allTransactions
@@ -170,16 +167,16 @@ function TransacoesPage() {
       });
   }, [allTransactions, selectedMonth, selectedYear, search, activeFilter, statusFilter, sort]);
 
-  // ── Faturas do mês ─────────────────────────────────────────────────────
+  // â”€â”€ Faturas do mÃªs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const cardInvoices = useMemo(() =>
     invoices.filter(inv => {
       if (inv.total_amount <= 0) return false;
       const due = new Date(inv.due_date + "T12:00:00");
       if (!(due.getMonth() === selectedMonth && due.getFullYear() === selectedYear)) return false;
-      // Filtro de status aplicado às faturas
+      // Filtro de status aplicado Ã s faturas
       if (statusFilter === "Pagas/Recebidas" && inv.status !== "paid") return false;
       if (statusFilter === "Pendentes" && inv.status !== "open") return false;
-      // Busca por nome do cartão quando filtro Faturas ativo
+      // Busca por nome do cartÃ£o quando filtro Faturas ativo
       if (activeFilter === "Faturas" && search) {
         const card = cards.find(c => c.id === inv.card_id);
         return card?.name.toLowerCase().includes(search.toLowerCase()) ?? false;
@@ -194,17 +191,17 @@ function TransacoesPage() {
   const showCardSection = activeFilter === "Todas" || activeFilter === "Faturas";
   const showRegularSection = activeFilter !== "Faturas";
 
-  // Realizado: apenas transações quitadas/recebidas
+  // Realizado: apenas transaÃ§Ãµes quitadas/recebidas
   const settledBalance = filteredRegular
     .filter(t => t.settled)
     .reduce((s, t) => s + t.amount, 0);
 
-  // Previsto: transações não quitadas ainda
+  // Previsto: transaÃ§Ãµes nÃ£o quitadas ainda
   const pendingBalance = filteredRegular
     .filter(t => !t.settled)
     .reduce((s, t) => s + t.amount, 0);
 
-  // Para compatibilidade com o código existente
+  // Para compatibilidade com o cÃ³digo existente
   const totalBalance = settledBalance;
   const totalFaturas = cardInvoices.reduce((s, i) => s + i.invoice.total_amount, 0);
 
@@ -216,9 +213,9 @@ function TransacoesPage() {
 
   return (
     <div className="space-y-4 md:p-8 md:max-w-3xl md:mx-auto" style={{ width: "100%", maxWidth: "100%", overflowX: "hidden", padding: "1.25rem", paddingTop: "calc(1.5rem + env(safe-area-inset-top, 0px))" }}>
-      <h1 className="text-xl font-bold text-foreground">Transações</h1>
+      <h1 className="text-xl font-bold text-foreground">TransaÃ§Ãµes</h1>
 
-      {/* Seletor de mês */}
+      {/* Seletor de mÃªs */}
       <div className="flex items-center justify-between rounded-xl border bg-card p-2 shadow-sm">
         <button onClick={goPrevMonth} className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted">
           <ChevronLeft className="h-4 w-4" />
@@ -226,7 +223,7 @@ function TransacoesPage() {
         <div className="flex items-center gap-2">
           <CalendarDays className="h-4 w-4 text-primary" />
           <span className="text-sm font-semibold text-foreground">{MONTHS[selectedMonth]} {selectedYear}</span>
-          {isCurrentMonth && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">Mês atual</span>}
+          {isCurrentMonth && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">MÃªs atual</span>}
         </div>
         <button onClick={goNextMonth} className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted">
           <ChevronRight className="h-4 w-4" />
@@ -236,10 +233,10 @@ function TransacoesPage() {
       {/* Busca */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input placeholder="Buscar transação..." className="h-10 pl-10" value={search} onChange={e => setSearch(e.target.value)} />
+        <Input placeholder="Buscar transaÃ§Ã£o..." className="h-10 pl-10" value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
-      {/* Pills de filtro com ícones */}
+      {/* Pills de filtro com Ã­cones */}
       <div className="flex items-center gap-2">
         {FILTER_OPTIONS.map(({ key, label, Icon, activeClass, iconClass }) => {
           const isActive = activeFilter === key;
@@ -272,7 +269,7 @@ function TransacoesPage() {
         </DropdownMenu>
       </div>
 
-      {/* Filtros de status com ícones — mesmo visual das pills de categoria */}
+      {/* Filtros de status com Ã­cones â€” mesmo visual das pills de categoria */}
       <div className="flex items-center gap-2">
         {STATUS_FILTER_OPTIONS.map(({ key, label, Icon, activeClass, iconClass }) => {
           const isActive = statusFilter === key;
@@ -289,7 +286,7 @@ function TransacoesPage() {
         })}
       </div>
 
-      {/* Resumo dinâmico */}
+      {/* Resumo dinÃ¢mico */}
       <div className="rounded-xl border bg-card p-4 shadow-sm">
         {activeFilter === "Faturas" ? (
           <div className="flex items-center justify-between">
@@ -316,13 +313,13 @@ function TransacoesPage() {
               )}
             </div>
             <p className="text-xs text-muted-foreground shrink-0">
-              {filteredRegular.length} transações
+              {filteredRegular.length} transaÃ§Ãµes
             </p>
           </div>
         )}
       </div>
 
-      {/* ══ SEÇÃO 1: Receitas e Despesas ══ */}
+      {/* â•â• SEÃ‡ÃƒO 1: Receitas e Despesas â•â• */}
       {showRegularSection && (
         <>
           <SectionHeader
@@ -336,7 +333,7 @@ function TransacoesPage() {
             <div className="space-y-2">
               {filteredRegular.length === 0 ? (
                 <div className="rounded-xl border bg-card p-6 text-center text-sm text-muted-foreground shadow-sm">
-                  Nenhuma transação encontrada para este período.
+                  Nenhuma transaÃ§Ã£o encontrada para este perÃ­odo.
                 </div>
               ) : filteredRegular.map(t => {
                 const isFuture  = parseBrDate(t.date).getTime() > today.getTime();
@@ -371,7 +368,7 @@ function TransacoesPage() {
                             </Tooltip>
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground">{t.category} • {t.date}</p>
+                        <p className="text-xs text-muted-foreground">{t.category} â€¢ {t.date}</p>
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-0.5">
@@ -445,11 +442,11 @@ function TransacoesPage() {
         </>
       )}
 
-      {/* ══ SEÇÃO 2: Cartões de Crédito ══ */}
+      {/* â•â• SEÃ‡ÃƒO 2: CartÃµes de CrÃ©dito â•â• */}
       {cardInvoices.length > 0 && showCardSection && (
         <>
           <SectionHeader
-            title="Cartões de Crédito"
+            title="CartÃµes de CrÃ©dito"
             count={cardInvoices.length}
             countColor="bg-blue-100 text-blue-600"
             open={showCards}
@@ -484,7 +481,7 @@ function TransacoesPage() {
                           </span>
                         </div>
                         <p className="truncate text-xs text-muted-foreground">
-                          {invoice.competence} • Vence {new Date(invoice.due_date+"T12:00:00").toLocaleDateString("pt-BR")}
+                          {invoice.competence} â€¢ Vence {new Date(invoice.due_date+"T12:00:00").toLocaleDateString("pt-BR")}
                         </p>
                       </div>
                     </div>
@@ -522,7 +519,7 @@ function TransacoesPage() {
             // Recarregar despesas e parcelas da fatura
             await fetchExpenses(detailInvoice.id);
             await fetchInstallments(detailInvoice.id);
-            // Recarregar faturas do cartão para atualizar totais
+            // Recarregar faturas do cartÃ£o para atualizar totais
             await fetchInvoices(detailInvoice.card_id);
           }
         }}
@@ -535,7 +532,7 @@ function TransacoesPage() {
         allTransactions={allTransactions}
       />
 
-      {/* Modal de escopo de edição: apenas essa ou todas */}
+      {/* Modal de escopo de ediÃ§Ã£o: apenas essa ou todas */}
       <ScopeBottomSheet
         open={!!editScopeTarget}
         onClose={() => setEditScopeTarget(null)}
@@ -555,7 +552,7 @@ function TransacoesPage() {
         }}
       />
 
-      {/* Modal de exclusão para transações parceladas */}
+      {/* Modal de exclusÃ£o para transaÃ§Ãµes parceladas */}
       <TransactionDeleteModal
         transaction={deleteTarget}
         open={!!deleteTarget}
@@ -575,7 +572,7 @@ function TransacoesPage() {
   );
 }
 
-// ── Modal de exclusão de série de transações ──────────────────────────────
+// â”€â”€ Modal de exclusÃ£o de sÃ©rie de transaÃ§Ãµes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function TransactionDeleteModal({
   transaction, open, onClose, onDeleteSingle, onDeleteFuture,
 }: {
@@ -596,7 +593,7 @@ function TransactionDeleteModal({
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
       <DialogContent className="max-w-sm p-0 overflow-hidden" aria-describedby={undefined}>
         <div className="px-5 pt-5 pb-2">
-          <h3 className="text-base font-semibold text-foreground">Excluir transação</h3>
+          <h3 className="text-base font-semibold text-foreground">Excluir transaÃ§Ã£o</h3>
           <p className="mt-1.5 text-sm text-muted-foreground">
             Como deseja excluir <span className="font-medium text-foreground">"{transaction.title}"</span>?
           </p>
@@ -611,10 +608,10 @@ function TransactionDeleteModal({
             },
             {
               key: "future" as const,
-              title: "Excluir essa e as próximas",
+              title: "Excluir essa e as prÃ³ximas",
               description: remaining > 0
                 ? `Remove esta parcela e as ${remaining} seguintes`
-                : "Remove esta última parcela",
+                : "Remove esta Ãºltima parcela",
               danger: true,
             },
           ].map(opt => {
@@ -658,7 +655,7 @@ function TransactionDeleteModal({
   );
 }
 
-// ── Modal de detalhes da fatura ────────────────────────────────────────
+// â”€â”€ Modal de detalhes da fatura â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function InvoiceDetailModal({
   invoice, card, expenses, installments, open, onClose, onAddExpense, onDataChanged,
 }: {
@@ -670,7 +667,7 @@ function InvoiceDetailModal({
 }) {
   const allCategories = useCategories();
   const categoryIconMap = useMemo(
-    () => Object.fromEntries(allCategories.map(c => [c.name, c.icon ?? "📦"])),
+    () => Object.fromEntries(allCategories.map(c => [c.name, c.icon ?? "ðŸ“¦"])),
     [allCategories]
   );
   const [editingItem, setEditingItem] = useState<UnifiedItem | null>(null);
@@ -704,7 +701,7 @@ function InvoiceDetailModal({
     itemsByDay[item.purchase_date].push(item);
   }
   const dayEntries = Object.entries(itemsByDay).sort((a, b) => b[0].localeCompare(a[0]));
-  const DAY_NAMES = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+  const DAY_NAMES = ["Dom","Seg","Ter","Qua","Qui","Sex","SÃ¡b"];
 
   const dueDate = new Date(invoice.due_date + "T12:00:00");
   const today = new Date(); today.setHours(0,0,0,0);
@@ -720,7 +717,7 @@ function InvoiceDetailModal({
           <div className="relative flex flex-col overflow-hidden bg-background md:w-full md:max-w-lg md:rounded-2xl"
             style={{ maxHeight: "92dvh" }}>
 
-            {/* ── Cabeçalho gradiente teal/indigo ── */}
+            {/* â”€â”€ CabeÃ§alho gradiente teal/indigo â”€â”€ */}
             <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 to-violet-700 px-5 pt-5 pb-6 text-white shrink-0">
               <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10"/>
               <div className="absolute -left-6 -bottom-6 h-24 w-24 rounded-full bg-white/10"/>
@@ -738,7 +735,7 @@ function InvoiceDetailModal({
                 <p className="text-4xl font-black tracking-tight mt-3">{fmt(invoice.total_amount)}</p>
                 <div className="mt-3 flex flex-wrap gap-4">
                   <div>
-                    <p className="text-[11px] text-white/60 uppercase tracking-wide">Competência</p>
+                    <p className="text-[11px] text-white/60 uppercase tracking-wide">CompetÃªncia</p>
                     <p className="text-sm font-semibold">{invoice.competence}</p>
                   </div>
                   <div className="w-px bg-white/20"/>
@@ -757,19 +754,19 @@ function InvoiceDetailModal({
                       isClosed  ? "bg-slate-300/30 text-white/80" :
                                   "bg-amber-400/30 text-amber-100"
                     )}>
-                      {isPaid ? "✓ Paga" : isOverdue ? "⚠ Vencida" : isClosed ? "🔒 Fechada" : "● Em aberto"}
+                      {isPaid ? "âœ“ Paga" : isOverdue ? "âš  Vencida" : isClosed ? "ðŸ”’ Fechada" : "â— Em aberto"}
                     </span>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* ── Lista de lançamentos agrupada por data ── */}
+            {/* â”€â”€ Lista de lanÃ§amentos agrupada por data â”€â”€ */}
             <div className="overflow-y-auto flex-1">
               {allItems.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
                   <CreditCard className="h-10 w-10 mb-3 opacity-30"/>
-                  <p className="text-sm">Nenhuma despesa lançada nesta fatura.</p>
+                  <p className="text-sm">Nenhuma despesa lanÃ§ada nesta fatura.</p>
                 </div>
               ) : (
                 <div className="px-4 pb-4">
@@ -794,10 +791,10 @@ function InvoiceDetailModal({
                                 "flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-muted/30",
                                 i < items.length - 1 && "border-b border-border/40"
                               )}>
-                              {/* Ícone emoji da categoria */}
+                              {/* Ãcone emoji da categoria */}
                               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-xl"
                                 style={{ background: "#ede9fe" }}>
-                                {categoryIconMap[item.category] ?? "📦"}
+                                {categoryIconMap[item.category] ?? "ðŸ“¦"}
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className="text-[15px] font-semibold text-foreground truncate">{item.description}</p>
@@ -827,7 +824,7 @@ function InvoiceDetailModal({
               )}
             </div>
 
-            {/* ── Rodapé ── */}
+            {/* â”€â”€ RodapÃ© â”€â”€ */}
             <div className="flex items-center justify-between border-t px-5 py-3 shrink-0">
               <button onClick={onClose}
                 className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
@@ -856,8 +853,8 @@ function InvoiceDetailModal({
   );
 }
 
-// ── Dialog de edição ───────────────────────────────────────────────────
-// ── Modal de escopo de edição ─────────────────────────────────────────────
+// â”€â”€ Dialog de ediÃ§Ã£o â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€ Modal de escopo de ediÃ§Ã£o â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function EditScopeModal({
   transaction, open, onClose, onEditSingle, onEditAll,
 }: {
@@ -872,23 +869,23 @@ function EditScopeModal({
   if (!transaction) return null;
 
   const isInstallment = isInstallmentTransaction(transaction);
-  const label         = isInstallment ? "parcela" : "recorrência";
-  const labelAll      = isInstallment ? "todas as parcelas" : "todas as recorrências";
+  const label         = isInstallment ? "parcela" : "recorrÃªncia";
+  const labelAll      = isInstallment ? "todas as parcelas" : "todas as recorrÃªncias";
 
   return (
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
       <DialogContent className="max-w-sm p-0 overflow-hidden" aria-describedby={undefined}>
         <div className="px-5 pt-5 pb-2">
-          <h3 className="text-base font-semibold text-foreground">Editar transação</h3>
+          <h3 className="text-base font-semibold text-foreground">Editar transaÃ§Ã£o</h3>
           <p className="mt-1.5 text-sm text-muted-foreground">
             <span className="font-medium text-foreground">"{transaction.title}"</span>{" "}
-            é uma {label}. O que deseja editar?
+            Ã© uma {label}. O que deseja editar?
           </p>
         </div>
         <div className="flex flex-col gap-2 px-5 py-3">
           {([
-            { key: "single" as const, title: `Apenas essa ${label}`, description: "Edita somente este lançamento específico" },
-            { key: "all" as const, title: `Editar ${labelAll}`, description: isInstallment ? "Aplica as alterações em todas as parcelas desta série" : "Aplica as alterações em todas as recorrências futuras" },
+            { key: "single" as const, title: `Apenas essa ${label}`, description: "Edita somente este lanÃ§amento especÃ­fico" },
+            { key: "all" as const, title: `Editar ${labelAll}`, description: isInstallment ? "Aplica as alteraÃ§Ãµes em todas as parcelas desta sÃ©rie" : "Aplica as alteraÃ§Ãµes em todas as recorrÃªncias futuras" },
           ]).map(opt => {
             const isSel = selected === opt.key;
             return (
@@ -964,10 +961,10 @@ function EditTransactionDialog({ transaction, onClose, bulkEdit = false, allTran
 
   function handleSave() {
     if (!transaction) return;
-    if (!title.trim()) return setError("Descrição é obrigatória");
-    if (!amountValue) return setError("Valor é obrigatório");
-    if (!category) return setError("Categoria é obrigatória");
-    if (!dateIso) return setError("Data é obrigatória");
+    if (!title.trim()) return setError("DescriÃ§Ã£o Ã© obrigatÃ³ria");
+    if (!amountValue) return setError("Valor Ã© obrigatÃ³rio");
+    if (!category) return setError("Categoria Ã© obrigatÃ³ria");
+    if (!dateIso) return setError("Data Ã© obrigatÃ³ria");
     const numeric  = parseFloat(amountValue);
     const signed   = type === "expense" ? -Math.abs(numeric) : Math.abs(numeric);
     const [y,m,d]  = dateIso.split("-").map(Number);
@@ -976,11 +973,11 @@ function EditTransactionDialog({ transaction, onClose, bulkEdit = false, allTran
     const paidAt   = settled ? (transaction.settled ? (transaction.paidAt ?? todayStr) : todayStr) : undefined;
 
     if (bulkEdit) {
-      // ── Editar em lote: aplica a série ────────────────────────────────
+      // â”€â”€ Editar em lote: aplica a sÃ©rie â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       const isInstallment = isInstallmentTransaction(transaction);
-      const newDay = d; // dia escolhido — será mantido em cada mês
+      const newDay = d; // dia escolhido â€” serÃ¡ mantido em cada mÃªs
 
-      // Encontrar transações futuras da série
+      // Encontrar transaÃ§Ãµes futuras da sÃ©rie
       const futures = isInstallment
         ? allTransactions.filter(t =>
             t.recurrence_id === transaction.recurrence_id &&
@@ -996,7 +993,7 @@ function EditTransactionDialog({ transaction, onClose, bulkEdit = false, allTran
       for (const t of futures) {
         const patch: Partial<Transaction> = {};
 
-        // Descrição: atualiza o título base (N/M é gerado via getDisplayTitle)
+        // DescriÃ§Ã£o: atualiza o tÃ­tulo base (N/M Ã© gerado via getDisplayTitle)
         if (title.trim() !== transaction.title) patch.title = title.trim();
 
         // Categoria
@@ -1006,14 +1003,14 @@ function EditTransactionDialog({ transaction, onClose, bulkEdit = false, allTran
         const origSigned = t.type === "expense" ? -Math.abs(Math.abs(transaction.amount)) : Math.abs(transaction.amount);
         if (signed !== origSigned) patch.amount = t.type === "expense" ? -Math.abs(numeric) : Math.abs(numeric);
 
-        // Data: mantém mês/ano de cada parcela, altera só o dia
+        // Data: mantÃ©m mÃªs/ano de cada parcela, altera sÃ³ o dia
         if (newDay !== parseBrDate(t.date).getDate()) {
           const tDate   = parseBrDate(t.date);
           const lastDay = new Date(tDate.getFullYear(), tDate.getMonth() + 1, 0).getDate();
           patch.date    = formatBrDate(new Date(tDate.getFullYear(), tDate.getMonth(), Math.min(newDay, lastDay)));
         }
 
-        // Settled/paidAt: só aplica na transação atual
+        // Settled/paidAt: sÃ³ aplica na transaÃ§Ã£o atual
         if (t.id === transaction.id) {
           patch.settled = settled;
           patch.paidAt  = paidAt;
@@ -1022,7 +1019,7 @@ function EditTransactionDialog({ transaction, onClose, bulkEdit = false, allTran
         if (Object.keys(patch).length > 0) updateTransaction(t.id, patch);
       }
     } else {
-      // ── Edição simples ────────────────────────────────────────────────
+      // â”€â”€ EdiÃ§Ã£o simples â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       updateTransaction(transaction.id, { title: title.trim(), amount: signed, type, category, date: brDate, settled, paidAt });
     }
     onClose();
@@ -1033,13 +1030,13 @@ function EditTransactionDialog({ transaction, onClose, bulkEdit = false, allTran
       {/* Overlay */}
       {open && <div className="fixed inset-0 z-50 bg-black/50" onClick={() => onClose()} />}
 
-      {/* Sheet — sobe do rodapé no mobile, centraliza no desktop */}
+      {/* Sheet â€” sobe do rodapÃ© no mobile, centraliza no desktop */}
       {open && (
         <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col md:inset-0 md:items-center md:justify-center">
           <div className="relative flex flex-col overflow-hidden bg-background md:w-full md:max-w-lg md:rounded-2xl"
             style={{ maxHeight: "93dvh" }}>
 
-            {/* ── Cabeçalho gradiente (vermelho=despesa, verde=receita) ── */}
+            {/* â”€â”€ CabeÃ§alho gradiente (vermelho=despesa, verde=receita) â”€â”€ */}
             <div className={cn(
               "relative overflow-hidden px-5 pt-5 pb-5 text-white shrink-0",
               type === "expense"
@@ -1049,11 +1046,11 @@ function EditTransactionDialog({ transaction, onClose, bulkEdit = false, allTran
               <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10"/>
               <div className="absolute -left-6 -bottom-6 h-24 w-24 rounded-full bg-white/10"/>
               <div className="relative">
-                {/* Título + fechar */}
+                {/* TÃ­tulo + fechar */}
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <p className="text-xs text-white/60 uppercase tracking-wide leading-none">
-                      {bulkEdit ? "Editar série" : "Editar transação"}
+                      {bulkEdit ? "Editar sÃ©rie" : "Editar transaÃ§Ã£o"}
                     </p>
                     {bulkEdit && (
                       <span className="mt-1 inline-flex rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold text-white">
@@ -1100,22 +1097,22 @@ function EditTransactionDialog({ transaction, onClose, bulkEdit = false, allTran
               </div>
             </div>
 
-            {/* ── Corpo com campos ── */}
+            {/* â”€â”€ Corpo com campos â”€â”€ */}
             <div className="overflow-y-auto flex-1">
               <div className="px-4 py-4 space-y-3">
 
-                {/* Descrição */}
+                {/* DescriÃ§Ã£o */}
                 <div className="rounded-2xl border bg-card px-4 py-3 space-y-1">
-                  <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Descrição</p>
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">DescriÃ§Ã£o</p>
                   <input
                     value={title}
                     onChange={e => setTitle(e.target.value)}
-                    placeholder="Nome da transação"
+                    placeholder="Nome da transaÃ§Ã£o"
                     className="w-full bg-transparent text-[16px] font-semibold text-foreground outline-none placeholder-muted-foreground/50"
                   />
                 </div>
 
-                {/* Categoria — campo fechado que abre BottomSheet */}
+                {/* Categoria â€” campo fechado que abre BottomSheet */}
                 <button type="button"
                   onClick={() => setOpenCat(true)}
                   className="w-full rounded-2xl border bg-card px-4 py-3.5 text-left flex items-center gap-3 transition-colors hover:bg-muted/30">
@@ -1130,7 +1127,7 @@ function EditTransactionDialog({ transaction, onClose, bulkEdit = false, allTran
                       </div>
                     ) : (
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
-                        <span className="text-xs">📦</span>
+                        <span className="text-xs">ðŸ“¦</span>
                       </div>
                     );
                   })()}
@@ -1149,7 +1146,7 @@ function EditTransactionDialog({ transaction, onClose, bulkEdit = false, allTran
                   <DatePicker value={dateIso} onChange={setDateIso} />
                   {bulkEdit && (
                     <p className="text-[11px] text-muted-foreground">
-                      ℹ️ Altera apenas o <strong>dia</strong> — cada parcela mantém seu próprio mês.
+                      â„¹ï¸ Altera apenas o <strong>dia</strong> â€” cada parcela mantÃ©m seu prÃ³prio mÃªs.
                     </p>
                   )}
                 </div>
@@ -1159,7 +1156,7 @@ function EditTransactionDialog({ transaction, onClose, bulkEdit = false, allTran
                   <div>
                     <p className="text-sm font-semibold text-foreground">{type === "income" ? "Recebida" : "Paga"}</p>
                     <p className="text-xs text-muted-foreground">
-                      {isFuture ? "Antecipar efetivação" : "Marca como concluída"}
+                      {isFuture ? "Antecipar efetivaÃ§Ã£o" : "Marca como concluÃ­da"}
                     </p>
                   </div>
                   <Switch checked={settled} onCheckedChange={setSettled}/>
@@ -1167,12 +1164,12 @@ function EditTransactionDialog({ transaction, onClose, bulkEdit = false, allTran
 
                 {error && <p className="text-xs text-destructive px-1">{error}</p>}
 
-                {/* Espaçador para o botão fixo no mobile */}
+                {/* EspaÃ§ador para o botÃ£o fixo no mobile */}
                 <div className="h-20 md:hidden"/>
               </div>
             </div>
 
-            {/* ── Botão salvar — fixo no rodapé mobile, inline no desktop ── */}
+            {/* â”€â”€ BotÃ£o salvar â€” fixo no rodapÃ© mobile, inline no desktop â”€â”€ */}
             <div className="md:hidden fixed left-0 right-0 z-10 px-4 pt-3 pb-[env(safe-area-inset-bottom,12px)] bg-background/97 border-t border-border/40"
               style={{ bottom: "0px", backdropFilter: "blur(8px)" }}>
               <button onClick={handleSave}
@@ -1180,11 +1177,11 @@ function EditTransactionDialog({ transaction, onClose, bulkEdit = false, allTran
                   "w-full h-14 rounded-2xl text-white font-bold text-base shadow-lg transition-all active:scale-95",
                   type === "expense" ? "bg-red-500 shadow-red-500/25" : "bg-emerald-600 shadow-emerald-600/25"
                 )}>
-                Salvar alterações
+                Salvar alteraÃ§Ãµes
               </button>
             </div>
 
-            {/* Desktop: botão inline */}
+            {/* Desktop: botÃ£o inline */}
             <div className="hidden md:flex gap-3 px-4 pb-4 pt-2 border-t shrink-0">
               <button onClick={onClose}
                 className="flex-1 h-11 rounded-xl border border-border text-sm font-medium text-muted-foreground hover:bg-muted/50 transition-colors">
@@ -1195,14 +1192,14 @@ function EditTransactionDialog({ transaction, onClose, bulkEdit = false, allTran
                   "flex-1 h-11 rounded-xl text-white font-semibold text-sm transition-all",
                   type === "expense" ? "bg-red-500 hover:bg-red-600" : "bg-emerald-600 hover:bg-emerald-700"
                 )}>
-                Salvar alterações
+                Salvar alteraÃ§Ãµes
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── BottomSheet: Categoria ── */}
+      {/* â”€â”€ BottomSheet: Categoria â”€â”€ */}
       {openCat && (
         <>
           <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm"
@@ -1244,7 +1241,7 @@ function EditTransactionDialog({ transaction, onClose, bulkEdit = false, allTran
                           : { borderColor:"transparent", background:"#f8fafc" }}>
                         <div className="flex h-14 w-14 items-center justify-center rounded-2xl text-2xl"
                           style={{ background: color+"22" }}>
-                          {isEmoji ? cat.icon : "📦"}
+                          {isEmoji ? cat.icon : "ðŸ“¦"}
                         </div>
                         <span className="text-[13px] font-semibold text-slate-700 dark:text-foreground leading-tight">{cat.name}</span>
                       </button>

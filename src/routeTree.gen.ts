@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ShareIntentRouteImport } from './routes/share-intent'
 import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
 import { Route as RecuperarSenhaRouteImport } from './routes/recuperar-senha'
 import { Route as PlanosRouteImport } from './routes/planos'
@@ -21,7 +22,7 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppTransacoesRouteImport } from './routes/_app.transacoes'
 import { Route as AppPerfilRouteImport } from './routes/_app.perfil'
-import { Route as AppNovaTransacaoRouteImport } from './routes/_app.nova-transacao'
+import { Route as AppNovaTransacaoRouteImport } from './routes/_app/nova-transacao'
 import { Route as AppMetasRouteImport } from './routes/_app.metas'
 import { Route as AppMaisRouteImport } from './routes/_app.mais'
 import { Route as AppFaturasCartaoRouteImport } from './routes/_app.faturas-cartao'
@@ -34,6 +35,11 @@ import { Route as AppCartoesEditarDespesaRouteImport } from './routes/_app/carto
 import { Route as AppCartoesCardIdRouteImport } from './routes/_app/cartoes/$cardId'
 import { Route as AppCartoesCardIdFaturaInvoiceIdRouteImport } from './routes/_app/cartoes/$cardId.fatura.$invoiceId'
 
+const ShareIntentRoute = ShareIntentRouteImport.update({
+  id: '/share-intent',
+  path: '/share-intent',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RedefinirSenhaRoute = RedefinirSenhaRouteImport.update({
   id: '/redefinir-senha',
   path: '/redefinir-senha',
@@ -165,6 +171,7 @@ export interface FileRoutesByFullPath {
   '/planos': typeof PlanosRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/share-intent': typeof ShareIntentRoute
   '/categorias': typeof AppCategoriasRoute
   '/dashboard': typeof AppDashboardRoute
   '/faturas-cartao': typeof AppFaturasCartaoRoute
@@ -190,6 +197,7 @@ export interface FileRoutesByTo {
   '/planos': typeof PlanosRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/share-intent': typeof ShareIntentRoute
   '/categorias': typeof AppCategoriasRoute
   '/dashboard': typeof AppDashboardRoute
   '/faturas-cartao': typeof AppFaturasCartaoRoute
@@ -217,6 +225,7 @@ export interface FileRoutesById {
   '/planos': typeof PlanosRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/share-intent': typeof ShareIntentRoute
   '/_app/categorias': typeof AppCategoriasRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/faturas-cartao': typeof AppFaturasCartaoRoute
@@ -244,6 +253,7 @@ export interface FileRouteTypes {
     | '/planos'
     | '/recuperar-senha'
     | '/redefinir-senha'
+    | '/share-intent'
     | '/categorias'
     | '/dashboard'
     | '/faturas-cartao'
@@ -269,6 +279,7 @@ export interface FileRouteTypes {
     | '/planos'
     | '/recuperar-senha'
     | '/redefinir-senha'
+    | '/share-intent'
     | '/categorias'
     | '/dashboard'
     | '/faturas-cartao'
@@ -295,6 +306,7 @@ export interface FileRouteTypes {
     | '/planos'
     | '/recuperar-senha'
     | '/redefinir-senha'
+    | '/share-intent'
     | '/_app/categorias'
     | '/_app/dashboard'
     | '/_app/faturas-cartao'
@@ -322,10 +334,18 @@ export interface RootRouteChildren {
   PlanosRoute: typeof PlanosRoute
   RecuperarSenhaRoute: typeof RecuperarSenhaRoute
   RedefinirSenhaRoute: typeof RedefinirSenhaRoute
+  ShareIntentRoute: typeof ShareIntentRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/share-intent': {
+      id: '/share-intent'
+      path: '/share-intent'
+      fullPath: '/share-intent'
+      preLoaderRoute: typeof ShareIntentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/redefinir-senha': {
       id: '/redefinir-senha'
       path: '/redefinir-senha'
@@ -553,6 +573,7 @@ const rootRouteChildren: RootRouteChildren = {
   PlanosRoute: PlanosRoute,
   RecuperarSenhaRoute: RecuperarSenhaRoute,
   RedefinirSenhaRoute: RedefinirSenhaRoute,
+  ShareIntentRoute: ShareIntentRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
