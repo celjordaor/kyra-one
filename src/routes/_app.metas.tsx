@@ -1,8 +1,6 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { useEffect } from "react";
-import { useSubscription } from "@/lib/subscription-store";
+import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Target, Plus, TrendingDown, Pencil, Trash2, PiggyBank, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -110,22 +108,8 @@ export const Route = createFileRoute("/_app/metas")({
 
 type Tab = "budgets" | "goals";
 
+// TODO: gating por assinatura do portal (Fase Asaas)
 function MetasPage() {
-  const router = useRouter();
-  const { subscription } = useSubscription();
-
-  useEffect(() => {
-    if (subscription && !subscription.isAdvancado) {
-      toast.error("Metas e Orçamentos é exclusivo do plano Avançado", {
-        description: "Faça upgrade para acessar esse recurso.",
-        duration: 4000,
-      });
-      router.navigate({ to: "/planos" });
-    }
-  }, [subscription]);
-
-  if (subscription && !subscription.isAdvancado) return null;
-
   const [tab, setTab] = useState<Tab>("budgets");
 
   return (

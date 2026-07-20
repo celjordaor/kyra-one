@@ -1,10 +1,9 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import {
   User, Tag, Target, LogOut, ChevronRight,
-  Lock, Star, Shield, Bell, HelpCircle, Crown,
+  Lock, Shield, Bell, HelpCircle,
   Eye, EyeOff,
 } from "lucide-react";
-import { useSubscription } from "@/lib/subscription-store";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -102,19 +101,15 @@ function Row({
 }
 
 // ── Página ─────────────────────────────────────────────────────────────────
+// TODO: gating por assinatura do portal (Fase Asaas)
 function MaisPage() {
   const router = useRouter();
   const { user, signOut } = useAuth();
-  const { subscription } = useSubscription();
-
-  const isAdvancado = subscription?.isAdvancado ?? false;
-  const planName    = subscription?.planName ?? "Essencial";
 
   // ── Estados dos dialogs ──────────────────────────────────────────────────
   const [openProfile,  setOpenProfile]  = useState(false);
   const [openPassword, setOpenPassword] = useState(false);
   const [openNotifs,   setOpenNotifs]   = useState(false);
-  const [showUpgrade,  setShowUpgrade]  = useState(false);
 
   // Dados pessoais
   const [name,      setName]      = useState("");
@@ -184,12 +179,6 @@ function MaisPage() {
     localStorage.setItem(NOTIFS_KEY, JSON.stringify(next));
   }
 
-  // Metas
-  function handleMetas() {
-    if (!isAdvancado) { setShowUpgrade(true); return; }
-    router.navigate({ to: "/metas" });
-  }
-
   async function handleSignOut() {
     await signOut();
     router.navigate({ to: "/login" });
@@ -208,18 +197,6 @@ function MaisPage() {
             <p className="text-lg font-bold truncate">{name || "Sem nome"}</p>
             <p className="text-sm text-white/60 truncate">{email}</p>
           </div>
-        </div>
-        <div className="inline-flex items-center gap-2 rounded-full px-3 py-1.5"
-          style={{
-            background: isAdvancado ? "#10b98122" : "#f59e0b22",
-            border: `1px solid ${isAdvancado ? "#10b98144" : "#f59e0b44"}`,
-          }}>
-          {isAdvancado
-            ? <Crown className="h-3.5 w-3.5 text-emerald-400"/>
-            : <Star  className="h-3.5 w-3.5 text-amber-400"/>}
-          <span className="text-xs font-semibold" style={{ color: isAdvancado ? "#10b981" : "#f59e0b" }}>
-            Plano {planName}
-          </span>
         </div>
       </div>
 
@@ -262,31 +239,10 @@ function MaisPage() {
           />
           <Row
             icon={<Target className="h-5 w-5"/>}
-            iconBg={isAdvancado ? "bg-emerald-50 dark:bg-emerald-950/30" : "bg-slate-100 dark:bg-muted"}
-            iconColor={isAdvancado ? "text-emerald-600" : "text-slate-400"}
+            iconBg="bg-emerald-50 dark:bg-emerald-950/30" iconColor="text-emerald-600"
             label="Metas e Orçamentos"
-            sublabel={isAdvancado ? "Defina metas e controle orçamentos" : "Disponível no plano Avançado"}
-            onClick={handleMetas}
-            locked={!isAdvancado}
-            badge={!isAdvancado ? (
-              <span className="rounded-full bg-amber-100 dark:bg-amber-950/30 px-2 py-0.5 text-[10px] font-bold text-amber-600">Avançado</span>
-            ) : undefined}
-            last
-          />
-        </Section>
-
-        {/* ── Assinatura ─────────────────────────────────────────────── */}
-        <Section title="Assinatura">
-          <Row
-            icon={isAdvancado ? <Crown className="h-5 w-5"/> : <Star className="h-5 w-5"/>}
-            iconBg={isAdvancado ? "bg-emerald-50 dark:bg-emerald-950/30" : "bg-amber-50 dark:bg-amber-950/30"}
-            iconColor={isAdvancado ? "text-emerald-600" : "text-amber-500"}
-            label={`Plano ${planName}`}
-            sublabel={isAdvancado ? "Todos os recursos desbloqueados" : "Toque para fazer upgrade"}
-            onClick={() => router.navigate({ to: "/planos" })}
-            badge={!isAdvancado ? (
-              <span className="rounded-full bg-emerald-100 dark:bg-emerald-950/30 px-2 py-0.5 text-[10px] font-bold text-emerald-600">Upgrade</span>
-            ) : undefined}
+            sublabel="Defina metas e controle orçamentos"
+            onClick={() => router.navigate({ to: "/metas" })}
             last
           />
         </Section>
@@ -422,36 +378,6 @@ function MaisPage() {
           </div>
           <div className="border-t px-5 py-3.5">
             <Button className="w-full" onClick={() => setOpenNotifs(false)}>Concluir</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* ══ Dialog: Upgrade ═══════════════════════════════════════════ */}
-      <Dialog open={showUpgrade} onOpenChange={setShowUpgrade}>
-        <DialogContent className="max-w-sm p-0 overflow-hidden" aria-describedby={undefined} onOpenAutoFocus={e => e.preventDefault()}>
-          <div className="bg-gradient-to-br from-amber-400 to-orange-500 p-6 text-white">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 mb-3">
-              <Crown className="h-7 w-7"/>
-            </div>
-            <h2 className="text-lg font-bold">Recurso do Plano Avançado</h2>
-            <p className="text-sm text-white/80 mt-1">Metas e Orçamentos está disponível exclusivamente no plano Avançado.</p>
-          </div>
-          <div className="p-5 space-y-3">
-            {["🎯 Defina metas de economia e gastos","📊 Controle orçamentos por categoria","📈 Relatórios e análises avançadas","🔔 Alertas quando se aproximar do limite"].map(item => (
-              <div key={item} className="flex items-start gap-2 text-sm text-slate-700 dark:text-foreground">
-                <span>{item}</span>
-              </div>
-            ))}
-            <div className="flex flex-col gap-2 pt-2">
-              <button onClick={() => { setShowUpgrade(false); router.navigate({ to: "/planos" }); }}
-                className="w-full h-12 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 text-white font-bold text-sm shadow-lg">
-                Ver planos e fazer upgrade
-              </button>
-              <button onClick={() => setShowUpgrade(false)}
-                className="w-full h-11 rounded-2xl border border-slate-200 dark:border-border text-slate-500 text-sm font-medium">
-                Agora não
-              </button>
-            </div>
           </div>
         </DialogContent>
       </Dialog>

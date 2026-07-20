@@ -12,12 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as ShareIntentRouteImport } from './routes/share-intent'
 import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
 import { Route as RecuperarSenhaRouteImport } from './routes/recuperar-senha'
-import { Route as PlanosRouteImport } from './routes/planos'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as CadastroRouteImport } from './routes/cadastro'
 import { Route as BoasVindasRouteImport } from './routes/boas-vindas'
-import { Route as AssinaturaSucessoRouteImport } from './routes/assinatura-sucesso'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppTransacoesRouteImport } from './routes/_app.transacoes'
@@ -50,11 +47,6 @@ const RecuperarSenhaRoute = RecuperarSenhaRouteImport.update({
   path: '/recuperar-senha',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PlanosRoute = PlanosRouteImport.update({
-  id: '/planos',
-  path: '/planos',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -68,16 +60,6 @@ const CadastroRoute = CadastroRouteImport.update({
 const BoasVindasRoute = BoasVindasRouteImport.update({
   id: '/boas-vindas',
   path: '/boas-vindas',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AssinaturaSucessoRoute = AssinaturaSucessoRouteImport.update({
-  id: '/assinatura-sucesso',
-  path: '/assinatura-sucesso',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminRoute = AdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppRoute = AppRouteImport.update({
@@ -163,12 +145,9 @@ const AppCartoesCardIdFaturaInvoiceIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
-  '/assinatura-sucesso': typeof AssinaturaSucessoRoute
   '/boas-vindas': typeof BoasVindasRoute
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
-  '/planos': typeof PlanosRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/share-intent': typeof ShareIntentRoute
@@ -189,12 +168,9 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
-  '/assinatura-sucesso': typeof AssinaturaSucessoRoute
   '/boas-vindas': typeof BoasVindasRoute
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
-  '/planos': typeof PlanosRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/share-intent': typeof ShareIntentRoute
@@ -217,12 +193,9 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
-  '/admin': typeof AdminRoute
-  '/assinatura-sucesso': typeof AssinaturaSucessoRoute
   '/boas-vindas': typeof BoasVindasRoute
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
-  '/planos': typeof PlanosRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/share-intent': typeof ShareIntentRoute
@@ -245,12 +218,9 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/admin'
-    | '/assinatura-sucesso'
     | '/boas-vindas'
     | '/cadastro'
     | '/login'
-    | '/planos'
     | '/recuperar-senha'
     | '/redefinir-senha'
     | '/share-intent'
@@ -271,12 +241,9 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/admin'
-    | '/assinatura-sucesso'
     | '/boas-vindas'
     | '/cadastro'
     | '/login'
-    | '/planos'
     | '/recuperar-senha'
     | '/redefinir-senha'
     | '/share-intent'
@@ -298,12 +265,9 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_app'
-    | '/admin'
-    | '/assinatura-sucesso'
     | '/boas-vindas'
     | '/cadastro'
     | '/login'
-    | '/planos'
     | '/recuperar-senha'
     | '/redefinir-senha'
     | '/share-intent'
@@ -326,12 +290,9 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
-  AdminRoute: typeof AdminRoute
-  AssinaturaSucessoRoute: typeof AssinaturaSucessoRoute
   BoasVindasRoute: typeof BoasVindasRoute
   CadastroRoute: typeof CadastroRoute
   LoginRoute: typeof LoginRoute
-  PlanosRoute: typeof PlanosRoute
   RecuperarSenhaRoute: typeof RecuperarSenhaRoute
   RedefinirSenhaRoute: typeof RedefinirSenhaRoute
   ShareIntentRoute: typeof ShareIntentRoute
@@ -360,13 +321,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RecuperarSenhaRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/planos': {
-      id: '/planos'
-      path: '/planos'
-      fullPath: '/planos'
-      preLoaderRoute: typeof PlanosRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -386,20 +340,6 @@ declare module '@tanstack/react-router' {
       path: '/boas-vindas'
       fullPath: '/boas-vindas'
       preLoaderRoute: typeof BoasVindasRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/assinatura-sucesso': {
-      id: '/assinatura-sucesso'
-      path: '/assinatura-sucesso'
-      fullPath: '/assinatura-sucesso'
-      preLoaderRoute: typeof AssinaturaSucessoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app': {
@@ -565,12 +505,9 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
-  AdminRoute: AdminRoute,
-  AssinaturaSucessoRoute: AssinaturaSucessoRoute,
   BoasVindasRoute: BoasVindasRoute,
   CadastroRoute: CadastroRoute,
   LoginRoute: LoginRoute,
-  PlanosRoute: PlanosRoute,
   RecuperarSenhaRoute: RecuperarSenhaRoute,
   RedefinirSenhaRoute: RedefinirSenhaRoute,
   ShareIntentRoute: ShareIntentRoute,

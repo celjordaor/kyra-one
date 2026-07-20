@@ -6,7 +6,6 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useCardStore } from "@/lib/card-store";
-import { useSubscription } from "@/lib/subscription-store";
 import { LimitBar } from "@/components/cartoes/limit-bar";
 import { useLimitUsed } from "@/hooks/use-limit-used";
 import { cn } from "@/lib/utils";
@@ -122,29 +121,11 @@ function CardItem({ card }: { card: ReturnType<typeof useCardStore.getState>["ca
   );
 }
 
+// TODO: gating por assinatura do portal (Fase Asaas)
 function CartoesPage() {
   const { cards, fetchCards, loading } = useCardStore();
-  const { subscription } = useSubscription();
-  const hasAccess = subscription?.isAdvancado === true;
 
-  useEffect(() => { if (hasAccess) fetchCards(); }, [hasAccess]);
-
-  if (!hasAccess) {
-    return (
-      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-6 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-          <CreditCard className="h-8 w-8 text-primary" />
-        </div>
-        <h2 className="text-lg font-semibold text-foreground">Recurso exclusivo do plano Avançado</h2>
-        <p className="max-w-xs text-sm text-muted-foreground">
-          O controle de cartão de crédito está disponível no plano Avançado por R$ 19,90/mês.
-        </p>
-        <Button asChild className="mt-2 h-11 bg-primary font-semibold">
-          <Link to="/planos">Ver planos</Link>
-        </Button>
-      </div>
-    );
-  }
+  useEffect(() => { fetchCards(); }, []);
 
   if (loading) {
     return (

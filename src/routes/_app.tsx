@@ -1,10 +1,7 @@
 import { createFileRoute, Outlet, Link, useLocation, Navigate, useRouter } from "@tanstack/react-router";
-import { Home, Receipt, User, PlusCircle, CreditCard, TrendingUp, TrendingDown, X, Tag, ChevronRight, MoreHorizontal, Target, Lock, Settings, LayoutDashboard, Layers } from "lucide-react";
+import { Home, Receipt, User, PlusCircle, CreditCard, TrendingUp, TrendingDown, X, Tag, ChevronRight, MoreHorizontal, Target, Settings, LayoutDashboard, Layers } from "lucide-react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/lib/auth";
-import { useSubscription } from "@/lib/subscription-store";
-import { GracePeriodBanner } from "@/components/grace-period-banner";
-import { PaymentRequired } from "@/components/payment-required";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { extendRecurringIfNeeded } from "@/lib/transactions-store";
@@ -52,8 +49,7 @@ function AppLayout() {
   const { pathname } = useLocation();
   const router = useRouter();
   const { session, loading: authLoading } = useAuth();
-  const { subscription, loading: subLoading } = useSubscription();
-  const isAdvancado = subscription?.isAdvancado ?? false;
+  // TODO: gating por assinatura do portal (Fase Asaas)
   const [addMenuOpen, setAddMenuOpen] = useState(false);
 
   // Extensão automática de recorrentes + backfill de recurrence_id (roda 1x por sessão)
@@ -64,7 +60,7 @@ function AppLayout() {
     );
   }, [session?.user?.id]);
 
-  if (authLoading || subLoading) {
+  if (authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
@@ -73,11 +69,6 @@ function AppLayout() {
   }
 
   if (!session) return <Navigate to="/login" />;
-  if (subscription?.isBlocked) return <PaymentRequired subscription={subscription} />;
-
-  const showBanner =
-    subscription?.needsAttention ||
-    (subscription?.isNewAccount && (subscription.daysLeft ?? 30) <= 10);
 
   const handleAddTransaction = (type: "income" | "expense") => {
     setAddMenuOpen(false);
@@ -91,12 +82,6 @@ function AppLayout() {
   return (
     <TooltipProvider>
       <div style={{ display:"block", background:"var(--color-background)", minHeight:"100dvh", width:"100%", maxWidth:"100vw", overflowX:"hidden" }}>
-        {showBanner && (
-          <div className="fixed top-0 left-0 right-0 z-50 md:left-64">
-            <GracePeriodBanner subscription={subscription} />
-          </div>
-        )}
-
         {/* ══ SIDEBAR DESKTOP ═══════════════════════════════════════════ */}
         <aside className="hidden md:flex flex-col fixed inset-y-0 left-0 w-64 border-r bg-card z-30 shadow-sm">
 
@@ -153,19 +138,12 @@ function AppLayout() {
                 </Link>
               );
             })}
-            {isAdvancado?(
-              <Link to="/metas"
-                className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-                  pathname==="/metas"?"bg-primary/10 text-primary":"text-muted-foreground hover:bg-accent hover:text-foreground"
-                )}>
-                <Target className="h-4 w-4 shrink-0"/>Metas e Orçamentos
-              </Link>
-            ):(
-              <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground opacity-50 cursor-not-allowed">
-                <Target className="h-4 w-4 shrink-0"/>Metas e Orçamentos
-                <Lock className="h-3 w-3 ml-auto"/>
-              </div>
-            )}
+            <Link to="/metas"
+              className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                pathname==="/metas"?"bg-primary/10 text-primary":"text-muted-foreground hover:bg-accent hover:text-foreground"
+              )}>
+              <Target className="h-4 w-4 shrink-0"/>Metas e Orçamentos
+            </Link>
             <Link to="/perfil"
               className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
                 pathname==="/perfil"?"bg-primary/10 text-primary":"text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -187,7 +165,6 @@ function AppLayout() {
 
                 {/* ══ CONTEÚDO PRINCIPAL ════════════════════════════════════════ */}
         <div className="md:ml-64" style={{ overflowX:"hidden" }}>
-          {showBanner && <div className="h-10 md:block hidden" />}
           <main
             className="md:pb-0 md:min-h-screen"
             style={{ paddingBottom:"calc(88px + env(safe-area-inset-bottom, 0px))" }}>

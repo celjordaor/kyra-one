@@ -2,9 +2,7 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { LogOut, Settings, ChevronRight } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { useSubscription } from "@/lib/subscription-store";
 import { supabase } from "@/lib/supabase";
-import { Crown, Star } from "lucide-react";
 
 export const Route = createFileRoute("/_app/perfil")({
   component: PerfilPage,
@@ -15,10 +13,10 @@ function getInitials(name: string) {
   return ((parts[0]?.[0] ?? "") + (parts[parts.length - 1]?.[0] ?? "")).toUpperCase() || "?";
 }
 
+// TODO: gating por assinatura do portal (Fase Asaas)
 function PerfilPage() {
   const { user, signOut } = useAuth();
   const router = useRouter();
-  const { subscription } = useSubscription();
 
   const [name,  setName]  = useState("");
   const [email, setEmail] = useState("");
@@ -29,9 +27,6 @@ function PerfilPage() {
       .then(({ data }) => setName(data?.name ?? user.user_metadata?.name ?? ""));
     setEmail(user.email ?? "");
   }, [user]);
-
-  const isAdvancado = subscription?.isAdvancado ?? false;
-  const planName    = subscription?.planName ?? "Essencial";
 
   async function handleSignOut() {
     await signOut();
@@ -51,45 +46,10 @@ function PerfilPage() {
             <p className="text-xl font-bold">{name || "Sem nome"}</p>
             <p className="text-sm text-white/60 mt-0.5">{email}</p>
           </div>
-          {/* Badge do plano */}
-          <div className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 mt-1"
-            style={{
-              background: isAdvancado ? "#10b98122" : "#f59e0b22",
-              border: `1px solid ${isAdvancado ? "#10b98144" : "#f59e0b44"}`,
-            }}>
-            {isAdvancado
-              ? <Crown className="h-3.5 w-3.5 text-emerald-400"/>
-              : <Star  className="h-3.5 w-3.5 text-amber-400"/>}
-            <span className="text-xs font-semibold" style={{ color: isAdvancado ? "#10b981" : "#f59e0b" }}>
-              Plano {planName}
-            </span>
-          </div>
         </div>
       </div>
 
       <div className="px-4 pt-5 pb-8 space-y-3">
-
-        {/* Info do plano */}
-        <div className="rounded-2xl border bg-white dark:bg-card p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Plano atual</p>
-              <p className="mt-0.5 text-base font-bold text-foreground">{planName}</p>
-              {subscription?.status === "trial" && subscription.daysLeft !== null && (
-                <p className="text-xs text-yellow-600 dark:text-yellow-400">
-                  Período de teste — {subscription.daysLeft} dias restantes
-                </p>
-              )}
-              {subscription?.status === "active" && (
-                <p className="text-xs text-primary">Assinatura ativa</p>
-              )}
-            </div>
-            <button onClick={() => router.navigate({ to: "/planos" })}
-              className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90">
-              {isAdvancado ? "Gerenciar" : "Upgrade"}
-            </button>
-          </div>
-        </div>
 
         {/* Atalho para Configurações */}
         <button onClick={() => router.navigate({ to: "/mais" })}
