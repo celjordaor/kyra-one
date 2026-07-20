@@ -1,9 +1,7 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { CheckCircle, TrendingUp, Target, PieChart, ShieldCheck, Sparkles, ArrowRight } from "lucide-react";
+import { CheckCircle, TrendingUp, Target, PieChart, ShieldCheck, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/lib/auth";
-import { supabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/boas-vindas")({
   component: BoasVindasPage,
@@ -29,9 +27,7 @@ function LogoIcon({ size = 28 }: { size?: number }) {
 }
 
 function BoasVindasPage() {
-  const { user } = useAuth();
   const router = useRouter();
-  const [userName, setUserName] = useState("");
   const [visible, setVisible] = useState(false);
   const [confetti] = useState(() =>
     Array.from({ length: 32 }, (_, i) => ({
@@ -48,14 +44,7 @@ function BoasVindasPage() {
 
   useEffect(() => {
     setTimeout(() => setVisible(true), 80);
-    if (user) {
-      supabase.from("profiles").select("name").eq("id", user.id).single()
-        .then(({ data }) => {
-          const name = data?.name ?? user.user_metadata?.name ?? "";
-          setUserName(name.split(" ")[0]); // Primeiro nome apenas
-        });
-    }
-  }, [user]);
+  }, []);
 
   const handleStart = () => {
     localStorage.setItem("jadeone:welcomed", "true");
@@ -83,24 +72,12 @@ function BoasVindasPage() {
           0%   { transform: scale(1);   opacity: 0.35; }
           100% { transform: scale(1.65); opacity: 0;   }
         }
-        @keyframes jd-shimmer {
-          0%   { background-position: -200% center; }
-          100% { background-position:  200% center; }
-        }
         .jd-card { animation: jd-fadeup 0.55s ease both; }
         .jd-logo-wrap { animation: jd-popin 0.45s 0.25s both; }
         .jd-ring {
           position: absolute; inset: -14px; border-radius: 50%;
           border: 2px solid rgba(255,255,255,0.28);
           animation: jd-pulse-ring 2.2s ease-out infinite;
-        }
-        .jd-shimmer-text {
-          background: linear-gradient(90deg, #10b981, #34d399, #10b981);
-          background-size: 200% auto;
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-          animation: jd-shimmer 3s linear infinite;
         }
       `}</style>
 
@@ -124,7 +101,7 @@ function BoasVindasPage() {
         <div className={`jd-card relative z-10 w-full max-w-[480px] overflow-hidden rounded-[28px] bg-white shadow-2xl shadow-primary/15 ${visible ? "" : "opacity-0"}`}>
 
           {/* Header verde */}
-          <div className="relative overflow-hidden bg-gradient-to-br from-primary to-primary/80 px-9 pt-10 pb-14 text-center">
+          <div className="relative overflow-hidden bg-gradient-to-br from-primary to-primary/80 px-9 pt-10 pb-9 text-center">
             {/* Círculos */}
             <div className="absolute -top-10 -right-10 h-44 w-44 rounded-full bg-white/[0.07]"/>
             <div className="absolute -bottom-8 -left-8 h-36 w-36 rounded-full bg-white/[0.06]"/>
@@ -135,41 +112,16 @@ function BoasVindasPage() {
               <LogoIcon size={38}/>
             </div>
 
-            <div className="flex items-center justify-center gap-2 mb-3">
-              <span className="text-[30px] font-black text-white tracking-tight">JadeOne</span>
-              <Sparkles className="h-5 w-5 text-white/60"/>
-            </div>
-
             <h1 className="text-xl font-bold text-white leading-snug">
-              {userName ? `Olá, ${userName}! Seja bem-vindo(a)! 🎉` : "Seja muito bem-vindo(a)! 🎉"}
+              Seja bem-vindo(a) ao seu Quintal de Finanças 🌱
             </h1>
             <p className="mt-2 text-sm text-white/75 leading-relaxed">
-              Obrigado por escolher o JadeOne para cuidar<br/>das suas finanças. Estamos felizes com você aqui!
+              Seu cantinho pra cuidar do dinheiro sem complicação.
             </p>
-
-            {/* Badge flutuante */}
-            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 rounded-t-[18px] bg-white px-6 pt-2.5 pb-0 shadow-[0_-4px_20px_rgba(16,185,129,0.18)]">
-              <span className="jd-shimmer-text text-[13px] font-extrabold tracking-wide">
-                ✨ 30 dias gratuitos desbloqueados
-              </span>
-            </div>
           </div>
 
           {/* Corpo */}
           <div className="px-9 pt-8 pb-9">
-
-            {/* Box 30 dias */}
-            <div className="mb-7 flex items-start gap-4 rounded-2xl border border-primary/20 bg-primary/5 p-4">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-xl shadow-md shadow-primary/30">
-                🚀
-              </div>
-              <div>
-                <p className="text-sm font-bold text-primary">Seu período de boas-vindas está ativo</p>
-                <p className="mt-0.5 text-xs text-primary/80 leading-relaxed">
-                  Você tem <strong>30 dias gratuitos</strong> para explorar todos os recursos do plano Essencial sem pagar nada.
-                </p>
-              </div>
-            </div>
 
             {/* Features */}
             <p className="mb-3.5 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
@@ -192,13 +144,9 @@ function BoasVindasPage() {
               onClick={handleStart}
               className="h-12 w-full gap-2 rounded-2xl text-[15px] font-bold shadow-lg shadow-primary/30 hover:-translate-y-0.5 transition-transform"
             >
-              Começar minha jornada
+              Começar
               <ArrowRight className="h-5 w-5"/>
             </Button>
-
-            <p className="mt-3.5 text-center text-xs text-muted-foreground">
-              Nenhum cartão necessário · Cancele quando quiser
-            </p>
           </div>
         </div>
       </div>
