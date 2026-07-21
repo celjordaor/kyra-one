@@ -1,8 +1,7 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import {
-  User, Tag, Target, LogOut, ChevronRight,
-  Lock, Shield, Bell, HelpCircle,
-  Eye, EyeOff,
+  Tag, Target, LogOut, ChevronRight,
+  Lock, Sprout, Bell, HelpCircle,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -10,11 +9,7 @@ import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Switch } from "@/components/ui/switch";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_app/mais")({
@@ -36,23 +31,6 @@ function loadNotifs(): Notifs {
     const raw = localStorage.getItem(NOTIFS_KEY);
     return raw ? { ...DEFAULT_NOTIFS, ...JSON.parse(raw) } : DEFAULT_NOTIFS;
   } catch { return DEFAULT_NOTIFS; }
-}
-
-// ── Campo de senha com toggle de visibilidade ──────────────────────────────
-function PasswordInput({ id, value, onChange, placeholder }: {
-  id: string; value: string; onChange: (v: string) => void; placeholder?: string;
-}) {
-  const [show, setShow] = useState(false);
-  return (
-    <div className="relative">
-      <Input id={id} type={show ? "text" : "password"} value={value}
-        onChange={e => onChange(e.target.value)} placeholder={placeholder} className="h-10 pr-10"/>
-      <button type="button" onClick={() => setShow(v => !v)}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-        {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-      </button>
-    </div>
-  );
 }
 
 // ── Componentes visuais ────────────────────────────────────────────────────
@@ -107,21 +85,11 @@ function MaisPage() {
   const { user, signOut } = useAuth();
 
   // ── Estados dos dialogs ──────────────────────────────────────────────────
-  const [openProfile,  setOpenProfile]  = useState(false);
-  const [openPassword, setOpenPassword] = useState(false);
-  const [openNotifs,   setOpenNotifs]   = useState(false);
+  const [openNotifs, setOpenNotifs] = useState(false);
 
-  // Dados pessoais
-  const [name,      setName]      = useState("");
-  const [email,     setEmail]     = useState("");
-  const [draftName, setDraftName] = useState("");
-
-  // Alterar senha
-  const [currentPwd,  setCurrentPwd]  = useState("");
-  const [newPwd,      setNewPwd]      = useState("");
-  const [confirmPwd,  setConfirmPwd]  = useState("");
-  const [pwdError,    setPwdError]    = useState<string | null>(null);
-  const [pwdSaving,   setPwdSaving]   = useState(false);
+  // Dados pessoais (exibição)
+  const [name,  setName]  = useState("");
+  const [email, setEmail] = useState("");
 
   // Notificações
   const [notifs, setNotifs] = useState<Notifs>(DEFAULT_NOTIFS);
@@ -137,39 +105,6 @@ function MaisPage() {
   function getInitials(n: string) {
     const parts = n.trim().split(/\s+/);
     return ((parts[0]?.[0] ?? "") + (parts[parts.length - 1]?.[0] ?? "")).toUpperCase() || "?";
-  }
-
-  // Dados pessoais
-  function openProfileDialog() { setDraftName(name); setOpenProfile(true); }
-  async function saveProfile() {
-    if (!draftName.trim()) { toast.error("Preencha o nome"); return; }
-    await supabase.from("profiles").update({ name: draftName.trim() }).eq("id", user?.id);
-    setName(draftName.trim());
-    setOpenProfile(false);
-    toast.success("Dados pessoais atualizados");
-  }
-
-  // Alterar senha
-  function openPasswordDialog() {
-    setCurrentPwd(""); setNewPwd(""); setConfirmPwd(""); setPwdError(null);
-    setOpenPassword(true);
-  }
-  async function savePassword() {
-    setPwdError(null);
-    if (!currentPwd)         { setPwdError("Informe a senha atual"); return; }
-    if (newPwd.length < 6)   { setPwdError("A nova senha deve ter pelo menos 6 caracteres"); return; }
-    if (newPwd !== confirmPwd) { setPwdError("As senhas não coincidem"); return; }
-    if (newPwd === currentPwd) { setPwdError("A nova senha deve ser diferente da atual"); return; }
-    setPwdSaving(true);
-    try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password: currentPwd });
-      if (signInError) { setPwdError("Senha atual incorreta"); return; }
-      const { error } = await supabase.auth.updateUser({ password: newPwd });
-      if (error) throw error;
-      toast.success("Senha alterada com sucesso!");
-      setOpenPassword(false);
-    } catch { setPwdError("Erro ao alterar senha. Tente novamente."); }
-    finally { setPwdSaving(false); }
   }
 
   // Notificações
@@ -205,11 +140,11 @@ function MaisPage() {
         {/* ── Conta ──────────────────────────────────────────────────── */}
         <Section title="Conta">
           <Row
-            icon={<User className="h-5 w-5"/>}
-            iconBg="bg-indigo-50 dark:bg-indigo-950/30" iconColor="text-indigo-600"
-            label="Perfil"
-            sublabel="Editar dados pessoais"
-            onClick={openProfileDialog}
+            icon={<Sprout className="h-5 w-5"/>}
+            iconBg="bg-emerald-50 dark:bg-emerald-950/30" iconColor="text-emerald-600"
+            label="Minha conta 🌱"
+            sublabel="Dados, senha e segurança no Quintalzim"
+            onClick={() => window.open("https://quintalzim.com.br/app/perfil", "_blank", "noopener,noreferrer")}
           />
           <Row
             icon={<Bell className="h-5 w-5"/>}
@@ -217,13 +152,6 @@ function MaisPage() {
             label="Notificações"
             sublabel="Alertas e lembretes"
             onClick={() => setOpenNotifs(true)}
-          />
-          <Row
-            icon={<Shield className="h-5 w-5"/>}
-            iconBg="bg-slate-100 dark:bg-muted" iconColor="text-slate-500"
-            label="Segurança"
-            sublabel="Alterar senha"
-            onClick={openPasswordDialog}
             last
           />
         </Section>
@@ -271,90 +199,6 @@ function MaisPage() {
           JadeOne v1.0 · Finanças Pessoais
         </p>
       </div>
-
-      {/* ══ Dialog: Dados Pessoais ════════════════════════════════════ */}
-      <Dialog open={openProfile} onOpenChange={setOpenProfile}>
-        <DialogContent className="max-w-sm" aria-describedby={undefined} onOpenAutoFocus={e => e.preventDefault()}>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-50">
-                <User className="h-4 w-4 text-indigo-600"/>
-              </div>
-              Dados pessoais
-            </DialogTitle>
-            <DialogDescription>Atualize seu nome de exibição.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="mais-name">Nome</Label>
-              <Input id="mais-name" value={draftName} onChange={e => setDraftName(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && saveProfile()}/>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="mais-email">E-mail</Label>
-              <Input id="mais-email" type="email" value={email} disabled className="opacity-60"/>
-              <p className="text-xs text-muted-foreground">O e-mail não pode ser alterado por aqui.</p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpenProfile(false)}>Cancelar</Button>
-            <Button onClick={saveProfile}>Salvar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ══ Dialog: Segurança / Alterar Senha ════════════════════════ */}
-      <Dialog open={openPassword} onOpenChange={o => { if (!pwdSaving) setOpenPassword(o); }}>
-        <DialogContent className="max-w-sm p-0 overflow-hidden" aria-describedby={undefined} onOpenAutoFocus={e => e.preventDefault()}>
-          <div className="bg-gradient-to-br from-slate-600 to-slate-800 px-5 pt-5 pb-4 text-white">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 mb-3">
-              <Shield className="h-5 w-5"/>
-            </div>
-            <h2 className="text-base font-bold">Segurança</h2>
-            <p className="text-sm text-white/70 mt-0.5">Crie uma nova senha para sua conta.</p>
-          </div>
-          <div className="px-5 py-4 space-y-3.5">
-            <div className="space-y-1.5">
-              <Label htmlFor="mais-cur-pwd">Senha atual</Label>
-              <PasswordInput id="mais-cur-pwd" value={currentPwd} onChange={setCurrentPwd}/>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="mais-new-pwd">Nova senha</Label>
-              <PasswordInput id="mais-new-pwd" value={newPwd} onChange={setNewPwd} placeholder="Mínimo 6 caracteres"/>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="mais-conf-pwd">Confirmar nova senha</Label>
-              <PasswordInput id="mais-conf-pwd" value={confirmPwd} onChange={setConfirmPwd}/>
-            </div>
-            {/* Indicador de força */}
-            {newPwd.length > 0 && (
-              <div className="space-y-1">
-                <div className="flex gap-1">
-                  {[1,2,3,4].map(i => (
-                    <div key={i} className={`h-1 flex-1 rounded-full transition-colors ${
-                      i <= (newPwd.length >= 12 ? 4 : newPwd.length >= 8 ? 3 : newPwd.length >= 6 ? 2 : 1)
-                        ? (newPwd.length >= 12 ? "bg-emerald-500" : newPwd.length >= 8 ? "bg-yellow-500" : "bg-red-400")
-                        : "bg-muted"
-                    }`}/>
-                  ))}
-                </div>
-                <p className="text-[10px] text-muted-foreground">
-                  {newPwd.length >= 12 ? "Senha forte" : newPwd.length >= 8 ? "Senha média" : "Senha fraca"}
-                </p>
-              </div>
-            )}
-            {pwdError && (
-              <p className="rounded-lg bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">{pwdError}</p>
-            )}
-          </div>
-          <div className="flex gap-2 border-t px-5 py-3.5">
-            <Button variant="outline" className="flex-1" onClick={() => setOpenPassword(false)} disabled={pwdSaving}>Cancelar</Button>
-            <Button className="flex-1" onClick={savePassword} disabled={pwdSaving}>
-              {pwdSaving ? "Verificando..." : "Salvar"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* ══ Dialog: Notificações ══════════════════════════════════════ */}
       <Dialog open={openNotifs} onOpenChange={setOpenNotifs}>

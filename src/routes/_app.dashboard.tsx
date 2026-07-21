@@ -1,6 +1,6 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { TrendingUp, TrendingDown, PiggyBank, ChevronLeft, ChevronRight, ChevronDown, CalendarDays, Eye, EyeOff, AlertCircle, Check, User, LogOut, KeyRound, CreditCard, Plus, Receipt, Shield, ListChecks, Settings, Wallet, X, Pencil, Save, Trash2, Search, ClipboardPaste, AlertCircle as AlertIcon } from "lucide-react";
+import { TrendingUp, TrendingDown, PiggyBank, ChevronLeft, ChevronRight, ChevronDown, CalendarDays, Eye, EyeOff, AlertCircle, Check, User, LogOut, Sprout, CreditCard, Plus, Receipt, ListChecks, Settings, Wallet, X, Pencil, Save, Trash2, Search, ClipboardPaste, AlertCircle as AlertIcon } from "lucide-react";
 import { useTransactions, parseBrDate, toggleSettled, updateTransaction, deleteTransaction, deleteTransactionSeries, type Transaction } from "@/lib/transactions-store";
 import { useCategories } from "@/lib/categories-store";
 import { useAccountBalance, saveAccountBalance } from "@/lib/account-balance-store";
@@ -133,33 +133,10 @@ type RecentItem = {
   category: string; _d: Date; isCardExpense: boolean; cardName?: string; settled?: boolean;
 };
 
-// ── Campo de senha com toggle mostrar/ocultar ─────────────────────────────
-function PasswordInput({ id, value, onChange, placeholder }: {
-  id: string; value: string; onChange: (v: string) => void; placeholder?: string;
-}) {
-  const [show, setShow] = useState(false);
-  return (
-    <div className="relative">
-      <Input id={id} type={show ? "text" : "password"} value={value}
-        onChange={e => onChange(e.target.value)} placeholder={placeholder} className="h-10 pr-10" />
-      <button type="button" onClick={() => setShow(v => !v)}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-        {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-      </button>
-    </div>
-  );
-}
-
 function DashboardPage() {
   const {user,signOut}=useAuth();
   const router=useRouter();
   const [userName,setUserName]=useState("");
-  const [openPassword, setOpenPassword]   = useState(false);
-  const [currentPwd, setCurrentPwd]       = useState("");
-  const [newPwd, setNewPwd]               = useState("");
-  const [confirmPwd, setConfirmPwd]       = useState("");
-  const [pwdError, setPwdError]           = useState<string|null>(null);
-  const [pwdSaving, setPwdSaving]         = useState(false);
 
   useEffect(()=>{
     if(!user)return;
@@ -168,29 +145,6 @@ function DashboardPage() {
   },[user]);
 
   const handleSignOut=async()=>{await signOut();router.navigate({to:"/login"});};
-
-  const openPasswordDialog = () => {
-    setCurrentPwd(""); setNewPwd(""); setConfirmPwd(""); setPwdError(null);
-    setOpenPassword(true);
-  };
-
-  const savePassword = async () => {
-    setPwdError(null);
-    if (!currentPwd) { setPwdError("Informe a senha atual"); return; }
-    if (newPwd.length < 6) { setPwdError("Mínimo 6 caracteres"); return; }
-    if (newPwd !== confirmPwd) { setPwdError("As senhas não coincidem"); return; }
-    if (newPwd === currentPwd) { setPwdError("A nova senha deve ser diferente da atual"); return; }
-    setPwdSaving(true);
-    try {
-      const { error: signInErr } = await supabase.auth.signInWithPassword({ email: user?.email ?? "", password: currentPwd });
-      if (signInErr) { setPwdError("Senha atual incorreta"); return; }
-      const { error: updErr } = await supabase.auth.updateUser({ password: newPwd });
-      if (updErr) throw updErr;
-      toast.success("Senha alterada com sucesso!");
-      setOpenPassword(false);
-    } catch { setPwdError("Erro ao alterar senha. Tente novamente."); }
-    finally { setPwdSaving(false); }
-  };
 
   const now=new Date();
   const [selectedMonth,setSelectedMonth]=useState(now.getMonth());
@@ -585,7 +539,7 @@ function DashboardPage() {
               </div>
               <DropdownMenuSeparator/>
               <DropdownMenuItem onClick={()=>router.navigate({to:"/perfil"})} className="cursor-pointer gap-2"><User className="h-4 w-4"/>Dados pessoais</DropdownMenuItem>
-              <DropdownMenuItem onClick={openPasswordDialog} className="cursor-pointer gap-2"><KeyRound className="h-4 w-4"/>Trocar senha</DropdownMenuItem>
+              <DropdownMenuItem onClick={()=>window.open("https://quintalzim.com.br/app/perfil","_blank","noopener,noreferrer")} className="cursor-pointer gap-2"><Sprout className="h-4 w-4"/>Minha conta 🌱</DropdownMenuItem>
               <DropdownMenuSeparator/>
               <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer gap-2 text-destructive focus:text-destructive"><LogOut className="h-4 w-4"/>Sair da conta</DropdownMenuItem>
             </DropdownMenuContent>
@@ -896,59 +850,6 @@ function DashboardPage() {
             </Button>
             <Button onClick={handleSaveBalance} disabled={savingBalance}>
               {savingBalance ? "Salvando..." : "Salvar"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Dialog: Alterar senha */}
-      <Dialog open={openPassword} onOpenChange={o => { if (!pwdSaving) setOpenPassword(o); }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-primary" /> Alterar senha
-            </DialogTitle>
-            <DialogDescription>
-              Crie uma nova senha. Não é necessário confirmar por e-mail.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="d-current-pwd">Senha atual</Label>
-              <PasswordInput id="d-current-pwd" value={currentPwd} onChange={setCurrentPwd} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="d-new-pwd">Nova senha</Label>
-              <PasswordInput id="d-new-pwd" value={newPwd} onChange={setNewPwd} placeholder="Mínimo 6 caracteres" />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="d-confirm-pwd">Confirmar nova senha</Label>
-              <PasswordInput id="d-confirm-pwd" value={confirmPwd} onChange={setConfirmPwd} />
-            </div>
-            {newPwd.length > 0 && (
-              <div className="space-y-1">
-                <div className="flex gap-1">
-                  {[1,2,3,4].map(i => (
-                    <div key={i} className={`h-1 flex-1 rounded-full transition-colors ${
-                      i <= (newPwd.length >= 12 ? 4 : newPwd.length >= 8 ? 3 : newPwd.length >= 6 ? 2 : 1)
-                        ? (newPwd.length >= 12 ? "bg-emerald-500" : newPwd.length >= 8 ? "bg-yellow-500" : "bg-red-400")
-                        : "bg-muted"
-                    }`} />
-                  ))}
-                </div>
-                <p className="text-[10px] text-muted-foreground">
-                  {newPwd.length >= 12 ? "Senha forte" : newPwd.length >= 8 ? "Senha média" : "Senha fraca"}
-                </p>
-              </div>
-            )}
-            {pwdError && (
-              <p className="rounded-lg bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">{pwdError}</p>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpenPassword(false)} disabled={pwdSaving}>Cancelar</Button>
-            <Button onClick={savePassword} disabled={pwdSaving}>
-              {pwdSaving ? "Verificando..." : "Salvar senha"}
             </Button>
           </DialogFooter>
         </DialogContent>
