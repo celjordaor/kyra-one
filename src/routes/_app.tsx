@@ -88,9 +88,9 @@ function AppLayout() {
           {/* Brand */}
           <Link to="/dashboard"
             className="flex items-center gap-3 px-5 py-5 border-b hover:bg-accent/30 transition-colors shrink-0">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary font-bold text-primary-foreground text-lg">J</div>
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary font-bold text-primary-foreground text-lg">Q</div>
             <div>
-              <p className="font-bold text-foreground leading-none">JadeOne</p>
+              <p className="font-bold text-foreground leading-none text-sm">Quintal de Finanças</p>
               <p className="text-[11px] text-muted-foreground mt-0.5">Finanças Pessoais</p>
             </div>
           </Link>

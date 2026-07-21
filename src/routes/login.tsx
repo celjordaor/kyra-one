@@ -80,11 +80,8 @@ function LoginPage() {
             <LogoIcon size={32} />
           </div>
           <div className="flex items-baseline gap-3">
-            <span className="text-[42px] font-black text-white leading-none tracking-tight">
-              JadeOne
-            </span>
-            <span className="rounded border border-white/30 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-white/60">
-              Finanças
+            <span className="text-[32px] font-black text-white leading-none tracking-tight">
+              Quintal de Finanças
             </span>
           </div>
           <p className="mt-1.5 text-sm text-white/55 tracking-wide">
@@ -115,12 +112,12 @@ function LoginPage() {
         </div>
 
         <p className="relative z-10 text-[11px] text-white/30">
-          © {new Date().getFullYear()} JadeOne. Todos os direitos reservados.
+          © {new Date().getFullYear()} Quintal de Finanças. Todos os direitos reservados.
         </p>
       </div>
 
       {/* ── Painel direito — fundo cinza + card ─────────────────── */}
-      <div className="flex flex-1 items-center justify-center bg-slate-100 px-6 py-12">
+      <div className="flex flex-1 items-center justify-center bg-background px-6 py-12">
         {/* Card branco */}
         <div className="w-full max-w-[400px] rounded-2xl bg-white px-9 py-10 shadow-xl shadow-black/[0.08]">
 
@@ -129,7 +126,7 @@ function LoginPage() {
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary shadow-md shadow-primary/30">
               <LogoIcon size={18} />
             </div>
-            <span className="text-lg font-black text-foreground tracking-tight">JadeOne</span>
+            <span className="text-lg font-black text-foreground tracking-tight">Quintal de Finanças</span>
           </div>
 
           {/* Logo desktop dentro do card */}
@@ -137,7 +134,7 @@ function LoginPage() {
             <div className="flex h-[38px] w-[38px] items-center justify-center rounded-xl bg-primary shadow-md shadow-primary/30">
               <LogoIcon size={20} />
             </div>
-            <span className="text-[18px] font-black text-foreground tracking-tight">JadeOne</span>
+            <span className="text-[18px] font-black text-foreground tracking-tight">Quintal de Finanças</span>
           </div>
 
           {/* Saudação */}

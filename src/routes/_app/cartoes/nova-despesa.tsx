@@ -226,7 +226,7 @@ function NovaDespesaPage() {
   };
 
   return (
-    <div className="w-full bg-slate-50 dark:bg-background md:max-w-xl md:mx-auto">
+    <div className="w-full bg-background md:max-w-xl md:mx-auto">
       <form id="nova-despesa-form" onSubmit={handleSubmit(onSubmit)} style={{ display:"block", width:"100%", margin:0 }}>
 
         {/* HEADER */}

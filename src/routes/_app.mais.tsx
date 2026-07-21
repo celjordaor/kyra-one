@@ -120,7 +120,7 @@ function MaisPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-background md:max-w-2xl md:mx-auto">
+    <div className="min-h-screen bg-background md:max-w-2xl md:mx-auto">
 
       {/* ── Header com avatar do usuário ─────────────────────────────── */}
       <div className="bg-gradient-to-br from-slate-700 to-slate-900 px-5 pt-10 pb-8 text-white">
@@ -145,6 +145,13 @@ function MaisPage() {
             label="Minha conta 🌱"
             sublabel="Dados, senha e segurança no Quintalzim"
             onClick={() => window.open("https://quintalzim.com.br/app/perfil", "_blank", "noopener,noreferrer")}
+          />
+          <Row
+            icon={<Sprout className="h-5 w-5"/>}
+            iconBg="bg-emerald-50 dark:bg-emerald-950/30" iconColor="text-emerald-600"
+            label="Voltar ao Quintalzim 🌱"
+            sublabel="Ir para o portal Quintalzim"
+            onClick={() => window.open("https://quintalzim.com.br/app/inicio", "_blank", "noopener,noreferrer")}
           />
           <Row
             icon={<Bell className="h-5 w-5"/>}
@@ -191,12 +198,12 @@ function MaisPage() {
         <div className="mx-4 mt-2">
           <button type="button" onClick={handleSignOut}
             className="flex w-full items-center justify-center gap-2 rounded-2xl border border-red-200 dark:border-red-900/30 bg-white dark:bg-card py-3.5 text-sm font-semibold text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors">
-            <LogOut className="h-4 w-4"/> Sair da conta
+            <LogOut className="h-4 w-4"/> Sair do Quintalzim
           </button>
         </div>
 
         <p className="mt-6 text-center text-[11px] text-slate-300 dark:text-muted-foreground/40">
-          JadeOne v1.0 · Finanças Pessoais
+          Quintal de Finanças v1.0
         </p>
       </div>
 

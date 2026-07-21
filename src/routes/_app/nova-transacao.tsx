@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 const RECURRING_MONTHS = 24;
 
 export const Route = createFileRoute("/_app/nova-transacao")({
-  head: () => ({ meta: [{ title: "Nova Transação — JadeOne" }] }),
+  head: () => ({ meta: [{ title: "Nova Transação — Quintal de Finanças" }] }),
   validateSearch: z.object({ type: z.enum(["income", "expense"]).optional() }),
   component: NovaTransacaoPage,
 });
@@ -230,7 +230,7 @@ function NovaTransacaoPage() {
   };
 
   return (
-    <div className="bg-slate-50 dark:bg-background md:max-w-2xl md:mx-auto" style={{ width: "100%", maxWidth: "min(100%, 672px)", minHeight: "100dvh" }}>
+    <div className="bg-background md:max-w-2xl md:mx-auto" style={{ width: "100%", maxWidth: "min(100%, 672px)", minHeight: "100dvh" }}>
       <form id="nova-tx-form" onSubmit={handleSubmit(onSubmit)} className="w-full">
 
         {/* ── HEADER ────────────────────────────────────────────────── */}

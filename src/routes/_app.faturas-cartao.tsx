@@ -5,7 +5,7 @@ import { useCardStore } from "@/lib/card-store";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/faturas-cartao")({
-  head: () => ({ meta: [{ title: "Faturas — JadeOne" }] }),
+  head: () => ({ meta: [{ title: "Faturas — Quintal de Finanças" }] }),
   component: FaturasCartaoPage,
 });
 
@@ -232,7 +232,7 @@ function FaturasCartaoPage() {
 
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-background md:max-w-2xl md:mx-auto md:max-w-3xl md:mx-auto">
+    <div className="min-h-screen bg-background md:max-w-2xl md:mx-auto md:max-w-3xl md:mx-auto">
 
       {/* ── CABEÇALHO CONSOLIDADO ─────────────────────────────────────── */}
       <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 px-5 pb-5 text-white"

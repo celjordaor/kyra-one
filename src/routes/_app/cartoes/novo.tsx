@@ -73,7 +73,7 @@ function NovoCartaoPage() {
   };
 
   return (
-    <div className="w-screen max-w-[100vw] overflow-x-hidden min-h-screen bg-slate-50 dark:bg-background md:w-full md:max-w-2xl md:mx-auto md:overflow-x-visible">
+    <div className="w-screen max-w-[100vw] overflow-x-hidden min-h-screen bg-background md:w-full md:max-w-2xl md:mx-auto md:overflow-x-visible">
       <form id="novo-cartao-form" onSubmit={handleSubmit(onSubmit)}>
 
         {/* ── Cabeçalho gradiente com campo de limite integrado ── */}

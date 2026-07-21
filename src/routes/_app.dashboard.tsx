@@ -540,8 +540,9 @@ function DashboardPage() {
               <DropdownMenuSeparator/>
               <DropdownMenuItem onClick={()=>router.navigate({to:"/perfil"})} className="cursor-pointer gap-2"><User className="h-4 w-4"/>Dados pessoais</DropdownMenuItem>
               <DropdownMenuItem onClick={()=>window.open("https://quintalzim.com.br/app/perfil","_blank","noopener,noreferrer")} className="cursor-pointer gap-2"><Sprout className="h-4 w-4"/>Minha conta 🌱</DropdownMenuItem>
+              <DropdownMenuItem onClick={()=>window.open("https://quintalzim.com.br/app/inicio","_blank","noopener,noreferrer")} className="cursor-pointer gap-2"><Sprout className="h-4 w-4"/>Voltar ao Quintalzim 🌱</DropdownMenuItem>
               <DropdownMenuSeparator/>
-              <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer gap-2 text-destructive focus:text-destructive"><LogOut className="h-4 w-4"/>Sair da conta</DropdownMenuItem>
+              <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer gap-2 text-destructive focus:text-destructive"><LogOut className="h-4 w-4"/>Sair do Quintalzim</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

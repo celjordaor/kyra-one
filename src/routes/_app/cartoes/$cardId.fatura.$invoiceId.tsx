@@ -153,7 +153,7 @@ function FaturaDetailPage() {
   const isOverdue   = !isPaid && dueDate < today;
 
   return (
-    <div className="w-screen max-w-[100vw] overflow-x-hidden min-h-screen bg-slate-50 dark:bg-background md:w-full md:max-w-2xl md:mx-auto md:overflow-x-visible">
+    <div className="w-screen max-w-[100vw] overflow-x-hidden min-h-screen bg-background md:w-full md:max-w-2xl md:mx-auto md:overflow-x-visible">
 
       {/* ── CABEÇALHO GRADIENTE ──────────────────────────────────────── */}
       <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 to-violet-700 px-5 pt-5 pb-6 text-white">

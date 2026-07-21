@@ -323,7 +323,7 @@ function EditarDespesaPage() {
 
   return (
     <div style={{ width:"100vw", maxWidth:"100vw", overflowX:"hidden" }}
-      className="min-h-screen bg-slate-50 dark:bg-background md:max-w-2xl md:mx-auto">
+      className="min-h-screen bg-background md:max-w-2xl md:mx-auto">
 
       {/* HEADER */}
       <div style={{ background: canEdit ? "#4f46e5" : "#64748b", paddingTop:"calc(env(safe-area-inset-top,0px) + 1rem)" }}

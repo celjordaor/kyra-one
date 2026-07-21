@@ -18,15 +18,15 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "icons/*.png"],
       manifest: {
-        name: "JadeOne — Finanças Pessoais",
-        short_name: "JadeOne",
+        name: "Quintal de Finanças",
+        short_name: "Finanças",
         description: "Controle suas finanças de forma simples e inteligente.",
         start_url: "/dashboard",
         scope: "/",
         display: "standalone",
         orientation: "portrait",
-        background_color: "#ffffff",
-        theme_color: "#10b981",
+        background_color: "#FBF7EC",
+        theme_color: "#3F6B34",
         lang: "pt-BR",
         categories: ["finance", "productivity"],
         icons: [
@@ -35,9 +35,9 @@ export default defineConfig({
           { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
         // ── Share Target API ────────────────────────────────────────────
-        // Registra o JadeOne como destino de compartilhamento no Android.
+        // Registra o Quintal de Finanças como destino de compartilhamento no Android.
         // Texto da notificação do banco/cartão chega como ?text=... na rota
-        // /share-intent. Uso: toque longo na notificação → Compartilhar → JadeOne
+        // /share-intent. Uso: toque longo na notificação → Compartilhar → Quintal de Finanças
         share_target: {
           action: "/share-intent",
           method: "GET",
