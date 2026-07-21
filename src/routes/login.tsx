@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -178,9 +178,9 @@ function LoginPage() {
                 <Label htmlFor="password" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Senha
                 </Label>
-                <Link to="/recuperar-senha" className="text-xs font-semibold text-primary hover:underline">
+                <a href="https://quintalzim.com.br/entrar" className="text-xs font-semibold text-primary hover:underline">
                   Esqueceu a senha?
-                </Link>
+                </a>
               </div>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 h-[15px] w-[15px] -translate-y-1/2 text-muted-foreground/60" />
@@ -211,9 +211,9 @@ function LoginPage() {
 
           <p className="mt-5 text-center text-sm text-muted-foreground">
             Ainda não tem conta?{" "}
-            <Link to="/cadastro" className="font-bold text-primary hover:underline">
-              Criar conta grátis
-            </Link>
+            <a href="https://quintalzim.com.br/entrar" className="font-bold text-primary hover:underline">
+              Ela nasce no Quintalzim 🌱
+            </a>
           </p>
         </div>
       </div>

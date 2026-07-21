@@ -10,10 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ShareIntentRouteImport } from './routes/share-intent'
-import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
-import { Route as RecuperarSenhaRouteImport } from './routes/recuperar-senha'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as CadastroRouteImport } from './routes/cadastro'
 import { Route as BoasVindasRouteImport } from './routes/boas-vindas'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
@@ -37,24 +34,9 @@ const ShareIntentRoute = ShareIntentRouteImport.update({
   path: '/share-intent',
   getParentRoute: () => rootRouteImport,
 } as any)
-const RedefinirSenhaRoute = RedefinirSenhaRouteImport.update({
-  id: '/redefinir-senha',
-  path: '/redefinir-senha',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RecuperarSenhaRoute = RecuperarSenhaRouteImport.update({
-  id: '/recuperar-senha',
-  path: '/recuperar-senha',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CadastroRoute = CadastroRouteImport.update({
-  id: '/cadastro',
-  path: '/cadastro',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BoasVindasRoute = BoasVindasRouteImport.update({
@@ -146,10 +128,7 @@ const AppCartoesCardIdFaturaInvoiceIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/boas-vindas': typeof BoasVindasRoute
-  '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
-  '/recuperar-senha': typeof RecuperarSenhaRoute
-  '/redefinir-senha': typeof RedefinirSenhaRoute
   '/share-intent': typeof ShareIntentRoute
   '/categorias': typeof AppCategoriasRoute
   '/dashboard': typeof AppDashboardRoute
@@ -169,10 +148,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/boas-vindas': typeof BoasVindasRoute
-  '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
-  '/recuperar-senha': typeof RecuperarSenhaRoute
-  '/redefinir-senha': typeof RedefinirSenhaRoute
   '/share-intent': typeof ShareIntentRoute
   '/categorias': typeof AppCategoriasRoute
   '/dashboard': typeof AppDashboardRoute
@@ -194,10 +170,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
   '/boas-vindas': typeof BoasVindasRoute
-  '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
-  '/recuperar-senha': typeof RecuperarSenhaRoute
-  '/redefinir-senha': typeof RedefinirSenhaRoute
   '/share-intent': typeof ShareIntentRoute
   '/_app/categorias': typeof AppCategoriasRoute
   '/_app/dashboard': typeof AppDashboardRoute
@@ -219,10 +192,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/boas-vindas'
-    | '/cadastro'
     | '/login'
-    | '/recuperar-senha'
-    | '/redefinir-senha'
     | '/share-intent'
     | '/categorias'
     | '/dashboard'
@@ -242,10 +212,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/boas-vindas'
-    | '/cadastro'
     | '/login'
-    | '/recuperar-senha'
-    | '/redefinir-senha'
     | '/share-intent'
     | '/categorias'
     | '/dashboard'
@@ -266,10 +233,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_app'
     | '/boas-vindas'
-    | '/cadastro'
     | '/login'
-    | '/recuperar-senha'
-    | '/redefinir-senha'
     | '/share-intent'
     | '/_app/categorias'
     | '/_app/dashboard'
@@ -291,10 +255,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
   BoasVindasRoute: typeof BoasVindasRoute
-  CadastroRoute: typeof CadastroRoute
   LoginRoute: typeof LoginRoute
-  RecuperarSenhaRoute: typeof RecuperarSenhaRoute
-  RedefinirSenhaRoute: typeof RedefinirSenhaRoute
   ShareIntentRoute: typeof ShareIntentRoute
 }
 
@@ -307,32 +268,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShareIntentRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/redefinir-senha': {
-      id: '/redefinir-senha'
-      path: '/redefinir-senha'
-      fullPath: '/redefinir-senha'
-      preLoaderRoute: typeof RedefinirSenhaRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/recuperar-senha': {
-      id: '/recuperar-senha'
-      path: '/recuperar-senha'
-      fullPath: '/recuperar-senha'
-      preLoaderRoute: typeof RecuperarSenhaRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/login': {
       id: '/login'
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/cadastro': {
-      id: '/cadastro'
-      path: '/cadastro'
-      fullPath: '/cadastro'
-      preLoaderRoute: typeof CadastroRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/boas-vindas': {
@@ -506,10 +446,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
   BoasVindasRoute: BoasVindasRoute,
-  CadastroRoute: CadastroRoute,
   LoginRoute: LoginRoute,
-  RecuperarSenhaRoute: RecuperarSenhaRoute,
-  RedefinirSenhaRoute: RedefinirSenhaRoute,
   ShareIntentRoute: ShareIntentRoute,
 }
 export const routeTree = rootRouteImport
