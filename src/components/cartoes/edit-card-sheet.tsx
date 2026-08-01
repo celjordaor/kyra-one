@@ -92,14 +92,14 @@ export function EditCardSheet({ card, onClose }: EditCardSheetProps) {
         <div className="relative flex flex-col overflow-hidden bg-background md:w-full md:max-w-lg md:rounded-2xl"
           style={{ maxHeight: "90dvh" }}>
 
-          <form id="edit-card-form" onSubmit={handleSubmit(onSubmit)}>
+          <form id="edit-card-form" onSubmit={handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0">
 
             {/* ── Cabeçalho gradiente com limite integrado ── */}
-            <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 to-violet-700 px-5 pt-5 pb-7 text-white shrink-0">
+            <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 to-violet-700 px-5 pt-4 pb-5 text-white shrink-0">
               <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10"/>
               <div className="absolute -left-6 -bottom-6 h-24 w-24 rounded-full bg-white/10"/>
               <div className="relative">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between mb-2.5">
                   <p className="text-sm font-semibold text-white/80">Editar cartão</p>
                   <button type="button" onClick={onClose}
                     className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 hover:bg-white/30">
@@ -108,10 +108,10 @@ export function EditCardSheet({ card, onClose }: EditCardSheetProps) {
                 </div>
 
                 {/* Preview */}
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-2xl font-black text-white"
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-xl font-black text-white"
                     style={{ background: flagValue ? (FLAG_COLORS[flagValue] ?? "#4f46e5") : "rgba(255,255,255,0.2)" }}>
-                    {nameValue?.[0]?.toUpperCase() ?? <CreditCard className="h-6 w-6"/>}
+                    {nameValue?.[0]?.toUpperCase() ?? <CreditCard className="h-5 w-5"/>}
                   </div>
                   <div className="min-w-0">
                     <p className="text-lg font-black truncate">{nameValue || "—"}</p>
@@ -123,7 +123,7 @@ export function EditCardSheet({ card, onClose }: EditCardSheetProps) {
                 <div>
                   <p className="text-xs text-white/60 mb-1">Limite total</p>
                   <div className="flex items-center gap-2">
-                    <span className="text-2xl font-bold text-white/60">R$</span>
+                    <span className="text-xl font-bold text-white/60">R$</span>
                     <input
                       inputMode="decimal"
                       value={limitDisplay}
@@ -134,7 +134,7 @@ export function EditCardSheet({ card, onClose }: EditCardSheetProps) {
                         if (limitError) setLimitError("");
                       }}
                       placeholder="0,00"
-                      className="bg-transparent text-4xl font-black text-white placeholder-white/30 outline-none w-full tracking-tight"
+                      className="bg-transparent text-3xl font-black text-white placeholder-white/30 outline-none w-full tracking-tight"
                     />
                   </div>
                   {limitError && <p className="text-xs text-red-300 mt-1">{limitError}</p>}
@@ -143,16 +143,16 @@ export function EditCardSheet({ card, onClose }: EditCardSheetProps) {
             </div>
 
             {/* ── Campos ── */}
-            <div className="overflow-y-auto overflow-x-hidden flex-1 px-4 pt-4 pb-28 space-y-3">
+            <div className="overflow-y-auto overflow-x-hidden flex-1 min-h-0 px-4 py-3 space-y-2.5">
 
-              <div className="rounded-2xl border bg-card px-4 py-3 space-y-1">
+              <div className="rounded-2xl border bg-card px-4 py-2.5 space-y-0.5">
                 <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Nome do cartão</p>
                 <input {...register("name")}
                   className="w-full bg-transparent text-[16px] font-semibold text-foreground outline-none"/>
                 {errors.name && <p className="text-xs text-destructive mt-1">{errors.name.message}</p>}
               </div>
 
-              <div className="rounded-2xl border bg-card px-4 py-3 space-y-1">
+              <div className="rounded-2xl border bg-card px-4 py-2.5 space-y-0.5">
                 <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Banco / Instituição</p>
                 <input {...register("bank")}
                   className="w-full bg-transparent text-[16px] font-semibold text-foreground outline-none"/>
@@ -160,7 +160,7 @@ export function EditCardSheet({ card, onClose }: EditCardSheetProps) {
               </div>
 
               {/* Bandeira — pills */}
-              <div className="rounded-2xl border bg-card px-4 py-3.5 space-y-3">
+              <div className="rounded-2xl border bg-card px-4 py-3 space-y-2">
                 <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Bandeira</p>
                 <div className="flex flex-wrap gap-2">
                   {FLAGS.map(f => {
@@ -184,13 +184,13 @@ export function EditCardSheet({ card, onClose }: EditCardSheetProps) {
 
               {/* Dias */}
               <div className="grid grid-cols-2 gap-3">
-                <div className="min-w-0 rounded-2xl border bg-card px-4 py-3 space-y-1">
+                <div className="min-w-0 rounded-2xl border bg-card px-4 py-2.5 space-y-0.5">
                   <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Dia fechamento</p>
                   <input {...register("closing_day")} type="number" min="1" max="31"
                     className="w-full min-w-0 bg-transparent text-[20px] font-black text-foreground outline-none"/>
                   {errors.closing_day && <p className="text-xs text-destructive mt-1">{errors.closing_day.message}</p>}
                 </div>
-                <div className="min-w-0 rounded-2xl border bg-card px-4 py-3 space-y-1">
+                <div className="min-w-0 rounded-2xl border bg-card px-4 py-2.5 space-y-0.5">
                   <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Dia vencimento</p>
                   <input {...register("due_day")} type="number" min="1" max="31"
                     className="w-full min-w-0 bg-transparent text-[20px] font-black text-foreground outline-none"/>
@@ -200,8 +200,8 @@ export function EditCardSheet({ card, onClose }: EditCardSheetProps) {
             </div>
           </form>
 
-          {/* ── Botão sempre suspenso (fixo) ── */}
-          <div className="absolute bottom-0 left-0 right-0 px-4 pt-3 pb-[env(safe-area-inset-bottom,16px)] border-t border-border/40 shrink-0"
+          {/* ── Botão (em fluxo normal, nunca sobrepõe os campos) ── */}
+          <div className="px-4 pt-3 pb-[env(safe-area-inset-bottom,16px)] border-t border-border/40 shrink-0"
             style={{ backdropFilter: "blur(12px)", backgroundColor: "rgba(255,255,255,0.96)" }}>
             <div className="flex gap-3">
               <button type="button" onClick={onClose}
