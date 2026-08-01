@@ -90,7 +90,7 @@ export function EditCardSheet({ card, onClose }: EditCardSheetProps) {
 
       <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col md:inset-0 md:items-center md:justify-center">
         <div className="relative flex flex-col overflow-hidden bg-background md:w-full md:max-w-lg md:rounded-2xl"
-          style={{ maxHeight: "94dvh" }}>
+          style={{ maxHeight: "90dvh" }}>
 
           <form id="edit-card-form" onSubmit={handleSubmit(onSubmit)}>
 
@@ -143,7 +143,7 @@ export function EditCardSheet({ card, onClose }: EditCardSheetProps) {
             </div>
 
             {/* ── Campos ── */}
-            <div className="overflow-y-auto flex-1 px-4 pt-4 pb-28 space-y-3">
+            <div className="overflow-y-auto overflow-x-hidden flex-1 px-4 pt-4 pb-28 space-y-3">
 
               <div className="rounded-2xl border bg-card px-4 py-3 space-y-1">
                 <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Nome do cartão</p>
@@ -184,16 +184,16 @@ export function EditCardSheet({ card, onClose }: EditCardSheetProps) {
 
               {/* Dias */}
               <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-2xl border bg-card px-4 py-3 space-y-1">
+                <div className="min-w-0 rounded-2xl border bg-card px-4 py-3 space-y-1">
                   <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Dia fechamento</p>
                   <input {...register("closing_day")} type="number" min="1" max="31"
-                    className="w-full bg-transparent text-[20px] font-black text-foreground outline-none"/>
+                    className="w-full min-w-0 bg-transparent text-[20px] font-black text-foreground outline-none"/>
                   {errors.closing_day && <p className="text-xs text-destructive mt-1">{errors.closing_day.message}</p>}
                 </div>
-                <div className="rounded-2xl border bg-card px-4 py-3 space-y-1">
+                <div className="min-w-0 rounded-2xl border bg-card px-4 py-3 space-y-1">
                   <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Dia vencimento</p>
                   <input {...register("due_day")} type="number" min="1" max="31"
-                    className="w-full bg-transparent text-[20px] font-black text-foreground outline-none"/>
+                    className="w-full min-w-0 bg-transparent text-[20px] font-black text-foreground outline-none"/>
                   {errors.due_day && <p className="text-xs text-destructive mt-1">{errors.due_day.message}</p>}
                 </div>
               </div>
