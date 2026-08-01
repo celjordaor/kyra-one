@@ -2067,7 +2067,7 @@ function PendingSection({transactions,showValues,selectedMonth,selectedYear,card
                     <div className="shrink-0 flex items-center gap-2">
                       <div className="text-right">
                         <p className="text-[15px] font-bold text-blue-600">
-                          -{showValues ? fmtCurrency(invoice.total_amount) : "••••"}
+                          {showValues ? fmtCurrency(Math.abs(invoice.total_amount)) : "••••"}
                         </p>
                         <span className={cn("text-[10px] font-semibold rounded-full px-2 py-0.5",
                           isOverdue ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"
