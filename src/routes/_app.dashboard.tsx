@@ -1497,7 +1497,7 @@ function DashboardEditTxDialog({
     setConfirmDelete(false);
     setSaving(true);
     try {
-      if (editScope === "bulk" && tx.recurrence_id) {
+      if (bulkEdit && tx.recurrence_id) {
         const { deleteTransactionSeries } = await import("@/lib/transactions-store");
         if (tx.recurring) {
           await deleteTransactionSeries(tx.recurrence_id, tx.installment_number ?? 1, tx.date);
@@ -1694,7 +1694,7 @@ function DashboardEditTxDialog({
       <ConfirmDialog
         open={confirmDelete}
         title="Excluir transação"
-        description={`Deseja excluir "${tx.title}"${editScope === "bulk" ? " e todos os lançamentos futuros da série" : ""}? Essa ação não pode ser desfeita.`}
+        description={`Deseja excluir "${tx.title}"${bulkEdit ? " e todos os lançamentos futuros da série" : ""}? Essa ação não pode ser desfeita.`}
         confirmLabel="Excluir"
         onConfirm={doDelete}
         onClose={() => setConfirmDelete(false)}
