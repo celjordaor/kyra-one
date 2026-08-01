@@ -530,7 +530,9 @@ function DashboardPage() {
           </button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-xl shadow-sm ring-2 ring-primary/30 hover:ring-primary/50 focus:outline-none">🐶</button>
+              <button className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-primary/10 shadow-sm ring-2 ring-primary/30 hover:ring-primary/50 focus:outline-none">
+                <img src="/icons/icon-192.png" alt="Perfil" className="h-full w-full object-cover"/>
+              </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
               <div className="px-3 py-2">
