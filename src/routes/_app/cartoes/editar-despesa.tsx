@@ -254,11 +254,16 @@ function EditarDespesaPage() {
           .eq("parent_expense_id", parentId)
           .gte("installment_number", installNum);
       } else if (expenseType === "recurring") {
-        await supabase.from("card_expenses")
-          .update(patch)
+        // FIX: seleciona ids afetados e atualiza por id (evita depender de
+        // dois `.gte("purchase_date", ...)` consistentes entre si).
+        const { data: rows } = await supabase.from("card_expenses").select("id")
           .eq("description", description.trim()) // antes da mudança
           .eq("expense_type", "recurring")
           .gte("purchase_date", date);
+        const ids = (rows ?? []).map(r => r.id);
+        if (ids.length > 0) {
+          await supabase.from("card_expenses").update(patch).in("id", ids);
+        }
       }
       await recalcTotal(invoiceId);
       toast.success("Despesas atualizadas!");
@@ -295,11 +300,15 @@ function EditarDespesaPage() {
           .eq("parent_expense_id", parentId)
           .gte("installment_number", installNum);
       } else if (expenseType === "recurring") {
-        await supabase.from("card_expenses")
-          .delete()
+        // FIX: seleciona ids afetados e deleta por id.
+        const { data: rows } = await supabase.from("card_expenses").select("id")
           .eq("description", description)
           .eq("expense_type", "recurring")
           .gte("purchase_date", date);
+        const ids = (rows ?? []).map(r => r.id);
+        if (ids.length > 0) {
+          await supabase.from("card_expenses").delete().in("id", ids);
+        }
       }
       await recalcTotal(invoiceId);
       toast.success("Despesas excluídas.");

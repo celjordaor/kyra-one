@@ -307,18 +307,25 @@ export async function deleteTransactionSeries(
   const prevCache = cache;
 
   if (fromDateBr) {
-    // Modo recorrente: deletar pelo recurrence_id a partir da data
+    // Modo recorrente: deletar pelo recurrence_id a partir da data.
+    // FIX: a coluna `date` é TEXT em formato dd/mm/aaaa (ou, em algumas
+    // linhas antigas, aaaa-mm-dd) — comparar via `.gte("date", isoString)`
+    // faz uma comparação léxica de string, que não corresponde a ordem
+    // cronológica e deixava linhas futuras sem excluir no banco (mesmo
+    // a cache local otimista parecendo correta na tela). Resolve buscando
+    // os ids certos a partir da cache já carregada (parseBrDate correto)
+    // e deletando por id — mesmo padrão já usado em deleteRecurringFuture.
     const fromMs = parseBrDate(fromDateBr).getTime();
-    cache = cache.filter(
-      t => !(t.recurrence_id === recurrenceId && parseBrDate(t.date).getTime() >= fromMs)
-    );
+    const idsParaExcluir = cache
+      .filter(t => t.recurrence_id === recurrenceId && parseBrDate(t.date).getTime() >= fromMs)
+      .map(t => t.id);
+
+    cache = cache.filter(t => !idsParaExcluir.includes(t.id));
     notify();
 
-    await supabase
-      .from("transactions")
-      .delete()
-      .eq("recurrence_id", recurrenceId)
-      .gte("date", fromDateBr.split("/").reverse().join("-")); // br→iso
+    if (idsParaExcluir.length > 0) {
+      await supabase.from("transactions").delete().in("id", idsParaExcluir);
+    }
   } else {
     // Modo parcelado: deletar pelo installment_number
     cache = cache.filter(

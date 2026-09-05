@@ -164,9 +164,16 @@ export function ExpenseDetailModal({
       if (editScope === "bulk" && isSeries) {
         // Atualiza este e todos os próximos da mesma série
         if (item.expense_type === "recurring") {
-          await supabase.from("card_expenses").update(patch)
+          // FIX: seleciona os ids afetados primeiro e atualiza por id — evita
+          // depender de dois `.gte("purchase_date", ...)` separados (select +
+          // update) ficarem inconsistentes entre si.
+          const { data: rows } = await supabase.from("card_expenses").select("id")
             .eq("description", item.description).eq("expense_type", "recurring")
             .gte("purchase_date", item.purchase_date);
+          const ids = (rows ?? []).map(r => r.id);
+          if (ids.length > 0) {
+            await supabase.from("card_expenses").update(patch).in("id", ids);
+          }
         } else if (item.expense_type === "installment") {
           if (item.isInstallment && item.parentExpenseId && item.installmentNumber !== undefined) {
             await supabase.from("card_installments").update(patch)
@@ -231,11 +238,15 @@ export function ExpenseDetailModal({
           await supabase.from("card_installments").delete().eq("parent_expense_id", item.id);
         }
       } else if (item.expense_type === "recurring") {
-        const { data: rows } = await supabase.from("card_expenses").select("invoice_id")
+        // FIX: mesmo padrão — busca ids afetados uma vez e deleta por id,
+        // em vez de repetir o filtro `.gte` numa segunda query separada.
+        const { data: rows } = await supabase.from("card_expenses").select("id, invoice_id")
           .eq("description", item.description).eq("expense_type", "recurring").gte("purchase_date", item.purchase_date);
+        const ids = (rows ?? []).map(r => r.id);
         rows?.forEach(r => affectedIds.add(r.invoice_id));
-        await supabase.from("card_expenses").delete()
-          .eq("description", item.description).eq("expense_type", "recurring").gte("purchase_date", item.purchase_date);
+        if (ids.length > 0) {
+          await supabase.from("card_expenses").delete().in("id", ids);
+        }
       }
       await Promise.all([...affectedIds].map(id => recalcTotal(id)));
       toast.success("Lançamentos excluídos.");
