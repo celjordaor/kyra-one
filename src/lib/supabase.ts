@@ -7,11 +7,9 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error("Verifique o arquivo .env — URL e chave do Supabase são obrigatórios.");
 }
 
-// detectSessionInUrl: false — o receptor SSO em main.tsx processa o
-// fragmento #access_token manualmente e de forma bloqueante, antes do
-// roteador montar. Deixar o parsing automático do supabase-js ligado
-// cria uma corrida com esse processamento (ele tenta ler/limpar o mesmo
-// hash de forma assíncrona e não coordenada).
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: { detectSessionInUrl: false },
-});
+// KyraOne agora tem login/cadastro/recuperação de senha próprios — sem
+// receptor SSO. detectSessionInUrl volta a ficar ligado (padrão do
+// supabase-js) porque os links de confirmação de e-mail e recuperação de
+// senha do próprio Supabase usam o mesmo formato de fragmento #access_token
+// na URL, e precisam ser processados automaticamente pelo client.
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);

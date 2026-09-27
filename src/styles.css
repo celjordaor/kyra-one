@@ -75,7 +75,7 @@
 
 :root {
   --radius: 0.75rem;
-  /* ── Marca Quintalzim ── primária #3F6B34, acentos #C4693B / #F2B33D, fundo #FBF7EC ── */
+  /* ── Marca KyraOne (herdada do Quintalzim por enquanto) ── primária #3F6B34, acentos #C4693B / #F2B33D, fundo #FBF7EC ── */
   --background: oklch(0.9762 0.0151 90.23);
   --foreground: oklch(0.2077 0.0398 265.75);
   --card: oklch(1 0 0);

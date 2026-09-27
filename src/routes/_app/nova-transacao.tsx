@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 const RECURRING_MONTHS = 24;
 
 export const Route = createFileRoute("/_app/nova-transacao")({
-  head: () => ({ meta: [{ title: "Nova Transação — Quintal de Finanças" }] }),
+  head: () => ({ meta: [{ title: "Nova Transação — KyraOne" }] }),
   validateSearch: z.object({ type: z.enum(["income", "expense"]).optional() }),
   component: NovaTransacaoPage,
 });

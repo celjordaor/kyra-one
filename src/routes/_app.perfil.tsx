@@ -69,10 +69,10 @@ function PerfilPage() {
         {/* Sair */}
         <button type="button" onClick={handleSignOut}
           className="flex w-full items-center justify-center gap-2 rounded-2xl border border-red-200 dark:border-red-900/30 bg-white dark:bg-card py-3.5 text-sm font-semibold text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors">
-          <LogOut className="h-4 w-4"/> Sair do Quintalzim
+          <LogOut className="h-4 w-4"/> Sair
         </button>
 
-        <p className="text-center text-xs text-muted-foreground pt-2">Quintal de Finanças v1.0</p>
+        <p className="text-center text-xs text-muted-foreground pt-2">KyraOne v1.0</p>
       </div>
     </div>
   );

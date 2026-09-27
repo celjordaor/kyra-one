@@ -18,8 +18,8 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "icons/*.png"],
       manifest: {
-        name: "Quintal de Finanças",
-        short_name: "Finanças",
+        name: "KyraOne",
+        short_name: "KyraOne",
         description: "Controle suas finanças de forma simples e inteligente.",
         start_url: "/dashboard",
         scope: "/",
@@ -35,9 +35,9 @@ export default defineConfig({
           { src: "/icons/icon-512-maskable.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
         // ── Share Target API ────────────────────────────────────────────
-        // Registra o Quintal de Finanças como destino de compartilhamento no Android.
+        // Registra o KyraOne como destino de compartilhamento no Android.
         // Texto da notificação do banco/cartão chega como ?text=... na rota
-        // /share-intent. Uso: toque longo na notificação → Compartilhar → Quintal de Finanças
+        // /share-intent. Uso: toque longo na notificação → Compartilhar → KyraOne
         share_target: {
           action: "/share-intent",
           method: "GET",

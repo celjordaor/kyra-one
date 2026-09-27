@@ -1,4 +1,4 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -81,7 +81,7 @@ function LoginPage() {
           </div>
           <div className="flex items-baseline gap-3">
             <span className="text-[32px] font-black text-white leading-none tracking-tight">
-              Quintal de Finanças
+              KyraOne
             </span>
           </div>
           <p className="mt-1.5 text-sm text-white/55 tracking-wide">
@@ -112,7 +112,7 @@ function LoginPage() {
         </div>
 
         <p className="relative z-10 text-[11px] text-white/30">
-          © {new Date().getFullYear()} Quintal de Finanças. Todos os direitos reservados.
+          © {new Date().getFullYear()} KyraOne. Todos os direitos reservados.
         </p>
       </div>
 
@@ -126,7 +126,7 @@ function LoginPage() {
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary shadow-md shadow-primary/30">
               <LogoIcon size={18} />
             </div>
-            <span className="text-lg font-black text-foreground tracking-tight">Quintal de Finanças</span>
+            <span className="text-lg font-black text-foreground tracking-tight">KyraOne</span>
           </div>
 
           {/* Logo desktop dentro do card */}
@@ -134,7 +134,7 @@ function LoginPage() {
             <div className="flex h-[38px] w-[38px] items-center justify-center rounded-xl bg-primary shadow-md shadow-primary/30">
               <LogoIcon size={20} />
             </div>
-            <span className="text-[18px] font-black text-foreground tracking-tight">Quintal de Finanças</span>
+            <span className="text-[18px] font-black text-foreground tracking-tight">KyraOne</span>
           </div>
 
           {/* Saudação */}
@@ -175,9 +175,9 @@ function LoginPage() {
                 <Label htmlFor="password" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Senha
                 </Label>
-                <a href="https://quintalzim.com.br/entrar" className="text-xs font-semibold text-primary hover:underline">
+                <Link to="/recuperar-senha" className="text-xs font-semibold text-primary hover:underline">
                   Esqueceu a senha?
-                </a>
+                </Link>
               </div>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 h-[15px] w-[15px] -translate-y-1/2 text-muted-foreground/60" />
@@ -208,9 +208,9 @@ function LoginPage() {
 
           <p className="mt-5 text-center text-sm text-muted-foreground">
             Ainda não tem conta?{" "}
-            <a href="https://quintalzim.com.br/entrar" className="font-bold text-primary hover:underline">
-              Ela nasce no Quintalzim 🌱
-            </a>
+            <Link to="/cadastro" className="font-bold text-primary hover:underline">
+              Criar conta grátis
+            </Link>
           </p>
         </div>
       </div>

@@ -113,7 +113,7 @@ function BoasVindasPage() {
             </div>
 
             <h1 className="text-xl font-bold text-white leading-snug">
-              Seja bem-vindo(a) ao seu Quintal de Finanças 🌱
+              Seja bem-vindo(a) ao KyraOne 🌱
             </h1>
             <p className="mt-2 text-sm text-white/75 leading-relaxed">
               Seu cantinho pra cuidar do dinheiro sem complicação.

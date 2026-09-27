@@ -1,6 +1,6 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { TrendingUp, TrendingDown, PiggyBank, ChevronLeft, ChevronRight, ChevronDown, CalendarDays, Eye, EyeOff, AlertCircle, Check, User, LogOut, Sprout, CreditCard, Plus, Receipt, ListChecks, Settings, Wallet, X, Pencil, Save, Trash2, Search, ClipboardPaste, AlertCircle as AlertIcon } from "lucide-react";
+import { TrendingUp, TrendingDown, PiggyBank, ChevronLeft, ChevronRight, ChevronDown, CalendarDays, Eye, EyeOff, AlertCircle, Check, User, LogOut, CreditCard, Plus, Receipt, ListChecks, Settings, Wallet, X, Pencil, Save, Trash2, Search, ClipboardPaste, AlertCircle as AlertIcon } from "lucide-react";
 import { useTransactions, parseBrDate, toggleSettled, updateTransaction, deleteTransaction, deleteTransactionSeries, type Transaction } from "@/lib/transactions-store";
 import { useCategories } from "@/lib/categories-store";
 import { useAccountBalance, saveAccountBalance } from "@/lib/account-balance-store";
@@ -541,10 +541,8 @@ function DashboardPage() {
               </div>
               <DropdownMenuSeparator/>
               <DropdownMenuItem onClick={()=>router.navigate({to:"/perfil"})} className="cursor-pointer gap-2"><User className="h-4 w-4"/>Dados pessoais</DropdownMenuItem>
-              <DropdownMenuItem onClick={()=>window.open("https://quintalzim.com.br/app/perfil","_blank","noopener,noreferrer")} className="cursor-pointer gap-2"><Sprout className="h-4 w-4"/>Minha conta 🌱</DropdownMenuItem>
-              <DropdownMenuItem onClick={()=>window.open("https://quintalzim.com.br/app/inicio","_blank","noopener,noreferrer")} className="cursor-pointer gap-2"><Sprout className="h-4 w-4"/>Voltar ao Quintalzim 🌱</DropdownMenuItem>
               <DropdownMenuSeparator/>
-              <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer gap-2 text-destructive focus:text-destructive"><LogOut className="h-4 w-4"/>Sair do Quintalzim</DropdownMenuItem>
+              <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer gap-2 text-destructive focus:text-destructive"><LogOut className="h-4 w-4"/>Sair</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

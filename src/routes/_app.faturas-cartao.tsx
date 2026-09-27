@@ -5,7 +5,7 @@ import { useCardStore } from "@/lib/card-store";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/faturas-cartao")({
-  head: () => ({ meta: [{ title: "Faturas — Quintal de Finanças" }] }),
+  head: () => ({ meta: [{ title: "Faturas — KyraOne" }] }),
   component: FaturasCartaoPage,
 });
 
