@@ -79,7 +79,6 @@ function Row({
 }
 
 // ── Página ─────────────────────────────────────────────────────────────────
-// TODO: gating por assinatura do portal (Fase Asaas)
 function MaisPage() {
   const router = useRouter();
   const { user, signOut } = useAuth();

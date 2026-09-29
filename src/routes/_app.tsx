@@ -5,6 +5,15 @@ import { useAuth } from "@/lib/auth";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { extendRecurringIfNeeded } from "@/lib/transactions-store";
+import { useAssinatura, podeAcessar, nomeNivel } from "@/lib/assinaturas";
+import TelaBloqueada from "@/components/paywall/tela-bloqueada";
+
+// Rotas do nível Pro (Cartões, Faturas, Metas) — fora dessas, qualquer
+// assinatura ativa (Controle ou Pro) libera o resto do app.
+const PREFIXOS_PRO = ["/cartoes", "/faturas-cartao", "/metas"];
+// Rotas sempre acessíveis mesmo sem assinatura ativa — precisam ficar
+// abertas pra dar pra gerenciar a própria assinatura e sair da conta.
+const ROTAS_LIVRES_SEM_ASSINATURA = ["/assinar", "/perfil", "/mais"];
 
 export const Route = createFileRoute("/_app")({
   component: AppLayout,
@@ -49,7 +58,7 @@ function AppLayout() {
   const { pathname } = useLocation();
   const router = useRouter();
   const { session, loading: authLoading } = useAuth();
-  // TODO: gating por assinatura do portal (Fase Asaas)
+  const est = useAssinatura();
   const [addMenuOpen, setAddMenuOpen] = useState(false);
 
   // Extensão automática de recorrentes + backfill de recurrence_id (roda 1x por sessão)
@@ -69,6 +78,17 @@ function AppLayout() {
   }
 
   if (!session) return <Navigate to="/login" />;
+
+  // Gate de assinatura: sem plano ativo, só perfil/config/assinar ficam de
+  // pé — superadmin (profiles.role='admin') sempre passa direto.
+  const semAssinatura = !est.loading && est.nivel === "nenhum" && !est.ehSuperadmin;
+  const rotaLivre = ROTAS_LIVRES_SEM_ASSINATURA.some((r) => pathname === r || pathname.startsWith(r + "/"));
+  if (semAssinatura && !rotaLivre) {
+    return <Navigate to="/assinar" />;
+  }
+
+  const rotaExigePro = PREFIXOS_PRO.some((p) => pathname === p || pathname.startsWith(p + "/"));
+  const bloqueadaPorPro = !est.loading && rotaExigePro && !podeAcessar("pro", est);
 
   const handleAddTransaction = (type: "income" | "expense") => {
     setAddMenuOpen(false);
@@ -150,6 +170,14 @@ function AppLayout() {
               )}>
               <User className="h-4 w-4 shrink-0"/>Perfil
             </Link>
+            {est.ehSuperadmin && (
+              <Link to="/admin"
+                className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                  pathname==="/admin"?"bg-primary/10 text-primary":"text-muted-foreground hover:bg-accent hover:text-foreground"
+                )}>
+                <Settings className="h-4 w-4 shrink-0"/>Painel Admin
+              </Link>
+            )}
           </nav>
 
           {/* ── Configurações (último) ── */}
@@ -169,7 +197,15 @@ function AppLayout() {
             className="md:pb-0 md:min-h-screen"
             style={{ paddingBottom:"calc(88px + env(safe-area-inset-bottom, 0px))" }}>
             {/* 88px = 68px (nav) + 20px folga — garante que botões não ficam atrás do nav */}
-            <Outlet />
+            {bloqueadaPorPro ? (
+              <TelaBloqueada
+                titulo="Recurso do Kyra One Pro"
+                descricao="Cartões, faturas e metas fazem parte do plano Pro. Assina pra desbloquear."
+                nomePlano={nomeNivel("pro")}
+              />
+            ) : (
+              <Outlet />
+            )}
           </main>
         </div>
 

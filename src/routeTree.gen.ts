@@ -25,6 +25,8 @@ import { Route as AppMaisRouteImport } from './routes/_app.mais'
 import { Route as AppFaturasCartaoRouteImport } from './routes/_app.faturas-cartao'
 import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
 import { Route as AppCategoriasRouteImport } from './routes/_app.categorias'
+import { Route as AppAssinarRouteImport } from './routes/_app.assinar'
+import { Route as AppAdminRouteImport } from './routes/_app.admin'
 import { Route as AppCartoesIndexRouteImport } from './routes/_app/cartoes/index'
 import { Route as AppCartoesNovoRouteImport } from './routes/_app/cartoes/novo'
 import { Route as AppCartoesNovaDespesaRouteImport } from './routes/_app/cartoes/nova-despesa'
@@ -111,6 +113,16 @@ const AppCategoriasRoute = AppCategoriasRouteImport.update({
   path: '/categorias',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAssinarRoute = AppAssinarRouteImport.update({
+  id: '/assinar',
+  path: '/assinar',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAdminRoute = AppAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppCartoesIndexRoute = AppCartoesIndexRouteImport.update({
   id: '/cartoes/',
   path: '/cartoes/',
@@ -151,6 +163,8 @@ export interface FileRoutesByFullPath {
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/share-intent': typeof ShareIntentRoute
+  '/admin': typeof AppAdminRoute
+  '/assinar': typeof AppAssinarRoute
   '/categorias': typeof AppCategoriasRoute
   '/dashboard': typeof AppDashboardRoute
   '/faturas-cartao': typeof AppFaturasCartaoRoute
@@ -174,6 +188,8 @@ export interface FileRoutesByTo {
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/share-intent': typeof ShareIntentRoute
+  '/admin': typeof AppAdminRoute
+  '/assinar': typeof AppAssinarRoute
   '/categorias': typeof AppCategoriasRoute
   '/dashboard': typeof AppDashboardRoute
   '/faturas-cartao': typeof AppFaturasCartaoRoute
@@ -199,6 +215,8 @@ export interface FileRoutesById {
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/share-intent': typeof ShareIntentRoute
+  '/_app/admin': typeof AppAdminRoute
+  '/_app/assinar': typeof AppAssinarRoute
   '/_app/categorias': typeof AppCategoriasRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/faturas-cartao': typeof AppFaturasCartaoRoute
@@ -224,6 +242,8 @@ export interface FileRouteTypes {
     | '/recuperar-senha'
     | '/redefinir-senha'
     | '/share-intent'
+    | '/admin'
+    | '/assinar'
     | '/categorias'
     | '/dashboard'
     | '/faturas-cartao'
@@ -247,6 +267,8 @@ export interface FileRouteTypes {
     | '/recuperar-senha'
     | '/redefinir-senha'
     | '/share-intent'
+    | '/admin'
+    | '/assinar'
     | '/categorias'
     | '/dashboard'
     | '/faturas-cartao'
@@ -271,6 +293,8 @@ export interface FileRouteTypes {
     | '/recuperar-senha'
     | '/redefinir-senha'
     | '/share-intent'
+    | '/_app/admin'
+    | '/_app/assinar'
     | '/_app/categorias'
     | '/_app/dashboard'
     | '/_app/faturas-cartao'
@@ -412,6 +436,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCategoriasRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/assinar': {
+      id: '/_app/assinar'
+      path: '/assinar'
+      fullPath: '/assinar'
+      preLoaderRoute: typeof AppAssinarRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/admin': {
+      id: '/_app/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AppAdminRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/cartoes/': {
       id: '/_app/cartoes/'
       path: '/cartoes'
@@ -469,6 +507,8 @@ const AppCartoesCardIdRouteWithChildren =
   AppCartoesCardIdRoute._addFileChildren(AppCartoesCardIdRouteChildren)
 
 interface AppRouteChildren {
+  AppAdminRoute: typeof AppAdminRoute
+  AppAssinarRoute: typeof AppAssinarRoute
   AppCategoriasRoute: typeof AppCategoriasRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppFaturasCartaoRoute: typeof AppFaturasCartaoRoute
@@ -485,6 +525,8 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppAdminRoute: AppAdminRoute,
+  AppAssinarRoute: AppAssinarRoute,
   AppCategoriasRoute: AppCategoriasRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppFaturasCartaoRoute: AppFaturasCartaoRoute,

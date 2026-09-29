@@ -34,3 +34,6 @@ dist-ssr
 # Variáveis de ambiente (nunca enviar para o GitHub)
 .env
 .env.local
+
+.vercel
+.env*

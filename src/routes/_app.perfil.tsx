@@ -1,8 +1,9 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { LogOut, Settings, ChevronRight } from "lucide-react";
+import { LogOut, Settings, ChevronRight, CreditCard, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
+import { useAssinatura, nomeNivel } from "@/lib/assinaturas";
 
 export const Route = createFileRoute("/_app/perfil")({
   component: PerfilPage,
@@ -13,10 +14,18 @@ function getInitials(name: string) {
   return ((parts[0]?.[0] ?? "") + (parts[parts.length - 1]?.[0] ?? "")).toUpperCase() || "?";
 }
 
-// TODO: gating por assinatura do portal (Fase Asaas)
+function rotuloStatus(status: string | null) {
+  if (status === "ativa") return { texto: "Ativa", cor: "text-emerald-600 bg-emerald-50" };
+  if (status === "pendente") return { texto: "Aguardando pagamento", cor: "text-amber-600 bg-amber-50" };
+  if (status === "inadimplente") return { texto: "Pagamento atrasado", cor: "text-red-600 bg-red-50" };
+  if (status === "cancelada") return { texto: "Cancelada", cor: "text-slate-500 bg-slate-100" };
+  return { texto: "Sem assinatura", cor: "text-slate-500 bg-slate-100" };
+}
+
 function PerfilPage() {
   const { user, signOut } = useAuth();
   const router = useRouter();
+  const est = useAssinatura();
 
   const [name,  setName]  = useState("");
   const [email, setEmail] = useState("");
@@ -50,6 +59,29 @@ function PerfilPage() {
       </div>
 
       <div className="px-4 pt-5 pb-8 space-y-3">
+
+        {/* Minha assinatura */}
+        <button onClick={() => router.navigate({ to: "/assinar" })}
+          className="flex w-full items-center gap-3.5 rounded-2xl border bg-white dark:bg-card px-4 py-3.5 shadow-sm text-left transition-colors hover:bg-slate-50 dark:hover:bg-muted/30">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-100">
+            {est.ehSuperadmin ? (
+              <ShieldCheck className="h-5 w-5 text-indigo-600"/>
+            ) : (
+              <CreditCard className="h-5 w-5 text-indigo-600"/>
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[15px] font-medium text-slate-800 dark:text-foreground">
+              {est.ehSuperadmin ? "Acesso de superadmin" : est.nivel !== "nenhum" ? nomeNivel(est.nivel) : "Minha assinatura"}
+            </p>
+            {!est.ehSuperadmin && (
+              <span className={`inline-block mt-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${rotuloStatus(est.status).cor}`}>
+                {rotuloStatus(est.status).texto}
+              </span>
+            )}
+          </div>
+          <ChevronRight className="h-4 w-4 text-slate-400 shrink-0"/>
+        </button>
 
         {/* Atalho para Configurações */}
         <button onClick={() => router.navigate({ to: "/mais" })}
