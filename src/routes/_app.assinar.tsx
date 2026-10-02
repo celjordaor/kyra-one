@@ -4,7 +4,7 @@ import { Check } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { listarPlanos, type PlanoId } from "@/lib/planos";
-import { useAssinatura, useRecarregarAssinatura, nomeNivel } from "@/lib/assinaturas";
+import { useAssinatura, useRecarregarAssinatura, nomeNivel, diasRestantesTrial } from "@/lib/assinaturas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -31,6 +31,9 @@ function AssinarPage() {
   const [carregando, setCarregando] = useState(false);
 
   const jaAssinante = est.status === "ativa";
+  const emTrial = est.status === "trial";
+  const diasTrial = diasRestantesTrial(est);
+  const trialExpirado = emTrial && (diasTrial === null || diasTrial <= 0);
 
   async function assinar() {
     const cpfLimpo = cpf.replace(/\D/g, "");
@@ -111,14 +114,22 @@ function AssinarPage() {
       <div className="bg-gradient-to-br from-indigo-600 to-violet-700 px-5 pt-12 pb-8 text-white">
         <p className="text-sm font-semibold text-white/70">Assinatura</p>
         <h1 className="mt-1 text-xl font-bold">
-          {jaAssinante ? `Você está no ${nomeNivel(est.nivel)}` : "Escolhe teu plano"}
+          {jaAssinante
+            ? `Você está no ${nomeNivel(est.nivel)}`
+            : emTrial && !trialExpirado
+              ? "Você está no período de teste"
+              : trialExpirado
+                ? "Teu teste gratuito acabou"
+                : "Escolhe teu plano"}
         </h1>
         <p className="mt-1 text-sm text-white/70">
           {jaAssinante
-            ? est.status === "ativa"
-              ? "Assinatura ativa."
-              : "Status: " + est.status
-            : "Sem assinatura ativa, o KyraOne fica bloqueado."}
+            ? "Assinatura ativa."
+            : emTrial && !trialExpirado
+              ? `Acesso completo (Kyra One Pro) liberado por mais ${diasTrial} ${diasTrial === 1 ? "dia" : "dias"}. Quer continuar depois? Escolhe um plano abaixo.`
+              : trialExpirado
+                ? "Teus 14 dias de teste grátis terminaram. Escolhe um plano pra continuar usando o KyraOne."
+                : "Sem assinatura ativa, o KyraOne fica bloqueado."}
         </p>
       </div>
 

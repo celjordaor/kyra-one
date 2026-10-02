@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { LogOut, Settings, ChevronRight, CreditCard, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
-import { useAssinatura, nomeNivel } from "@/lib/assinaturas";
+import { useAssinatura, nomeNivel, diasRestantesTrial } from "@/lib/assinaturas";
 
 export const Route = createFileRoute("/_app/perfil")({
   component: PerfilPage,
@@ -14,7 +14,11 @@ function getInitials(name: string) {
   return ((parts[0]?.[0] ?? "") + (parts[parts.length - 1]?.[0] ?? "")).toUpperCase() || "?";
 }
 
-function rotuloStatus(status: string | null) {
+function rotuloStatus(status: string | null, diasTrial: number | null) {
+  if (status === "trial") {
+    if (diasTrial === null || diasTrial <= 0) return { texto: "Trial expirado", cor: "text-red-600 bg-red-50" };
+    return { texto: `Trial — ${diasTrial} ${diasTrial === 1 ? "dia" : "dias"} restantes`, cor: "text-sky-600 bg-sky-50" };
+  }
   if (status === "ativa") return { texto: "Ativa", cor: "text-emerald-600 bg-emerald-50" };
   if (status === "pendente") return { texto: "Aguardando pagamento", cor: "text-amber-600 bg-amber-50" };
   if (status === "inadimplente") return { texto: "Pagamento atrasado", cor: "text-red-600 bg-red-50" };
@@ -75,8 +79,8 @@ function PerfilPage() {
               {est.ehSuperadmin ? "Acesso de superadmin" : est.nivel !== "nenhum" ? nomeNivel(est.nivel) : "Minha assinatura"}
             </p>
             {!est.ehSuperadmin && (
-              <span className={`inline-block mt-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${rotuloStatus(est.status).cor}`}>
-                {rotuloStatus(est.status).texto}
+              <span className={`inline-block mt-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${rotuloStatus(est.status, diasRestantesTrial(est)).cor}`}>
+                {rotuloStatus(est.status, diasRestantesTrial(est)).texto}
               </span>
             )}
           </div>

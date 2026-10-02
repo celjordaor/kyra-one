@@ -1,7 +1,15 @@
 // Estado de assinatura do usuário logado — lê `profiles.role` (superadmin) e
-// `assinaturas` (status/plano) direto do Supabase via RLS (cada um só vê a
-// própria linha). Mesmo padrão de "nível de plano" usado no Quintalzim
-// (lib/assinaturas.ts lá), adaptado pro KyraOne (1 assinatura, sem categoria).
+// `assinaturas` (status/plano/trial_fim) direto do Supabase via RLS (cada um
+// só vê a própria linha). Mesmo padrão de "nível de plano" usado no
+// Quintalzim (lib/assinaturas.ts lá), adaptado pro KyraOne (1 assinatura,
+// sem categoria).
+//
+// Trial: todo cadastro novo nasce com status='trial' (trigger
+// handle_new_user no Supabase), plano='kyraone_pro' e trial_fim = data de
+// criação + 14 dias — libera o nível Pro completo (Cartões/Faturas/Metas)
+// sem precisar de cartão/Pix. Quando trial_fim passa, calcularNivel()
+// derruba pra "nenhum" só no client (o status no banco continua 'trial'
+// até o usuário assinar de verdade ou o Asaas mudar o status).
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { supabase } from "./supabase";
@@ -13,7 +21,8 @@ export type EstadoAssinatura = {
   loading: boolean;
   ehSuperadmin: boolean;
   plano: PlanoId | null;
-  status: string | null; // 'pendente' | 'ativa' | 'inadimplente' | 'cancelada' | null (nunca assinou)
+  status: string | null; // 'trial' | 'pendente' | 'ativa' | 'inadimplente' | 'cancelada' | null (nunca assinou)
+  trialFim: string | null; // ISO date, só relevante quando status === 'trial'
   nivel: NivelAssinatura;
 };
 
@@ -22,6 +31,7 @@ const ESTADO_INICIAL: EstadoAssinatura = {
   ehSuperadmin: false,
   plano: null,
   status: null,
+  trialFim: null,
   nivel: "nenhum",
 };
 
@@ -34,7 +44,15 @@ const subscribe = (cb: () => void) => {
   return () => listeners.delete(cb);
 };
 
-function calcularNivel(plano: PlanoId | null, status: string | null): NivelAssinatura {
+function trialAtivo(trialFim: string | null): boolean {
+  if (!trialFim) return false;
+  return new Date(trialFim).getTime() > Date.now();
+}
+
+function calcularNivel(plano: PlanoId | null, status: string | null, trialFim: string | null): NivelAssinatura {
+  if (status === "trial") {
+    return trialAtivo(trialFim) ? "pro" : "nenhum";
+  }
   if (status !== "ativa" || !plano) return "nenhum";
   const p = buscarPlano(plano);
   if (!p) return "nenhum";
@@ -57,18 +75,20 @@ async function carregar(forcar = false) {
 
   const [{ data: perfil }, { data: assinatura }] = await Promise.all([
     supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
-    supabase.from("assinaturas").select("plano, status").eq("profile_id", user.id).maybeSingle(),
+    supabase.from("assinaturas").select("plano, status, trial_fim").eq("profile_id", user.id).maybeSingle(),
   ]);
 
   const plano = (assinatura?.plano as PlanoId | undefined) ?? null;
   const status = (assinatura?.status as string | undefined) ?? null;
+  const trialFim = (assinatura?.trial_fim as string | undefined) ?? null;
 
   estado = {
     loading: false,
     ehSuperadmin: perfil?.role === "admin",
     plano,
     status,
-    nivel: calcularNivel(plano, status),
+    trialFim,
+    nivel: calcularNivel(plano, status, trialFim),
   };
   currentUserId = user.id;
   notify();
@@ -114,4 +134,13 @@ export function nomeNivel(nivel: NivelAssinatura): string {
   if (nivel === "pro") return "Kyra One Pro";
   if (nivel === "controle") return "Kyra One Controle";
   return "nenhum plano";
+}
+
+// Dias restantes de trial (arredondado pra cima), ou null se não está em
+// trial ativo. Usado nos banners de /assinar e /perfil.
+export function diasRestantesTrial(est: EstadoAssinatura): number | null {
+  if (est.status !== "trial" || !est.trialFim) return null;
+  const ms = new Date(est.trialFim).getTime() - Date.now();
+  if (ms <= 0) return 0;
+  return Math.ceil(ms / (1000 * 60 * 60 * 24));
 }

@@ -1,9 +1,8 @@
 -- Promove o fundador a superadmin do KyraOne (profiles.role='admin').
--- A tabela `assinaturas` e a coluna `profiles.role` já foram criadas via
--- migration "billing_asaas_e_superadmin" (MCP do Supabase). Falta só esta
--- UPDATE, que o classificador de permissão do Claude bloqueia rodar sozinho
--- por escrever em profiles.role — rode manualmente UMA VEZ no Supabase
--- (Dashboard → SQL Editor → New query), projeto KyraOne (eqzqrwbtibelafvzvbfb).
+--
+-- EXECUTADO em 02/out/2026 via mcp__Supabase__execute_sql (projeto KyraOne,
+-- eqzqrwbtibelafvzvbfb), confirmado antes e depois do UPDATE. profiles.role
+-- de celjordaor@gmail.com = 'admin'. Mantido aqui só como registro/histórico.
 
 UPDATE public.profiles
 SET role = 'admin'
