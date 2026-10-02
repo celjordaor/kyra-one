@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { clienteAdmin, usuarioAutenticado } from "../_lib/supabase-admin";
-import { buscarPlano } from "../../src/lib/planos";
+import { clienteAdmin, usuarioAutenticado } from "../_lib/supabase-admin.js";
+import { buscarPlano } from "../../src/lib/planos.js";
 
 // Painel de controle do KyraOne — só superadmin (profiles.role='admin').
 // Roda como função serverless porque a SPA não tem acesso a auth.users (só

@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { sincronizarStatusAssinatura } from "../_lib/asaas";
-import { clienteAdmin, usuarioAutenticado } from "../_lib/supabase-admin";
+import { sincronizarStatusAssinatura } from "../_lib/asaas.js";
+import { clienteAdmin, usuarioAutenticado } from "../_lib/supabase-admin.js";
 
 // Fallback manual: consulta o Asaas direto (em vez de esperar o webhook) e
 // atualiza o status da assinatura. Útil logo após o checkout, ou se o

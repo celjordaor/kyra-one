@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { cancelarAssinatura } from "../_lib/asaas";
-import { clienteAdmin, usuarioAutenticado } from "../_lib/supabase-admin";
+import { cancelarAssinatura } from "../_lib/asaas.js";
+import { clienteAdmin, usuarioAutenticado } from "../_lib/supabase-admin.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {

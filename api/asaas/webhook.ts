@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { clienteAdmin } from "../_lib/supabase-admin";
+import { clienteAdmin } from "../_lib/supabase-admin.js";
 
 // Webhook do Asaas — configurar manualmente no painel (Configurações →
 // Integrações → Webhooks), apontando pra

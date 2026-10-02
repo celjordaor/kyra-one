@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { buscarClientePorCpf, criarAssinatura, criarCliente, buscarPrimeiraCobranca } from "../_lib/asaas";
-import { buscarPlano } from "../../src/lib/planos";
-import { clienteAdmin, usuarioAutenticado } from "../_lib/supabase-admin";
+import { buscarClientePorCpf, criarAssinatura, criarCliente, buscarPrimeiraCobranca } from "../_lib/asaas.js";
+import { buscarPlano } from "../../src/lib/planos.js";
+import { clienteAdmin, usuarioAutenticado } from "../_lib/supabase-admin.js";
 
 function proximoDiaUtilISO(): string {
   // Asaas exige nextDueDate >= hoje. Usamos amanhã pra dar folga de fuso.
