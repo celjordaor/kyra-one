@@ -1,7 +1,9 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { CheckCircle, TrendingUp, Target, PieChart, ShieldCheck, ArrowRight } from "lucide-react";
+import { CheckCircle, TrendingUp, Target, PieChart, ShieldCheck, ArrowRight, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/auth";
+import { useAssinatura, diasRestantesTrial } from "@/lib/assinaturas";
 
 export const Route = createFileRoute("/boas-vindas")({
   component: BoasVindasPage,
@@ -28,6 +30,8 @@ function LogoIcon({ size = 28 }: { size?: number }) {
 
 function BoasVindasPage() {
   const router = useRouter();
+  const { user } = useAuth();
+  const est = useAssinatura();
   const [visible, setVisible] = useState(false);
   const [confetti] = useState(() =>
     Array.from({ length: 32 }, (_, i) => ({
@@ -50,6 +54,14 @@ function BoasVindasPage() {
     localStorage.setItem("jadeone:welcomed", "true");
     router.navigate({ to: "/dashboard" });
   };
+
+  // Primeiro nome, se tiver (vem de options.data.name no cadastro).
+  const nomeCompleto = (user?.user_metadata?.name as string | undefined) ?? "";
+  const primeiroNome = nomeCompleto.trim().split(" ")[0] || "";
+
+  // Dias de trial — enquanto a assinatura ainda carrega, assume os 14 dias
+  // cheios (é o valor real pra quem acabou de se cadastrar).
+  const diasTrial = est.loading ? 14 : diasRestantesTrial(est) ?? 14;
 
   return (
     <>
@@ -113,15 +125,30 @@ function BoasVindasPage() {
             </div>
 
             <h1 className="text-xl font-bold text-white leading-snug">
-              Seja bem-vindo(a) ao KyraOne 🌱
+              {primeiroNome ? `Bem-vindo(a), ${primeiroNome}! 🌱` : "Seja bem-vindo(a) ao KyraOne 🌱"}
             </h1>
             <p className="mt-2 text-sm text-white/75 leading-relaxed">
-              Seu cantinho pra cuidar do dinheiro sem complicação.
+              Valeu por criar sua conta. Seu cantinho pra cuidar do dinheiro sem complicação começa agora.
             </p>
           </div>
 
           {/* Corpo */}
-          <div className="px-9 pt-8 pb-9">
+          <div className="px-9 pt-7 pb-9">
+
+            {/* Banner de trial */}
+            <div className="mb-6 flex items-start gap-3 rounded-2xl bg-primary/10 px-4 py-3.5">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15">
+                <Gift className="h-[17px] w-[17px] text-primary"/>
+              </div>
+              <div>
+                <p className="text-sm font-bold text-primary leading-snug">
+                  {diasTrial} dias de teste grátis do Kyra One Pro
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
+                  Acesso completo a Cartões, Faturas e Metas liberado automaticamente. Sem cartão de crédito, sem compromisso — você decide depois se quer continuar.
+                </p>
+              </div>
+            </div>
 
             {/* Features */}
             <p className="mb-3.5 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">

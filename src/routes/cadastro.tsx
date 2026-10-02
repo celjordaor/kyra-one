@@ -49,7 +49,7 @@ function CadastroPage() {
       password: data.password,
       options: {
         data: { name: data.name },
-        emailRedirectTo: `${window.location.origin}/dashboard`,
+        emailRedirectTo: `${window.location.origin}/boas-vindas`,
       },
     });
     if (error) {
@@ -63,7 +63,7 @@ function CadastroPage() {
     // Se a confirmação de e-mail estiver desligada no projeto, o Supabase já
     // devolve uma sessão ativa — nesse caso pula direto pro dashboard.
     if (signUpData.session) {
-      router.navigate({ to: "/dashboard" });
+      router.navigate({ to: "/boas-vindas" });
       return;
     }
     setSent(true);
