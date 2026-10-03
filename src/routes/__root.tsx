@@ -7,9 +7,13 @@ import {
 } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import { AuthProvider } from "../lib/auth";
+import { AuthProvider, useAuth } from "../lib/auth";
 
 function NotFoundComponent() {
+  // Logado, volta pro dashboard; sem sessão, volta pra landing pública (/).
+  const { session } = useAuth();
+  const destino = session ? "/dashboard" : "/";
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
@@ -20,7 +24,7 @@ function NotFoundComponent() {
         </p>
         <div className="mt-6">
           <Link
-            to="/"
+            to={destino}
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
             Voltar ao início
@@ -34,6 +38,11 @@ function NotFoundComponent() {
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
+  // Logado, volta pro dashboard; sem sessão, volta pra landing pública (/).
+  // <a> normal (não <Link>) de propósito: um erro aqui pode vir de estado
+  // quebrado no app, então um reload completo é mais seguro que navegação SPA.
+  const { session } = useAuth();
+  const destino = session ? "/dashboard" : "/";
 
   useEffect(() => {
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
@@ -59,7 +68,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
             Tentar novamente
           </button>
           <a
-            href="/"
+            href={destino}
             className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
             Voltar ao início
