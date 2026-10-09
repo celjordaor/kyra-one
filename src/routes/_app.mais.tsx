@@ -1,7 +1,7 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import {
   Tag, Target, LogOut, ChevronRight,
-  Lock, Sprout, Bell, HelpCircle,
+  Lock, Sprout, Bell, HelpCircle, UserX,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -11,6 +11,7 @@ import { supabase } from "@/lib/supabase";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { ExcluirContaDialog } from "@/components/conta/excluir-conta-dialog";
 
 export const Route = createFileRoute("/_app/mais")({
   component: MaisPage,
@@ -85,6 +86,7 @@ function MaisPage() {
 
   // ── Estados dos dialogs ──────────────────────────────────────────────────
   const [openNotifs, setOpenNotifs] = useState(false);
+  const [openExcluirConta, setOpenExcluirConta] = useState(false);
 
   // Dados pessoais (exibição)
   const [name,  setName]  = useState("");
@@ -194,6 +196,24 @@ function MaisPage() {
           </button>
         </div>
 
+        {/* ── Zona de risco ──────────────────────────────────────────── */}
+        <div className="mx-4 mt-6">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-muted-foreground mb-1.5 px-1">
+            Zona de risco
+          </p>
+          <button type="button" onClick={() => setOpenExcluirConta(true)}
+            className="flex w-full items-center gap-3.5 rounded-2xl bg-white dark:bg-card shadow-sm border border-slate-100 dark:border-border px-4 py-3.5 text-left transition-colors hover:bg-red-50/50 dark:hover:bg-red-950/10">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-50 dark:bg-red-950/30 text-red-500">
+              <UserX className="h-5 w-5"/>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[15px] font-medium text-red-500 leading-snug">Excluir conta</p>
+              <p className="text-[12px] text-slate-400 dark:text-muted-foreground mt-0.5">Apaga seus dados permanentemente</p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-slate-400"/>
+          </button>
+        </div>
+
         <p className="mt-6 text-center text-[11px] text-slate-300 dark:text-muted-foreground/40">
           KyraOne v1.0
         </p>
@@ -224,6 +244,9 @@ function MaisPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ══ Dialog: Excluir conta (com retenção) ════════════════════════ */}
+      <ExcluirContaDialog open={openExcluirConta} onOpenChange={setOpenExcluirConta} />
     </div>
   );
 }

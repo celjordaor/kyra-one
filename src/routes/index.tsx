@@ -10,8 +10,10 @@ import {
   Lock,
   Unlock,
   Check,
+  MessageCircle,
   type LucideIcon,
 } from "lucide-react";
+import { KYRA_WHATSAPP_CTA_LINK, KYRA_WHATSAPP_NUMBER_DISPLAY } from "@/lib/constants";
 
 export const Route = createFileRoute("/")({
   component: LandingPage,
@@ -20,6 +22,7 @@ export const Route = createFileRoute("/")({
 const NAVY = "#03264E";
 const GOLD = "#F2B33D";
 const CLAY = "#C4693B";
+const WHATS = "#25D366";
 
 const FEATURES: { icon: LucideIcon; title: string; text: string }[] = [
   { icon: BarChart3, title: "Dashboard inteligente", text: "Veja de cara como seu mês está: receitas, despesas e saldo num gráfico que faz sentido." },
@@ -87,6 +90,7 @@ function LandingPage() {
             <nav className="hidden items-center gap-7 md:flex" aria-label="Navegação principal">
               <a href="#funcionalidades" className="text-sm font-medium text-[#3A4152] hover:text-[#03264E]">O que faz</a>
               <a href="#como-funciona" className="text-sm font-medium text-[#3A4152] hover:text-[#03264E]">Como funciona</a>
+              <a href="#whatsapp" className="text-sm font-medium text-[#3A4152] hover:text-[#03264E]">WhatsApp</a>
               <a href="#planos" className="text-sm font-medium text-[#3A4152] hover:text-[#03264E]">Planos</a>
             </nav>
             <Link
@@ -244,6 +248,78 @@ function LandingPage() {
           </div>
         </section>
 
+        {/* ============ WHATSAPP (destaque) ============ */}
+        <section id="whatsapp" className="relative overflow-hidden px-5 py-24 sm:px-8" style={{ background: NAVY }}>
+          <div
+            className="pointer-events-none absolute -left-28 top-1/2 h-[480px] w-[480px] -translate-y-1/2 rounded-full blur-md"
+            style={{ background: `radial-gradient(circle, ${WHATS}33, ${WHATS}00 70%)` }}
+          />
+          <div className="relative mx-auto grid max-w-[1180px] grid-cols-1 items-center gap-14 lg:grid-cols-2">
+            <div>
+              <span
+                className="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-[13px] font-semibold"
+                style={{ background: `${WHATS}26`, color: WHATS }}
+              >
+                <MessageCircle className="h-[15px] w-[15px]" /> Novidade
+              </span>
+              <h2
+                style={{ fontFamily: "'Sora', sans-serif", color: "#FBF7EC" }}
+                className="mb-4 text-[1.8rem] font-extrabold leading-tight sm:text-[2.5rem]"
+              >
+                Lança uma despesa só mandando um "oi" pra Kyra.
+              </h2>
+              <p className="mb-7 max-w-[480px] text-[16.5px] leading-relaxed" style={{ color: "rgba(251,247,236,0.72)" }}>
+                Gastou no mercado, no Uber, no delivery? Manda uma mensagem pro WhatsApp da Kyra contando o
+                que foi — ela registra a despesa certinha, na hora, sem você precisar abrir o app.
+              </p>
+              <div className="flex flex-wrap items-center gap-4">
+                <a
+                  href={KYRA_WHATSAPP_CTA_LINK}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ background: WHATS, color: "#06230F", fontFamily: "'Sora', sans-serif" }}
+                  className="inline-flex items-center gap-2.5 rounded-full px-7 py-4 text-base font-bold shadow-[0_14px_28px_-10px_rgba(37,211,102,0.45)] transition-transform hover:-translate-y-0.5"
+                >
+                  <MessageCircle className="h-5 w-5" /> Falar com a Kyra agora
+                </a>
+                <span className="text-[13.5px]" style={{ color: "rgba(251,247,236,0.55)" }}>
+                  {KYRA_WHATSAPP_NUMBER_DISPLAY}
+                </span>
+              </div>
+            </div>
+
+            <div className="relative mx-auto w-full max-w-[360px]">
+              <div className="rounded-[26px] bg-[#0B141A] p-4 shadow-[0_30px_60px_-18px_rgba(0,0,0,0.55)]">
+                <div className="mb-3 flex items-center gap-2.5 rounded-t-xl px-1 pb-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                  <img src="/icons/icon-192.png" alt="" width={32} height={32} className="h-8 w-8 rounded-full" />
+                  <div>
+                    <p className="text-[13.5px] font-semibold text-white">Kyra</p>
+                    <p className="text-[11px]" style={{ color: WHATS }}>online</p>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2.5 px-1 pb-2">
+                  <div className="ml-auto max-w-[78%] rounded-2xl rounded-tr-sm px-3.5 py-2.5" style={{ background: "#005C4B" }}>
+                    <p className="text-[13.5px] leading-snug text-white">Gastei 45 reais no mercado</p>
+                  </div>
+                  <div className="mr-auto max-w-[82%] rounded-2xl rounded-tl-sm bg-[#202C33] px-3.5 py-2.5">
+                    <p className="text-[13.5px] leading-snug text-white">
+                      Prontim ✅ Anotei: <strong>Mercado</strong>, R$ 45,00 em Alimentação.
+                    </p>
+                  </div>
+                  <div className="ml-auto max-w-[78%] rounded-2xl rounded-tr-sm px-3.5 py-2.5" style={{ background: "#005C4B" }}>
+                    <p className="text-[13.5px] leading-snug text-white">rolou 32 reais de Uber tbm</p>
+                  </div>
+                  <div className="mr-auto max-w-[82%] rounded-2xl rounded-tl-sm bg-[#202C33] px-3.5 py-2.5">
+                    <p className="text-[13.5px] leading-snug text-white">
+                      Prontim ✅ Anotei: <strong>Uber</strong>, R$ 32,00 em Transporte.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* ============ PLANOS ============ */}
         <section id="planos" className="px-5 py-24 sm:px-8">
           <div className="mx-auto max-w-[1180px]">
@@ -355,9 +431,15 @@ function LandingPage() {
                 🌱 Seu cantinho pra cuidar do dinheiro · © 2026 KyraOne
               </span>
             </div>
-            <div className="flex gap-6">
+            <div className="flex flex-wrap gap-x-6 gap-y-2">
               <Link to="/login" className="text-[13.5px] font-medium" style={{ color: "rgba(251,247,236,0.75)" }}>
                 Entrar
+              </Link>
+              <Link to="/termos" className="text-[13.5px] font-medium" style={{ color: "rgba(251,247,236,0.75)" }}>
+                Termos de Uso
+              </Link>
+              <Link to="/privacidade" className="text-[13.5px] font-medium" style={{ color: "rgba(251,247,236,0.75)" }}>
+                Privacidade
               </Link>
             </div>
           </div>

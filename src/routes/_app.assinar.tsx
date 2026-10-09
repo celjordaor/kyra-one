@@ -8,6 +8,7 @@ import { useAssinatura, useRecarregarAssinatura, nomeNivel, diasRestantesTrial }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { ExcluirContaDialog } from "@/components/conta/excluir-conta-dialog";
 
 export const Route = createFileRoute("/_app/assinar")({
   component: AssinarPage,
@@ -30,6 +31,7 @@ function AssinarPage() {
   const [metodo, setMetodo] = useState<"PIX" | "CREDIT_CARD">("PIX");
   const [cpf, setCpf] = useState("");
   const [carregando, setCarregando] = useState(false);
+  const [openExcluirConta, setOpenExcluirConta] = useState(false);
 
   const jaAssinante = est.status === "ativa";
   const emTrial = est.status === "trial";
@@ -200,6 +202,14 @@ function AssinarPage() {
             <Button className="w-full" disabled={carregando} onClick={assinar}>
               {carregando ? "Processando..." : "Assinar"}
             </Button>
+
+            <button
+              type="button"
+              onClick={() => setOpenExcluirConta(true)}
+              className="w-full text-center text-xs text-muted-foreground hover:text-destructive underline underline-offset-2 pt-1"
+            >
+              Não quero mais continuar
+            </button>
           </>
         )}
 
@@ -214,6 +224,8 @@ function AssinarPage() {
           </Button>
         )}
       </div>
+
+      <ExcluirContaDialog open={openExcluirConta} onOpenChange={setOpenExcluirConta} />
     </div>
   );
 }

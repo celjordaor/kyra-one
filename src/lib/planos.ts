@@ -11,6 +11,10 @@ export type Plano = {
   id: PlanoId;
   nome: string;
   valor: number;
+  // Valor com desconto de retenção — oferecido quando um assinante tenta
+  // excluir a conta (ver src/lib/constants.ts e api/conta/*). Permanente:
+  // uma vez aceito, o assinante paga esse valor enquanto continuar ativo.
+  valorDesconto: number;
   descricao: string;
   nivel: 1 | 2; // usado pra saber se um plano "cobre" o nível exigido por uma tela
 };
@@ -20,6 +24,7 @@ export const PLANOS: Record<PlanoId, Plano> = {
     id: "kyraone_controle",
     nome: "Kyra One Controle",
     valor: 29.9,
+    valorDesconto: 19.9,
     descricao: "Transações, categorias e dashboard — o essencial pra organizar suas finanças.",
     nivel: 1,
   },
@@ -27,6 +32,7 @@ export const PLANOS: Record<PlanoId, Plano> = {
     id: "kyraone_pro",
     nome: "Kyra One Pro",
     valor: 49.9,
+    valorDesconto: 29.9,
     descricao: "Tudo do Controle + Cartões, Faturas e Metas & Orçamentos.",
     nivel: 2,
   },

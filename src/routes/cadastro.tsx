@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/lib/supabase";
 
 const cadastroSchema = z
@@ -15,6 +16,9 @@ const cadastroSchema = z
     email: z.string().min(1, "E-mail é obrigatório").email("E-mail inválido"),
     password: z.string().min(6, "A senha deve ter pelo menos 6 caracteres"),
     confirmPassword: z.string().min(1, "Confirme a senha"),
+    aceitaTermos: z.boolean().refine((v) => v === true, {
+      message: "Pra criar a conta, você precisa aceitar os Termos de Uso e a Política de Privacidade.",
+    }),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "As senhas não coincidem",
@@ -36,11 +40,14 @@ function CadastroPage() {
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<CadastroForm>({
     resolver: zodResolver(cadastroSchema),
-    defaultValues: { name: "", email: "", password: "", confirmPassword: "" },
+    defaultValues: { name: "", email: "", password: "", confirmPassword: "", aceitaTermos: false },
   });
+  const aceitaTermos = watch("aceitaTermos");
 
   const onSubmit = async (data: CadastroForm) => {
     setAuthError(null);
@@ -160,6 +167,29 @@ function CadastroPage() {
               />
             </div>
             {errors.confirmPassword && <p className="text-xs text-destructive">{errors.confirmPassword.message}</p>}
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-start gap-2.5">
+              <Checkbox
+                id="aceitaTermos"
+                checked={aceitaTermos}
+                onCheckedChange={(v) => setValue("aceitaTermos", v === true, { shouldValidate: true })}
+                className="mt-0.5"
+              />
+              <Label htmlFor="aceitaTermos" className="text-[13px] font-normal leading-snug text-muted-foreground">
+                Li e aceito os{" "}
+                <Link to="/termos" target="_blank" className="font-semibold text-primary hover:underline">
+                  Termos de Uso
+                </Link>{" "}
+                e a{" "}
+                <Link to="/privacidade" target="_blank" className="font-semibold text-primary hover:underline">
+                  Política de Privacidade
+                </Link>{" "}
+                do KyraOne.
+              </Label>
+            </div>
+            {errors.aceitaTermos && <p className="text-xs text-destructive">{errors.aceitaTermos.message}</p>}
           </div>
 
           <Button type="submit" className="h-11 w-full font-bold shadow-md shadow-primary/25" disabled={isSubmitting}>

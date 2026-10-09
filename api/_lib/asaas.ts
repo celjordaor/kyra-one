@@ -13,7 +13,7 @@ function chaveApi(): string | null {
 
 async function chamarAsaas<T>(
   caminho: string,
-  opcoes: { method?: string; body?: unknown } = {}
+  opcoes: { method?: string; body?: unknown } = {},
 ): Promise<{ ok: boolean; status: number; dados: T | null }> {
   const chave = chaveApi();
   if (!chave) {
@@ -42,7 +42,7 @@ export type AsaasCustomer = {
 
 export async function buscarClientePorCpf(cpfCnpj: string): Promise<AsaasCustomer | null> {
   const { ok, dados } = await chamarAsaas<{ data: AsaasCustomer[] }>(
-    `/customers?cpfCnpj=${encodeURIComponent(cpfCnpj)}`
+    `/customers?cpfCnpj=${encodeURIComponent(cpfCnpj)}`,
   );
   if (!ok || !dados?.data?.length) return null;
   return dados.data[0];
@@ -94,7 +94,9 @@ export async function criarAssinatura(params: {
     },
   });
   if (!ok || !dados) {
-    throw new Error(`Falha ao criar assinatura no Asaas (status ${status}): ${JSON.stringify(dados)}`);
+    throw new Error(
+      `Falha ao criar assinatura no Asaas (status ${status}): ${JSON.stringify(dados)}`,
+    );
   }
   return dados;
 }
@@ -108,6 +110,22 @@ export async function cancelarAssinatura(subscriptionId: string): Promise<void> 
   }
 }
 
+// Usado pelo fluxo de retenção (api/conta/aplicar-desconto-retencao.ts): o
+// assinante tentou excluir a conta, aceitou um desconto permanente pra
+// ficar, e isso atualiza o valor da cobrança mensal já ativa no Asaas.
+export async function atualizarValorAssinatura(
+  subscriptionId: string,
+  value: number,
+): Promise<void> {
+  const { ok, status } = await chamarAsaas(`/subscriptions/${subscriptionId}`, {
+    method: "PUT",
+    body: { value },
+  });
+  if (!ok) {
+    throw new Error(`Falha ao atualizar valor da assinatura no Asaas (status ${status}).`);
+  }
+}
+
 export type AsaasPayment = {
   id: string;
   invoiceUrl: string;
@@ -116,7 +134,7 @@ export type AsaasPayment = {
 
 export async function buscarPrimeiraCobranca(subscriptionId: string): Promise<AsaasPayment | null> {
   const { ok, dados } = await chamarAsaas<{ data: AsaasPayment[] }>(
-    `/payments?subscription=${subscriptionId}&limit=1`
+    `/payments?subscription=${subscriptionId}&limit=1`,
   );
   if (!ok || !dados?.data?.length) return null;
   return dados.data[0];
@@ -125,10 +143,10 @@ export async function buscarPrimeiraCobranca(subscriptionId: string): Promise<As
 const STATUS_PAGO = ["RECEIVED", "CONFIRMED", "RECEIVED_IN_CASH"];
 
 export async function sincronizarStatusAssinatura(
-  subscriptionId: string
+  subscriptionId: string,
 ): Promise<"ativa" | "inadimplente" | "pendente"> {
   const { ok, dados } = await chamarAsaas<{ data: { status: string }[] }>(
-    `/payments?subscription=${subscriptionId}&limit=20`
+    `/payments?subscription=${subscriptionId}&limit=20`,
   );
   if (!ok || !dados?.data?.length) return "pendente";
 

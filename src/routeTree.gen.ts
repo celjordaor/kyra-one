@@ -9,9 +9,11 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TermosRouteImport } from './routes/termos'
 import { Route as ShareIntentRouteImport } from './routes/share-intent'
 import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
 import { Route as RecuperarSenhaRouteImport } from './routes/recuperar-senha'
+import { Route as PrivacidadeRouteImport } from './routes/privacidade'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as CadastroRouteImport } from './routes/cadastro'
 import { Route as BoasVindasRouteImport } from './routes/boas-vindas'
@@ -34,6 +36,11 @@ import { Route as AppCartoesEditarDespesaRouteImport } from './routes/_app/carto
 import { Route as AppCartoesCardIdRouteImport } from './routes/_app/cartoes/$cardId'
 import { Route as AppCartoesCardIdFaturaInvoiceIdRouteImport } from './routes/_app/cartoes/$cardId.fatura.$invoiceId'
 
+const TermosRoute = TermosRouteImport.update({
+  id: '/termos',
+  path: '/termos',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ShareIntentRoute = ShareIntentRouteImport.update({
   id: '/share-intent',
   path: '/share-intent',
@@ -47,6 +54,11 @@ const RedefinirSenhaRoute = RedefinirSenhaRouteImport.update({
 const RecuperarSenhaRoute = RecuperarSenhaRouteImport.update({
   id: '/recuperar-senha',
   path: '/recuperar-senha',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacidadeRoute = PrivacidadeRouteImport.update({
+  id: '/privacidade',
+  path: '/privacidade',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -160,9 +172,11 @@ export interface FileRoutesByFullPath {
   '/boas-vindas': typeof BoasVindasRoute
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
+  '/privacidade': typeof PrivacidadeRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/share-intent': typeof ShareIntentRoute
+  '/termos': typeof TermosRoute
   '/admin': typeof AppAdminRoute
   '/assinar': typeof AppAssinarRoute
   '/categorias': typeof AppCategoriasRoute
@@ -185,9 +199,11 @@ export interface FileRoutesByTo {
   '/boas-vindas': typeof BoasVindasRoute
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
+  '/privacidade': typeof PrivacidadeRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/share-intent': typeof ShareIntentRoute
+  '/termos': typeof TermosRoute
   '/admin': typeof AppAdminRoute
   '/assinar': typeof AppAssinarRoute
   '/categorias': typeof AppCategoriasRoute
@@ -212,9 +228,11 @@ export interface FileRoutesById {
   '/boas-vindas': typeof BoasVindasRoute
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
+  '/privacidade': typeof PrivacidadeRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/share-intent': typeof ShareIntentRoute
+  '/termos': typeof TermosRoute
   '/_app/admin': typeof AppAdminRoute
   '/_app/assinar': typeof AppAssinarRoute
   '/_app/categorias': typeof AppCategoriasRoute
@@ -239,9 +257,11 @@ export interface FileRouteTypes {
     | '/boas-vindas'
     | '/cadastro'
     | '/login'
+    | '/privacidade'
     | '/recuperar-senha'
     | '/redefinir-senha'
     | '/share-intent'
+    | '/termos'
     | '/admin'
     | '/assinar'
     | '/categorias'
@@ -264,9 +284,11 @@ export interface FileRouteTypes {
     | '/boas-vindas'
     | '/cadastro'
     | '/login'
+    | '/privacidade'
     | '/recuperar-senha'
     | '/redefinir-senha'
     | '/share-intent'
+    | '/termos'
     | '/admin'
     | '/assinar'
     | '/categorias'
@@ -290,9 +312,11 @@ export interface FileRouteTypes {
     | '/boas-vindas'
     | '/cadastro'
     | '/login'
+    | '/privacidade'
     | '/recuperar-senha'
     | '/redefinir-senha'
     | '/share-intent'
+    | '/termos'
     | '/_app/admin'
     | '/_app/assinar'
     | '/_app/categorias'
@@ -317,13 +341,22 @@ export interface RootRouteChildren {
   BoasVindasRoute: typeof BoasVindasRoute
   CadastroRoute: typeof CadastroRoute
   LoginRoute: typeof LoginRoute
+  PrivacidadeRoute: typeof PrivacidadeRoute
   RecuperarSenhaRoute: typeof RecuperarSenhaRoute
   RedefinirSenhaRoute: typeof RedefinirSenhaRoute
   ShareIntentRoute: typeof ShareIntentRoute
+  TermosRoute: typeof TermosRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/termos': {
+      id: '/termos'
+      path: '/termos'
+      fullPath: '/termos'
+      preLoaderRoute: typeof TermosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/share-intent': {
       id: '/share-intent'
       path: '/share-intent'
@@ -343,6 +376,13 @@ declare module '@tanstack/react-router' {
       path: '/recuperar-senha'
       fullPath: '/recuperar-senha'
       preLoaderRoute: typeof RecuperarSenhaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacidade': {
+      id: '/privacidade'
+      path: '/privacidade'
+      fullPath: '/privacidade'
+      preLoaderRoute: typeof PrivacidadeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -550,9 +590,11 @@ const rootRouteChildren: RootRouteChildren = {
   BoasVindasRoute: BoasVindasRoute,
   CadastroRoute: CadastroRoute,
   LoginRoute: LoginRoute,
+  PrivacidadeRoute: PrivacidadeRoute,
   RecuperarSenhaRoute: RecuperarSenhaRoute,
   RedefinirSenhaRoute: RedefinirSenhaRoute,
   ShareIntentRoute: ShareIntentRoute,
+  TermosRoute: TermosRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
