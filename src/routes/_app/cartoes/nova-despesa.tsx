@@ -115,7 +115,7 @@ function BottomSheet({ open, onClose, title, maxHeight = "75vh", children }: {
 // ── Seção — idêntica à nova-transacao ────────────────────────────────────
 function TxSection({ title, children }: { title?: string; children: React.ReactNode }) {
   return (
-    <div style={{ paddingLeft:"1rem", paddingRight:"1rem", marginBottom:"0.75rem" }}>
+    <div className="px-4 md:px-0" style={{ marginBottom:"0.75rem" }}>
       {title && (
         <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 px-0.5">
           {title}
@@ -226,11 +226,11 @@ function NovaDespesaPage() {
   };
 
   return (
-    <div className="w-full bg-background md:max-w-xl md:mx-auto">
+    <div className="w-full bg-background md:max-w-4xl md:mx-auto">
       <form id="nova-despesa-form" onSubmit={handleSubmit(onSubmit)} style={{ display:"block", width:"100%", margin:0 }}>
 
-        {/* HEADER */}
-        <div style={{ display:"block", background:"#4f46e5", color:"white",
+        {/* HEADER (mobile) */}
+        <div className="md:hidden" style={{ display:"block", background:"#4f46e5", color:"white",
           paddingLeft:"1rem", paddingRight:"1rem", paddingBottom:"2rem",
           paddingTop:"calc(env(safe-area-inset-top,0px) + 1rem)" }}>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
@@ -246,8 +246,17 @@ function NovaDespesaPage() {
           </div>
         </div>
 
+        {/* HEADER (desktop, compacto) */}
+        <div className="hidden md:flex md:items-center md:justify-between md:px-1 md:pt-5 md:pb-4">
+          <h1 className="text-[17px] font-bold text-foreground">Nova despesa no cartão</h1>
+        </div>
+
+        {/* ── Corpo: no desktop, formulário (esquerda) + resumo fixo (direita) ── */}
+        <div className="md:grid md:grid-cols-[1.4fr_1fr] md:gap-6 md:items-start md:px-1">
+        <div>
+
         {/* VALOR — margem explícita, sem wrapper extra */}
-        <div style={{ display:"block", marginLeft:"1rem", marginRight:"1rem",
+        <div className="md:mx-0 md:mt-0" style={{ display:"block", marginLeft:"1rem", marginRight:"1rem",
           marginTop:"-1rem", marginBottom:"1.25rem",
           borderRadius:"1.5rem", background:"white", overflow:"hidden",
           boxShadow:"0 10px 25px rgba(0,0,0,0.1)" }}>
@@ -359,23 +368,49 @@ function NovaDespesaPage() {
 
           {/* Espaçador: altura do botão (56px) + nav (68px) + margem (16px) */}
           <div className="md:hidden" style={{ height: "8.5rem" }} />
+        </div>
 
-          {/* ── BOTÃO DESKTOP — inline no final do formulário ── */}
-          <div className="hidden md:block" style={{ padding: "0.5rem 1rem 1.5rem" }}>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              style={{
-                display: "block", width: "100%", height: "3.5rem",
-                fontSize: "1.0625rem", fontWeight: 700, color: "white",
-                background: isSubmitting ? "#818cf8" : "#4f46e5",
-                border: "none", borderRadius: "1rem", cursor: "pointer",
-                boxShadow: "0 6px 20px rgba(79,70,229,0.35)",
-                transition: "opacity 0.15s",
-              }}>
-              {isSubmitting ? "Salvando..." : "✓  Lançar despesa"}
-            </button>
+        </div>
+
+        {/* ── Resumo fixo (desktop) ──────────────────────────────────── */}
+        <aside className="hidden md:block md:sticky md:top-5">
+          <div className="overflow-hidden rounded-2xl text-white"
+            style={{ background: "linear-gradient(135deg, #03264E, #0b3a66)" }}>
+            <div className="p-5">
+              <span className="inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wide"
+                style={{ background: "rgba(255,255,255,.15)" }}>
+                DESPESA NO CARTÃO
+              </span>
+              <p className="mt-3 font-bold" style={{ fontFamily: "'Sora', sans-serif", fontSize: "26px" }}>
+                {displayValue ? `R$ ${displayValue}` : "R$ 0,00"}
+              </p>
+              <div className="mt-3 space-y-2 border-t border-white/15 pt-3 text-[12.5px]">
+                <div className="flex justify-between gap-3 text-white/70">
+                  <span>Cartão</span>
+                  <span className="truncate text-right font-medium text-white">{selectedCard?.name || "—"}</span>
+                </div>
+                <div className="flex justify-between gap-3 text-white/70">
+                  <span>Categoria</span>
+                  <span className="truncate text-right font-medium text-white">{selectedCatName || "—"}</span>
+                </div>
+                <div className="flex justify-between gap-3 text-white/70">
+                  <span>Fatura</span>
+                  <span className="font-medium text-white">{selectedInvoice?.competence || "—"}</span>
+                </div>
+                <div className="flex justify-between gap-3 text-white/70">
+                  <span>Parcelas</span>
+                  <span className="font-medium text-white">{isRecurring ? "Recorrente" : `${installments}x`}</span>
+                </div>
+              </div>
+
+              <button type="submit" form="nova-despesa-form" disabled={isSubmitting}
+                className="mt-4 w-full rounded-xl py-3 text-[14px] font-bold text-white transition-opacity disabled:opacity-60"
+                style={{ background: isSubmitting ? "#818cf8" : "#4f46e5" }}>
+                {isSubmitting ? "Salvando..." : "Lançar despesa"}
+              </button>
+            </div>
           </div>
+        </aside>
         </div>
       </form>
 

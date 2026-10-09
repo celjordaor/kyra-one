@@ -187,16 +187,21 @@ function CategoriasPage() {
   };
 
   return (
-    <div className="space-y-5 p-5">
-      <div className="flex items-center gap-3">
-        <Link to="/perfil"
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary text-foreground">
-          <ArrowLeft className="h-4 w-4" />
-        </Link>
-        <h1 className="text-xl font-bold text-foreground">Categorias</h1>
+    <div className="space-y-5 p-5 md:max-w-4xl md:mx-auto">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Link to="/perfil"
+            className="md:hidden flex h-9 w-9 items-center justify-center rounded-full bg-secondary text-foreground">
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+          <h1 className="text-xl font-bold text-foreground">Categorias</h1>
+        </div>
+        <Button className="hidden md:flex gap-2 bg-primary font-semibold" onClick={openNew}>
+          <Plus className="h-4 w-4" /> Nova categoria
+        </Button>
       </div>
 
-      <div className="flex gap-1 rounded-xl bg-muted p-1">
+      <div className="flex gap-1 rounded-xl bg-muted p-1 md:max-w-xs">
         {([["expense","DESPESAS"],["income","RECEITAS"]] as [Tab,string][]).map(([key,label]) => (
           <button key={key} onClick={() => setTab(key as Tab)}
             className={cn("flex-1 rounded-lg py-2 text-sm font-semibold tracking-wide transition-colors",
@@ -207,7 +212,7 @@ function CategoriasPage() {
         ))}
       </div>
 
-      <Button className="h-10 w-full gap-2 bg-primary font-semibold" onClick={openNew}>
+      <Button className="md:hidden h-10 w-full gap-2 bg-primary font-semibold" onClick={openNew}>
         <Plus className="h-4 w-4" /> Nova categoria
       </Button>
 
@@ -216,15 +221,15 @@ function CategoriasPage() {
           Nenhuma categoria cadastrada.
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2 md:grid md:grid-cols-4 md:gap-3 md:space-y-0">
           {filtered.map(cat => (
             <div key={cat.id}
-              className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 shadow-sm">
-              <div className="flex items-center gap-3">
+              className="group flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 shadow-sm md:flex-col md:items-center md:gap-2 md:py-4 md:text-center">
+              <div className="flex items-center gap-3 md:flex-col md:gap-2">
                 <CatBadge icon={cat.icon ?? "📦"} name={cat.name} color={cat.color ?? "#6b7280"} />
                 <span className="text-sm font-medium text-foreground">{cat.name}</span>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 md:opacity-0 md:transition-opacity md:group-hover:opacity-100">
                 <button onClick={() => openEdit(cat)}
                   className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground">
                   <Pencil className="h-3.5 w-3.5" />

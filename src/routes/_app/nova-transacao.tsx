@@ -86,7 +86,7 @@ function BottomSheet({
 // ── Seção visual ─────────────────────────────────────────────────────────
 function TxSection({ title, children }: { title?: string; children: React.ReactNode }) {
   return (
-    <div className="mx-4 mb-4">
+    <div className="mx-4 md:mx-0 mb-4">
       {title && <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 px-1">{title}</p>}
       <div className="rounded-2xl bg-white dark:bg-card shadow-sm border border-slate-100 dark:border-border overflow-hidden">
         {children}
@@ -230,11 +230,11 @@ function NovaTransacaoPage() {
   };
 
   return (
-    <div className="bg-background md:max-w-2xl md:mx-auto" style={{ width: "100%", maxWidth: "min(100%, 672px)", minHeight: "100dvh" }}>
+    <div className="bg-background md:max-w-4xl md:mx-auto" style={{ width: "100%", maxWidth: "min(100%, 672px)", minHeight: "100dvh" }}>
       <form id="nova-tx-form" onSubmit={handleSubmit(onSubmit)} className="w-full">
 
-        {/* ── HEADER ────────────────────────────────────────────────── */}
-        <div className={cn(headerBg, "w-full text-white px-4 pb-8")}
+        {/* ── HEADER (mobile) ──────────────────────────────────────────── */}
+        <div className={cn(headerBg, "md:hidden w-full text-white px-4 pb-8")}
           style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 1rem)" }}>
           <div className="flex items-center justify-between mb-5">
             <button type="button" onClick={() => navigate({ to: "/transacoes" })}
@@ -260,8 +260,30 @@ function NovaTransacaoPage() {
           </div>
         </div>
 
+        {/* ── HEADER (desktop, compacto) ───────────────────────────────── */}
+        <div className="hidden md:flex md:items-center md:justify-between md:px-1 md:pt-5 md:pb-4">
+          <h1 className="text-[17px] font-bold text-foreground">Nova transação</h1>
+          <div className="inline-flex rounded-xl p-1 gap-1" style={{ background: "#EDE9DD" }}>
+            {(["expense", "income"] as const).map(tp => (
+              <button key={tp} type="button" onClick={() => setTipo(tp)}
+                className={cn(
+                  "flex items-center gap-2 rounded-lg px-4 py-2 text-[13px] font-bold transition-colors",
+                  tipo === tp ? "text-white" : "text-muted-foreground"
+                )}
+                style={tipo === tp ? { background: "#03264E" } : undefined}>
+                {tp === "expense" ? <TrendingDown className="h-3.5 w-3.5 shrink-0" /> : <TrendingUp className="h-3.5 w-3.5 shrink-0" />}
+                {tp === "expense" ? "Despesa" : "Receita"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Corpo: no desktop, formulário (esquerda) + resumo fixo (direita) ── */}
+        <div className="md:grid md:grid-cols-[1.4fr_1fr] md:gap-6 md:items-start md:px-1">
+        <div>
+
         {/* ── VALOR ─────────────────────────────────────────────────── */}
-        <div className="mx-4 -mt-4 mb-5 rounded-3xl bg-white dark:bg-card shadow-xl border border-white/50 overflow-hidden">
+        <div className="mx-4 md:mx-0 -mt-4 md:mt-0 mb-5 rounded-3xl bg-white dark:bg-card shadow-xl border border-white/50 overflow-hidden">
           <div className="px-5 pt-5 pb-3">
             <p className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color: accentHex }}>VALOR</p>
             <div className="flex items-baseline gap-2">
@@ -355,24 +377,62 @@ function NovaTransacaoPage() {
           </FieldRow>
         </TxSection>
 
-        {/* ── BOTÃO ─────────────────────────────────────────────────── */}
+        {/* ── BOTÃO (mobile) ───────────────────────────────────────── */}
 
         {/* Espaçador mobile: mesmo padrão do lançamento de despesa em cartão */}
         <div className="md:hidden" style={{ height: "8.5rem" }} />
 
-        {/* Botão desktop — inline no formulário */}
-        <div className="hidden md:block mx-4 mt-2 mb-4">
-          <button type="submit" disabled={isSubmitting}
-            className="w-full rounded-2xl text-white font-bold transition-all active:scale-95 disabled:opacity-70"
-            style={{ height: "60px", fontSize: "17px", backgroundColor: accentHex, boxShadow: `0 6px 20px ${accentHex}44` }}>
-            {isSubmitting ? "Salvando..." : isIncome ? "✓  Registrar receita" : "✓  Registrar despesa"}
-          </button>
-          {success && (
-            <div className="mt-3 flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-bold text-white"
-              style={{ backgroundColor: accentHex }}>
-              <CheckCircle2 className="h-5 w-5 shrink-0" /> {success}
+        </div>
+
+        {/* ── Resumo fixo (desktop) ──────────────────────────────────── */}
+        <aside className="hidden md:block md:sticky md:top-5">
+          <div className="overflow-hidden rounded-2xl text-white"
+            style={{ background: "linear-gradient(135deg, #03264E, #0b3a66)" }}>
+            <div className="p-5">
+              <span className="inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wide"
+                style={{ background: "rgba(255,255,255,.15)" }}>
+                {isIncome ? "RECEITA" : "DESPESA"}
+              </span>
+              <p className="mt-3 font-bold" style={{ fontFamily: "'Sora', sans-serif", fontSize: "26px" }}>
+                {amountDisplay ? `R$ ${amountDisplay}` : "R$ 0,00"}
+              </p>
+              <div className="mt-3 space-y-2 border-t border-white/15 pt-3 text-[12.5px]">
+                <div className="flex justify-between gap-3 text-white/70">
+                  <span>Descrição</span>
+                  <span className="truncate text-right font-medium text-white">{watch("title") || "—"}</span>
+                </div>
+                <div className="flex justify-between gap-3 text-white/70">
+                  <span>Categoria</span>
+                  <span className="truncate text-right font-medium text-white">{categoryValue || "—"}</span>
+                </div>
+                <div className="flex justify-between gap-3 text-white/70">
+                  <span>Data</span>
+                  <span className="font-medium text-white">
+                    {dateValue ? `${dateValue.slice(8,10)}/${dateValue.slice(5,7)}/${dateValue.slice(0,4)}` : "—"}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-3 text-white/70">
+                  <span>Status</span>
+                  <span className="font-medium text-white">
+                    {isFuture ? "Agendada" : settled ? (isIncome ? "Recebida" : "Paga") : (isIncome ? "A receber" : "A pagar")}
+                  </span>
+                </div>
+              </div>
+
+              <button type="submit" form="nova-tx-form" disabled={isSubmitting}
+                className="mt-4 w-full rounded-xl py-3 text-[14px] font-bold text-white transition-opacity disabled:opacity-60"
+                style={{ background: accentHex }}>
+                {isSubmitting ? "Salvando..." : isIncome ? "Registrar receita" : "Registrar despesa"}
+              </button>
+              {success && (
+                <div className="mt-3 flex items-center gap-2 rounded-xl px-3 py-2 text-[12.5px] font-bold text-white"
+                  style={{ backgroundColor: accentHex }}>
+                  <CheckCircle2 className="h-4 w-4 shrink-0" /> {success}
+                </div>
+              )}
             </div>
-          )}
+          </div>
+        </aside>
         </div>
       </form>
 

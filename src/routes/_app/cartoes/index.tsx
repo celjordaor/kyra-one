@@ -136,7 +136,7 @@ function CartoesPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 px-4 py-6">
+    <div className="mx-auto max-w-2xl md:max-w-5xl space-y-6 px-4 py-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-foreground">Cartões de Crédito</h1>
@@ -150,7 +150,7 @@ function CartoesPage() {
       </div>
 
       {cards.length === 0 ? (
-        <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border bg-card py-14 text-center">
+        <div className="mx-auto flex max-w-md flex-col items-center gap-4 rounded-2xl border border-dashed border-border bg-card py-14 text-center">
           <Wallet className="h-10 w-10 text-muted-foreground" />
           <div>
             <p className="font-medium text-foreground">Nenhum cartão cadastrado</p>
@@ -161,7 +161,7 @@ function CartoesPage() {
           </Button>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-3 md:grid md:grid-cols-2 md:gap-4 md:space-y-0 lg:grid-cols-3">
           {cards.map((card) => <CardItem key={card.id} card={card} />)}
         </div>
       )}

@@ -232,10 +232,10 @@ function FaturasCartaoPage() {
 
 
   return (
-    <div className="min-h-screen bg-background md:max-w-2xl md:mx-auto md:max-w-3xl md:mx-auto">
+    <div className="min-h-screen bg-background md:max-w-2xl md:mx-auto md:max-w-5xl">
 
-      {/* ── CABEÇALHO CONSOLIDADO ─────────────────────────────────────── */}
-      <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 px-5 pb-5 text-white"
+      {/* ── CABEÇALHO CONSOLIDADO (mobile) ───────────────────────────── */}
+      <div className="md:hidden bg-gradient-to-br from-indigo-600 to-indigo-800 px-5 pb-5 text-white"
         style={{ paddingTop:"calc(env(safe-area-inset-top,0px) + 1.25rem)" }}>
         <div className="mb-4">
           <p className="text-[11px] font-bold uppercase tracking-widest text-white/50 mb-1">
@@ -299,8 +299,57 @@ function FaturasCartaoPage() {
         </div>
       </div>
 
+      {/* ── CABEÇALHO (desktop, tira de métricas) ───────────────────── */}
+      <div className="hidden md:block px-1 pt-5 pb-4">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-1">
+              {activeCards.length} cartão{activeCards.length !== 1 ? "es" : ""} ativo{activeCards.length !== 1 ? "s" : ""}
+            </p>
+            <h1 className="text-[20px] font-extrabold text-foreground">Faturas de cartão</h1>
+          </div>
+          <div className="inline-flex rounded-xl p-1 gap-1" style={{ background: "#EDE9DD" }}>
+            {([
+              { key: "closed" as Tab, label: "Fechadas", icon: "🔒" },
+              { key: "open"   as Tab, label: "Em aberto", icon: "📊" },
+            ] as const).map(t => (
+              <button key={t.key} type="button" onClick={() => setTab(t.key)}
+                className={cn(
+                  "flex items-center gap-2 rounded-lg px-4 py-2 text-[13px] font-bold transition-colors",
+                  tab === t.key ? "text-white" : "text-muted-foreground"
+                )}
+                style={tab === t.key ? { background: "#03264E" } : undefined}>
+                {t.icon} {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-4 gap-3">
+          <div className="rounded-xl p-4 text-white" style={{ background: "#03264E" }}>
+            <p className="text-[10px] font-bold uppercase tracking-wide text-white/65 mb-1.5">Comprometido</p>
+            <p className="text-[17px] font-bold" style={{ fontFamily: "'Sora', sans-serif" }}>{fmt(totalClosed + totalOpen)}</p>
+          </div>
+          <div className="rounded-xl border bg-card p-4">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-1.5">Disponível estimado</p>
+            <p className="text-[17px] font-bold text-foreground" style={{ fontFamily: "'Sora', sans-serif" }}>{fmt(totalAvailable)}</p>
+          </div>
+          <div className="rounded-xl border bg-card p-4">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-1.5">A pagar</p>
+            <p className={cn("text-[17px] font-bold", isHigh && "text-red-500")} style={{ fontFamily: "'Sora', sans-serif" }}>{fmt(totalToPay)}</p>
+          </div>
+          <div className="rounded-xl border bg-card p-4">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-1.5">Quitadas</p>
+            <p className="text-[17px] font-bold text-emerald-600" style={{ fontFamily: "'Sora', sans-serif" }}>{fmt(totalPaid)}</p>
+          </div>
+        </div>
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          {pct.toFixed(0)}% do limite de {fmt(totalLimit)} comprometido
+        </p>
+      </div>
+
       {/* ── CONTEÚDO DA ABA ──────────────────────────────────────────────── */}
-      <div className="px-4 pt-5 pb-8">
+      <div className="px-4 pt-5 pb-8 md:pt-0">
 
         {loading && (
           <div className="flex justify-center py-12">
