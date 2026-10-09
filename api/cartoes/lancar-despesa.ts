@@ -48,10 +48,16 @@ function competenceToSortKey(c: string): string {
 
 function resolveInvoiceForDate(purchaseDate: string, invoices: InvoiceRow[], cardId: string): InvoiceRow | null {
   const date = parseISO(purchaseDate);
-  const abertas = invoices.filter(inv => inv.card_id === cardId && inv.status === "open");
+  // Sempre ordena por competência ANTES de escolher: cada cartão costuma ter
+  // 2 faturas abertas ao mesmo tempo (a atual + a próxima "de margem"), e a
+  // ordem que vem do banco não é garantida por competência. Sem esse sort,
+  // o find() abaixo podia escolher a fatura futura em vez da atual.
+  const abertas = invoices
+    .filter(inv => inv.card_id === cardId && inv.status === "open")
+    .sort((a, b) => competenceToSortKey(a.competence).localeCompare(competenceToSortKey(b.competence)));
   const atual = abertas.find(inv => isAfter(parseISO(inv.closing_date), date));
   if (atual) return atual;
-  return [...abertas].sort((a, b) => competenceToSortKey(a.competence).localeCompare(competenceToSortKey(b.competence)))[0] ?? null;
+  return abertas[0] ?? null;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -101,7 +107,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { data: assinatura } = await admin
       .from("assinaturas")
       .select("status, plano, trial_fim")
-      .eq("user_id", userId)
+      .eq("profile_id", userId)
       .maybeSingle();
     const status = assinatura?.status ?? null;
     const trialFim = assinatura?.trial_fim ?? null;
