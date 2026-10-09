@@ -87,16 +87,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const base = trialAtual && trialAtual.getTime() > Date.now() ? trialAtual : new Date();
       const novoTrialFim = new Date(base.getTime() + dias * 24 * 60 * 60 * 1000);
 
+      // calcularNivel() (src/lib/assinaturas.ts) só olha pro trial_fim quando
+      // status === "trial" — se a conta estiver em qualquer outro status
+      // (pendente, cancelada, inadimplente...), estender o trial_fim sem
+      // trocar o status não libera nada e nem aparece na UI. "Estender
+      // trial" tem que sempre colocar a conta em trial, exceto se ela já
+      // tiver uma assinatura paga ativa (nesse caso o trial_fim fica
+      // guardado mas o status 'ativa' continua mandando).
+      const novoStatus = assinaturaAtual.status === "ativa" ? "ativa" : "trial";
+
       const { error } = await admin
         .from("assinaturas")
         .update({
           trial_fim: novoTrialFim.toISOString(),
-          // Se a conta já tinha expirado (status não é mais 'trial' porque o
-          // client calcula nível no front), devolve pro status 'trial' pra
-          // ela voltar a ser contada como trial ativo.
-          status: assinaturaAtual.status === "cancelada" || assinaturaAtual.status === "inadimplente"
-            ? "trial"
-            : assinaturaAtual.status,
+          status: novoStatus,
           updated_at: new Date().toISOString(),
         })
         .eq("profile_id", profileId);
