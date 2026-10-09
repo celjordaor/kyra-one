@@ -64,28 +64,37 @@ function PerfilPage() {
 
       <div className="px-4 pt-5 pb-8 space-y-3">
 
-        {/* Minha assinatura */}
-        <button onClick={() => router.navigate({ to: "/assinar" })}
-          className="flex w-full items-center gap-3.5 rounded-2xl border bg-white dark:bg-card px-4 py-3.5 shadow-sm text-left transition-colors hover:bg-slate-50 dark:hover:bg-muted/30">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-100">
-            {est.ehSuperadmin ? (
+        {/* Minha assinatura — superadmin não assina nada, então o card é
+            só informativo (sem navegação pra tela de planos) */}
+        {est.ehSuperadmin ? (
+          <div className="flex w-full items-center gap-3.5 rounded-2xl border bg-white dark:bg-card px-4 py-3.5 shadow-sm text-left">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-100">
               <ShieldCheck className="h-5 w-5 text-indigo-600"/>
-            ) : (
-              <CreditCard className="h-5 w-5 text-indigo-600"/>
-            )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[15px] font-medium text-slate-800 dark:text-foreground">Acesso de superadmin</p>
+              <p className="text-[12px] text-slate-400 dark:text-muted-foreground mt-0.5">
+                Acesso total liberado, sem necessidade de assinatura
+              </p>
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-[15px] font-medium text-slate-800 dark:text-foreground">
-              {est.ehSuperadmin ? "Acesso de superadmin" : est.nivel !== "nenhum" ? nomeNivel(est.nivel) : "Minha assinatura"}
-            </p>
-            {!est.ehSuperadmin && (
+        ) : (
+          <button onClick={() => router.navigate({ to: "/assinar" })}
+            className="flex w-full items-center gap-3.5 rounded-2xl border bg-white dark:bg-card px-4 py-3.5 shadow-sm text-left transition-colors hover:bg-slate-50 dark:hover:bg-muted/30">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-100">
+              <CreditCard className="h-5 w-5 text-indigo-600"/>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[15px] font-medium text-slate-800 dark:text-foreground">
+                {est.nivel !== "nenhum" ? nomeNivel(est.nivel) : "Minha assinatura"}
+              </p>
               <span className={`inline-block mt-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${rotuloStatus(est.status, diasRestantesTrial(est)).cor}`}>
                 {rotuloStatus(est.status, diasRestantesTrial(est)).texto}
               </span>
-            )}
-          </div>
-          <ChevronRight className="h-4 w-4 text-slate-400 shrink-0"/>
-        </button>
+            </div>
+            <ChevronRight className="h-4 w-4 text-slate-400 shrink-0"/>
+          </button>
+        )}
 
         {/* Atalho para Configurações */}
         <button onClick={() => router.navigate({ to: "/mais" })}
