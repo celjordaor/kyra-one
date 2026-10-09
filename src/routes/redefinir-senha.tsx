@@ -49,13 +49,29 @@ function RedefinirSenhaPage() {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { password: "", confirmPassword: "" } });
+  } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: { password: "", confirmPassword: "" },
+  });
 
   const onSubmit = async (data: FormValues) => {
     setAuthError(null);
     const { error } = await supabase.auth.updateUser({ password: data.password });
     if (error) {
-      setAuthError("Não deu pra atualizar a senha agora. Pede um novo link de recuperação.");
+      // O Supabase recusa a nova senha quando ela é igual à atual (código
+      // "same_password", desde a v2 do supabase-js) — nesse caso a sessão
+      // de recuperação continua válida, não é problema de link expirado.
+      // A checagem pela mensagem é um fallback pra versões mais antigas do
+      // SDK que ainda não exportavam `error.code`.
+      const senhaIgualAnterior =
+        error.code === "same_password" ||
+        /different from the old password|same.*password/i.test(error.message);
+
+      setAuthError(
+        senhaIgualAnterior
+          ? "Essa já é sua senha atual. Escolhe uma senha diferente da anterior."
+          : "Não deu pra atualizar a senha agora. Pede um novo link de recuperação.",
+      );
       return;
     }
     router.navigate({ to: "/dashboard" });
@@ -66,7 +82,8 @@ function RedefinirSenhaPage() {
       <div className="flex min-h-screen items-center justify-center bg-background px-6">
         <div className="w-full max-w-[400px] rounded-2xl bg-white px-9 py-10 text-center shadow-xl shadow-black/[0.08]">
           <p className="text-sm text-muted-foreground">
-            Confirmando o link de recuperação... se essa mensagem não sumir em alguns segundos, pede um novo link.
+            Confirmando o link de recuperação... se essa mensagem não sumir em alguns segundos, pede
+            um novo link.
           </p>
         </div>
       </div>
@@ -77,16 +94,23 @@ function RedefinirSenhaPage() {
     <div className="flex min-h-screen items-center justify-center bg-background px-6">
       <div className="w-full max-w-[400px] rounded-2xl bg-white px-9 py-10 shadow-xl shadow-black/[0.08]">
         <div className="mb-7">
-          <h2 className="text-[22px] font-bold tracking-tight text-foreground">Definir nova senha</h2>
+          <h2 className="text-[22px] font-bold tracking-tight text-foreground">
+            Definir nova senha
+          </h2>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {authError && (
-            <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">{authError}</div>
+            <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              {authError}
+            </div>
           )}
 
           <div className="space-y-1.5">
-            <Label htmlFor="password" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <Label
+              htmlFor="password"
+              className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+            >
               Nova senha
             </Label>
             <div className="relative">
@@ -106,11 +130,16 @@ function RedefinirSenhaPage() {
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
-            {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
+            {errors.password && (
+              <p className="text-xs text-destructive">{errors.password.message}</p>
+            )}
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="confirmPassword" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <Label
+              htmlFor="confirmPassword"
+              className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+            >
               Confirmar nova senha
             </Label>
             <div className="relative">
@@ -123,10 +152,16 @@ function RedefinirSenhaPage() {
                 {...register("confirmPassword")}
               />
             </div>
-            {errors.confirmPassword && <p className="text-xs text-destructive">{errors.confirmPassword.message}</p>}
+            {errors.confirmPassword && (
+              <p className="text-xs text-destructive">{errors.confirmPassword.message}</p>
+            )}
           </div>
 
-          <Button type="submit" className="h-11 w-full font-bold shadow-md shadow-primary/25" disabled={isSubmitting}>
+          <Button
+            type="submit"
+            className="h-11 w-full font-bold shadow-md shadow-primary/25"
+            disabled={isSubmitting}
+          >
             {isSubmitting ? "Salvando..." : "Salvar nova senha"}
           </Button>
         </form>
