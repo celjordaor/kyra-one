@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { buscarClientePorCpf, criarAssinatura, criarCliente, buscarPrimeiraCobranca } from "../_lib/asaas.js";
+import { buscarClientePorCpf, criarAssinatura, criarCliente, buscarPrimeiraCobranca, type AsaasBillingType } from "../_lib/asaas.js";
 import { buscarPlano } from "../../src/lib/planos.js";
 import { clienteAdmin, usuarioAutenticado } from "../_lib/supabase-admin.js";
 
@@ -23,9 +23,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const body = req.body ?? {};
   const cpf = (body.cpf as string | undefined)?.replace(/\D/g, "");
   const planoId = body.plano as string | undefined;
+  const metodoRecebido = body.metodo as string | undefined;
 
   if (!cpf || cpf.length !== 11) {
     return res.status(400).json({ erro: "CPF inválido." });
+  }
+
+  // Só Pix ou cartão — nunca boleto/UNDEFINED, por decisão de produto.
+  const metodo: AsaasBillingType | null =
+    metodoRecebido === "PIX" || metodoRecebido === "CREDIT_CARD" ? metodoRecebido : null;
+  if (!metodo) {
+    return res.status(400).json({ erro: "Escolhe a forma de pagamento (Pix ou cartão)." });
   }
 
   const plano = planoId ? buscarPlano(planoId) : null;
@@ -65,6 +73,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       value: plano.valor,
       nextDueDate: proximoDiaUtilISO(),
       description: `KyraOne — ${plano.nome}`,
+      billingType: metodo,
     });
 
     await admin.from("assinaturas").upsert(

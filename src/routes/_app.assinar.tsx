@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Check } from "lucide-react";
+import { Check, Smartphone, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { listarPlanos, type PlanoId } from "@/lib/planos";
@@ -27,6 +27,7 @@ function AssinarPage() {
   const planos = listarPlanos();
 
   const [planoSelecionado, setPlanoSelecionado] = useState<PlanoId>(planos[0].id);
+  const [metodo, setMetodo] = useState<"PIX" | "CREDIT_CARD">("PIX");
   const [cpf, setCpf] = useState("");
   const [carregando, setCarregando] = useState(false);
 
@@ -58,7 +59,7 @@ function AssinarPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ cpf: cpfLimpo, plano: planoSelecionado }),
+        body: JSON.stringify({ cpf: cpfLimpo, plano: planoSelecionado, metodo }),
       });
       const dados = await resp.json();
 
@@ -160,7 +161,31 @@ function AssinarPage() {
             ))}
 
             <div className="rounded-2xl border bg-white dark:bg-card p-4 space-y-3">
-              <p className="text-sm font-medium text-foreground">Teu CPF</p>
+              <p className="text-sm font-medium text-foreground">Forma de pagamento</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMetodo("PIX")}
+                  className={cn(
+                    "flex items-center justify-center gap-2 rounded-xl border-2 py-2.5 text-sm font-semibold transition-colors",
+                    metodo === "PIX" ? "border-primary text-primary bg-primary/5" : "border-border text-muted-foreground"
+                  )}
+                >
+                  <Smartphone className="h-4 w-4" /> Pix
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMetodo("CREDIT_CARD")}
+                  className={cn(
+                    "flex items-center justify-center gap-2 rounded-xl border-2 py-2.5 text-sm font-semibold transition-colors",
+                    metodo === "CREDIT_CARD" ? "border-primary text-primary bg-primary/5" : "border-border text-muted-foreground"
+                  )}
+                >
+                  <CreditCard className="h-4 w-4" /> Cartão
+                </button>
+              </div>
+
+              <p className="text-sm font-medium text-foreground pt-1">Teu CPF</p>
               <Input
                 value={cpf}
                 onChange={(e) => setCpf(formatarCpf(e.target.value))}
@@ -168,7 +193,7 @@ function AssinarPage() {
                 inputMode="numeric"
               />
               <p className="text-xs text-muted-foreground">
-                Necessário pra gerar a cobrança via Pix no Asaas.
+                Necessário pra gerar a cobrança no Asaas.
               </p>
             </div>
 

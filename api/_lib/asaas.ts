@@ -70,20 +70,23 @@ export type AsaasSubscription = {
   nextDueDate: string;
 };
 
+export type AsaasBillingType = "PIX" | "CREDIT_CARD";
+
 export async function criarAssinatura(params: {
   customer: string;
   value: number;
   nextDueDate: string;
   description: string;
+  billingType: AsaasBillingType;
 }): Promise<AsaasSubscription> {
   const { ok, dados, status } = await chamarAsaas<AsaasSubscription>("/subscriptions", {
     method: "POST",
     body: {
       customer: params.customer,
-      // UNDEFINED deixa o cliente escolher Pix, boleto ou cartão na própria
-      // página de cobrança hospedada pelo Asaas (invoiceUrl) — antes estava
-      // fixo em "PIX", por isso só aparecia essa opção.
-      billingType: "UNDEFINED",
+      // Fixo em PIX ou CREDIT_CARD (nunca UNDEFINED/BOLETO) — o cliente
+      // escolhe o método na tela /assinar, e é esse valor que decide o que
+      // a página de cobrança hospedada pelo Asaas (invoiceUrl) vai pedir.
+      billingType: params.billingType,
       cycle: "MONTHLY",
       value: params.value,
       nextDueDate: params.nextDueDate,
