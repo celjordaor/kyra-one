@@ -33,17 +33,6 @@ const NAVY = "#03264E";
 const GOLD = "#F2B33D";
 const CLAY = "#C4693B";
 
-function LogoIcon({ size = 24, className = "text-white" }: { size?: number; className?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-      className={className}>
-      <path d="M12 2v20"/>
-      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-    </svg>
-  );
-}
-
 function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError]       = useState<string | null>(null);
@@ -156,16 +145,16 @@ function LoginPage() {
 
           {/* Logo mobile (só no mobile) */}
           <div className="mb-7 flex items-center gap-2.5 lg:hidden">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary shadow-md shadow-primary/30">
-              <LogoIcon size={18} />
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl overflow-hidden shadow-md" style={{ boxShadow: `0 4px 10px ${NAVY}30` }}>
+              <img src="/icons/icon-192.png" alt="KyraOne" width={36} height={36} className="h-9 w-9" />
             </div>
             <span className="text-lg font-black text-foreground tracking-tight">KyraOne</span>
           </div>
 
           {/* Logo desktop dentro do card */}
           <div className="mb-7 hidden items-center gap-2.5 lg:flex">
-            <div className="flex h-[38px] w-[38px] items-center justify-center rounded-xl bg-primary shadow-md shadow-primary/30">
-              <LogoIcon size={20} />
+            <div className="flex h-[38px] w-[38px] items-center justify-center rounded-xl overflow-hidden shadow-md" style={{ boxShadow: `0 4px 10px ${NAVY}30` }}>
+              <img src="/icons/icon-192.png" alt="KyraOne" width={38} height={38} className="h-[38px] w-[38px]" />
             </div>
             <span className="text-[18px] font-black text-foreground tracking-tight">KyraOne</span>
           </div>
