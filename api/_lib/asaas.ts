@@ -80,7 +80,10 @@ export async function criarAssinatura(params: {
     method: "POST",
     body: {
       customer: params.customer,
-      billingType: "PIX",
+      // UNDEFINED deixa o cliente escolher Pix, boleto ou cartão na própria
+      // página de cobrança hospedada pelo Asaas (invoiceUrl) — antes estava
+      // fixo em "PIX", por isso só aparecia essa opção.
+      billingType: "UNDEFINED",
       cycle: "MONTHLY",
       value: params.value,
       nextDueDate: params.nextDueDate,
