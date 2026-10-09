@@ -29,6 +29,10 @@ const FEATURES = [
   { icon: ShieldCheck,  text: "Dados seguros com criptografia" },
 ];
 
+const NAVY = "#03264E";
+const GOLD = "#F2B33D";
+const CLAY = "#C4693B";
+
 function LogoIcon({ size = 24, className = "text-white" }: { size?: number; className?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
@@ -66,21 +70,41 @@ function LoginPage() {
   return (
     <div className="flex min-h-screen">
 
-      {/* ── Painel esquerdo ─────────────────────────────────────── */}
-      <div className="hidden lg:flex w-[52%] flex-col justify-between p-12 relative overflow-hidden bg-gradient-to-br from-primary to-primary/75">
+      {/* Fontes da landing — hoisted pro <head> pelo React 19 */}
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Figtree:wght@400;500;600;700&display=swap"
+      />
 
-        {/* Círculos decorativos */}
-        <div className="absolute -top-20 -right-20 w-80 h-80 rounded-full bg-white opacity-[0.08]" />
-        <div className="absolute -bottom-16 -left-16 w-72 h-72 rounded-full bg-white opacity-[0.08]" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[480px] h-[480px] rounded-full bg-white opacity-[0.04]" />
+      {/* ── Painel esquerdo ─────────────────────────────────────── */}
+      <div
+        className="hidden lg:flex w-[52%] flex-col justify-between p-12 relative overflow-hidden"
+        style={{ background: NAVY, fontFamily: "'Figtree', system-ui, sans-serif" }}
+      >
+
+        {/* Orbs desfocados — mesmo padrão da landing */}
+        <div
+          className="absolute -top-24 -right-24 w-[420px] h-[420px] rounded-full opacity-25 blur-3xl"
+          style={{ background: GOLD }}
+        />
+        <div
+          className="absolute -bottom-28 -left-20 w-[380px] h-[380px] rounded-full opacity-20 blur-3xl"
+          style={{ background: CLAY }}
+        />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[480px] h-[480px] rounded-full bg-white opacity-[0.03]" />
 
         {/* Logo + nome grande */}
         <div className="relative z-10">
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20 shadow-lg backdrop-blur-sm">
-            <LogoIcon size={32} />
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 shadow-lg backdrop-blur-sm overflow-hidden">
+            <img src="/icons/icon-192.png" alt="KyraOne" width={40} height={40} className="h-10 w-10 rounded-[9px]" />
           </div>
           <div className="flex items-baseline gap-3">
-            <span className="text-[32px] font-black text-white leading-none tracking-tight">
+            <span
+              style={{ fontFamily: "'Sora', sans-serif" }}
+              className="text-[32px] font-bold text-white leading-none tracking-tight"
+            >
               KyraOne
             </span>
           </div>
@@ -92,7 +116,16 @@ function LoginPage() {
         {/* Headline + features */}
         <div className="relative z-10 space-y-7">
           <div>
-            <h1 className="text-[34px] font-extrabold text-white leading-tight">
+            <span
+              className="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-bold tracking-wide"
+              style={{ background: GOLD, color: NAVY }}
+            >
+              14 dias grátis
+            </span>
+            <h1
+              style={{ fontFamily: "'Sora', sans-serif" }}
+              className="mt-3 text-[34px] font-bold text-white leading-tight"
+            >
               Controle total<br/>das suas finanças
             </h1>
             <p className="mt-2 text-sm text-white/60 leading-relaxed">
@@ -102,8 +135,8 @@ function LoginPage() {
           <ul className="space-y-3.5">
             {FEATURES.map(({ icon: Icon, text }) => (
               <li key={text} className="flex items-center gap-3">
-                <div className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[9px] bg-white/15">
-                  <Icon className="h-[15px] w-[15px] text-white" />
+                <div className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[9px] bg-emerald-400/15">
+                  <Icon className="h-[15px] w-[15px] text-emerald-400" />
                 </div>
                 <span className="text-[13.5px] font-medium text-white/85">{text}</span>
               </li>
@@ -201,7 +234,12 @@ function LoginPage() {
               </Label>
             </div>
 
-            <Button type="submit" className="h-11 w-full font-bold shadow-md shadow-primary/25" disabled={isSubmitting}>
+            <Button
+              type="submit"
+              className="h-11 w-full font-bold text-white shadow-md hover:opacity-90"
+              style={{ background: NAVY, boxShadow: `0 4px 14px ${NAVY}40` }}
+              disabled={isSubmitting}
+            >
               {isSubmitting ? "Entrando..." : "Entrar na conta"}
             </Button>
           </form>
