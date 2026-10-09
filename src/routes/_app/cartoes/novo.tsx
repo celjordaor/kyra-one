@@ -73,34 +73,34 @@ function NovoCartaoPage() {
   };
 
   return (
-    <div className="w-screen max-w-[100vw] overflow-x-hidden min-h-screen bg-background md:w-full md:max-w-2xl md:mx-auto md:overflow-x-visible">
+    <div className="w-screen max-w-[100vw] overflow-x-hidden min-h-screen bg-background md:w-full md:max-w-xl md:mx-auto md:overflow-x-visible">
       <form id="novo-cartao-form" onSubmit={handleSubmit(onSubmit)}>
 
         {/* ── Cabeçalho gradiente com campo de limite integrado ── */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 to-violet-700 px-5 pt-5 pb-8 text-white">
+        <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 to-violet-700 px-5 pt-5 pb-6 text-white md:rounded-2xl md:mt-4">
           <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10"/>
           <div className="absolute -left-8 -bottom-8 h-32 w-32 rounded-full bg-white/10"/>
           <div className="relative">
             {/* Voltar */}
-            <div className="flex items-center gap-3 mb-5">
+            <div className="flex items-center gap-3 mb-4">
               <button type="button" onClick={() => router.history.back()}
                 className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors">
                 <ArrowLeft className="h-5 w-5"/>
               </button>
               <div>
                 <p className="text-xs text-white/60 uppercase tracking-wide leading-none">Cartões de crédito</p>
-                <p className="text-lg font-bold">Novo cartão</p>
+                <p className="text-base font-bold">Novo cartão</p>
               </div>
             </div>
 
             {/* Preview + Limite no cabeçalho */}
             <div className="flex items-center gap-3 mb-4">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-2xl font-black text-white"
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-xl font-black text-white"
                 style={{ background: flagValue ? (FLAG_COLORS[flagValue] ?? "#4f46e5") : "rgba(255,255,255,0.2)" }}>
-                {nameValue?.[0]?.toUpperCase() ?? <CreditCard className="h-6 w-6"/>}
+                {nameValue?.[0]?.toUpperCase() ?? <CreditCard className="h-5 w-5"/>}
               </div>
               <div className="min-w-0">
-                <p className="text-lg font-black truncate">{nameValue || "Novo cartão"}</p>
+                <p className="text-base font-black truncate">{nameValue || "Novo cartão"}</p>
                 <p className="text-sm text-white/70">{flagValue || "Bandeira"}</p>
               </div>
             </div>
@@ -109,7 +109,7 @@ function NovoCartaoPage() {
             <div>
               <p className="text-xs text-white/60 mb-1">Limite total</p>
               <div className="flex items-center gap-2">
-                <span className="text-2xl font-bold text-white/60">R$</span>
+                <span className="text-xl font-bold text-white/60">R$</span>
                 <input
                   inputMode="decimal"
                   value={limitDisplay}
@@ -120,7 +120,7 @@ function NovoCartaoPage() {
                     setValue("limit_total", value, { shouldValidate: true });
                   }}
                   placeholder="0,00"
-                  className="bg-transparent text-4xl font-black text-white placeholder-white/30 outline-none w-full tracking-tight"
+                  className="bg-transparent text-3xl font-black text-white placeholder-white/30 outline-none w-full tracking-tight"
                 />
               </div>
               {errors.limit_total && (
@@ -131,24 +131,24 @@ function NovoCartaoPage() {
         </div>
 
         {/* ── Campos ── */}
-        <div className="px-4 pt-4 pb-28 space-y-3">
+        <div className="px-4 pt-4 space-y-3 md:pb-4">
 
-          <div className="rounded-2xl border bg-card px-4 py-3 space-y-1">
+          <div className="rounded-2xl border bg-card px-4 py-2.5 space-y-0.5">
             <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Nome do cartão</p>
             <input {...register("name")} placeholder="Ex: Nubank Gold"
-              className="w-full bg-transparent text-[16px] font-semibold text-foreground outline-none placeholder-muted-foreground/50"/>
+              className="w-full bg-transparent text-[15px] font-semibold text-foreground outline-none placeholder-muted-foreground/50"/>
             {errors.name && <p className="text-xs text-destructive mt-1">{errors.name.message}</p>}
           </div>
 
-          <div className="rounded-2xl border bg-card px-4 py-3 space-y-1">
+          <div className="rounded-2xl border bg-card px-4 py-2.5 space-y-0.5">
             <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Banco / Instituição</p>
             <input {...register("bank")} placeholder="Ex: Nubank, Bradesco, Itaú"
-              className="w-full bg-transparent text-[16px] font-semibold text-foreground outline-none placeholder-muted-foreground/50"/>
+              className="w-full bg-transparent text-[15px] font-semibold text-foreground outline-none placeholder-muted-foreground/50"/>
             {errors.bank && <p className="text-xs text-destructive mt-1">{errors.bank.message}</p>}
           </div>
 
           {/* Bandeira — pills */}
-          <div className="rounded-2xl border bg-card px-4 py-3.5 space-y-3">
+          <div className="rounded-2xl border bg-card px-4 py-3 space-y-2">
             <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Bandeira</p>
             <div className="flex flex-wrap gap-2">
               {FLAGS.map(f => {
@@ -158,7 +158,7 @@ function NovoCartaoPage() {
                   <button key={f} type="button"
                     onClick={() => setValue("flag", f, { shouldValidate: true })}
                     className={cn(
-                      "rounded-full border-2 px-4 py-2 text-sm font-semibold transition-all",
+                      "rounded-full border-2 px-3.5 py-1.5 text-sm font-semibold transition-all",
                       isSel ? "text-white border-transparent" : "border-border text-foreground hover:border-indigo-300"
                     )}
                     style={isSel ? { background: color, borderColor: color } : {}}>
@@ -172,25 +172,43 @@ function NovoCartaoPage() {
 
           {/* Dias */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-2xl border bg-card px-4 py-3 space-y-1">
+            <div className="rounded-2xl border bg-card px-4 py-2.5 space-y-0.5">
               <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Dia de fechamento</p>
               <input {...register("closing_day")} type="number" min="1" max="31"
-                className="w-full bg-transparent text-[20px] font-black text-foreground outline-none"/>
+                className="w-full bg-transparent text-[16px] font-bold text-foreground outline-none"/>
               {errors.closing_day && <p className="text-xs text-destructive mt-1">{errors.closing_day.message}</p>}
             </div>
-            <div className="rounded-2xl border bg-card px-4 py-3 space-y-1">
+            <div className="rounded-2xl border bg-card px-4 py-2.5 space-y-0.5">
               <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Dia de vencimento</p>
               <input {...register("due_day")} type="number" min="1" max="31"
-                className="w-full bg-transparent text-[20px] font-black text-foreground outline-none"/>
+                className="w-full bg-transparent text-[16px] font-bold text-foreground outline-none"/>
               {errors.due_day && <p className="text-xs text-destructive mt-1">{errors.due_day.message}</p>}
             </div>
           </div>
         </div>
+
+        {/* Botão desktop — inline no formulário, alinhado com a coluna de conteúdo */}
+        <div className="hidden md:block px-4 mt-2 mb-6">
+          <button type="submit" disabled={isSubmitting}
+            className="w-full h-12 rounded-2xl bg-indigo-600 text-white font-bold text-sm shadow-lg shadow-indigo-600/25 transition-all active:scale-95 disabled:opacity-70">
+            {isSubmitting ? "Salvando..." : "Salvar cartão"}
+          </button>
+        </div>
       </form>
 
-      {/* ── Botão sempre suspenso (fixo no rodapé) ── */}
-      <div className="fixed left-0 right-0 bottom-0 z-20 px-4 pt-3 pb-[env(safe-area-inset-bottom,16px)] border-t border-border/40"
-        style={{ backdropFilter: "blur(12px)", backgroundColor: "rgba(255,255,255,0.96)" }}>
+      {/* Espaçador mobile: evita que o conteúdo fique atrás do botão fixo */}
+      <div className="md:hidden" style={{ height: "6.5rem" }} />
+
+      {/* ── Botão mobile — fixo no rodapé, acima do menu inferior ── */}
+      <div className="md:hidden fixed left-0 right-0 z-40 px-4"
+        style={{
+          bottom: 0,
+          paddingBottom: "calc(68px + env(safe-area-inset-bottom, 0px) + 12px)",
+          paddingTop: "12px",
+          backdropFilter: "blur(12px)",
+          backgroundColor: "rgba(255,255,255,0.96)",
+          borderTop: "1px solid rgba(0,0,0,0.06)",
+        }}>
         <button type="submit" form="novo-cartao-form" disabled={isSubmitting}
           className="w-full h-14 rounded-2xl bg-indigo-600 text-white font-bold text-base shadow-lg shadow-indigo-600/25 transition-all active:scale-95 disabled:opacity-70">
           {isSubmitting ? "Salvando..." : "Salvar cartão"}

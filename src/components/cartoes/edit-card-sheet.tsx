@@ -123,7 +123,7 @@ export function EditCardSheet({ card, onClose }: EditCardSheetProps) {
                 <div>
                   <p className="text-xs text-white/60 mb-1">Limite total</p>
                   <div className="flex items-center gap-2">
-                    <span className="text-xl font-bold text-white/60">R$</span>
+                    <span className="text-lg font-bold text-white/60">R$</span>
                     <input
                       inputMode="decimal"
                       value={limitDisplay}
@@ -134,7 +134,7 @@ export function EditCardSheet({ card, onClose }: EditCardSheetProps) {
                         if (limitError) setLimitError("");
                       }}
                       placeholder="0,00"
-                      className="bg-transparent text-3xl font-black text-white placeholder-white/30 outline-none w-full tracking-tight"
+                      className="bg-transparent text-2xl font-black text-white placeholder-white/30 outline-none w-full tracking-tight"
                     />
                   </div>
                   {limitError && <p className="text-xs text-red-300 mt-1">{limitError}</p>}
@@ -148,14 +148,14 @@ export function EditCardSheet({ card, onClose }: EditCardSheetProps) {
               <div className="rounded-2xl border bg-card px-4 py-2.5 space-y-0.5">
                 <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Nome do cartão</p>
                 <input {...register("name")}
-                  className="w-full bg-transparent text-[16px] font-semibold text-foreground outline-none"/>
+                  className="w-full bg-transparent text-[15px] font-semibold text-foreground outline-none"/>
                 {errors.name && <p className="text-xs text-destructive mt-1">{errors.name.message}</p>}
               </div>
 
               <div className="rounded-2xl border bg-card px-4 py-2.5 space-y-0.5">
                 <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Banco / Instituição</p>
                 <input {...register("bank")}
-                  className="w-full bg-transparent text-[16px] font-semibold text-foreground outline-none"/>
+                  className="w-full bg-transparent text-[15px] font-semibold text-foreground outline-none"/>
                 {errors.bank && <p className="text-xs text-destructive mt-1">{errors.bank.message}</p>}
               </div>
 
@@ -187,13 +187,13 @@ export function EditCardSheet({ card, onClose }: EditCardSheetProps) {
                 <div className="min-w-0 rounded-2xl border bg-card px-4 py-2.5 space-y-0.5">
                   <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Dia fechamento</p>
                   <input {...register("closing_day")} type="number" min="1" max="31"
-                    className="w-full min-w-0 bg-transparent text-[20px] font-black text-foreground outline-none"/>
+                    className="w-full min-w-0 bg-transparent text-[16px] font-bold text-foreground outline-none"/>
                   {errors.closing_day && <p className="text-xs text-destructive mt-1">{errors.closing_day.message}</p>}
                 </div>
                 <div className="min-w-0 rounded-2xl border bg-card px-4 py-2.5 space-y-0.5">
                   <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Dia vencimento</p>
                   <input {...register("due_day")} type="number" min="1" max="31"
-                    className="w-full min-w-0 bg-transparent text-[20px] font-black text-foreground outline-none"/>
+                    className="w-full min-w-0 bg-transparent text-[16px] font-bold text-foreground outline-none"/>
                   {errors.due_day && <p className="text-xs text-destructive mt-1">{errors.due_day.message}</p>}
                 </div>
               </div>
