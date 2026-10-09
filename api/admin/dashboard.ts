@@ -36,7 +36,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(403).json({ erro: "Acesso restrito." });
     }
 
-    const { data: perfis, error: erroPerfis } = await admin.from("profiles").select("id, name, created_at");
+    const { data: perfis, error: erroPerfis } = await admin.from("profiles").select("id, name, created_at, cpf");
     if (erroPerfis) throw erroPerfis;
 
     const { data: assinaturas, error: erroAssinaturas } = await admin
@@ -49,6 +49,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { data: usuariosAuth, error: erroUsuarios } = await admin.auth.admin.listUsers({ perPage: 1000 });
     if (erroUsuarios) throw erroUsuarios;
     const emailPorId = new Map((usuariosAuth?.users ?? []).map((u) => [u.id, u.email ?? ""]));
+    const cpfPorId = new Map((perfis ?? []).map((p) => [p.id as string, (p as { cpf?: string }).cpf ?? ""]));
 
     const totalContas = perfis?.length ?? 0;
     const assinantesAtivos = (assinaturas ?? []).filter((a) => a.status === "ativa");
@@ -73,9 +74,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .slice()
       .sort((a, b) => new Date(b.updated_at as string).getTime() - new Date(a.updated_at as string).getTime())
       .map((a) => ({
+        profileId: a.profile_id,
         email: emailPorId.get(a.profile_id as string) ?? "—",
+        cpf: cpfPorId.get(a.profile_id as string) ?? "",
+        planoId: a.plano,
         plano: buscarPlano(a.plano as string)?.nome ?? a.plano,
         status: a.status,
+        trialFim: a.trial_fim,
         atualizadoEm: a.updated_at,
       }));
 
