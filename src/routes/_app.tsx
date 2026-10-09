@@ -61,6 +61,14 @@ function AppLayout() {
   const est = useAssinatura();
   const [addMenuOpen, setAddMenuOpen] = useState(false);
 
+  // Classe dos itens da sidebar desktop — visual navy/gold da landing.
+  // Só estilo (cores); não altera destino, estrutura ou comportamento dos links.
+  const navLinkClass = (isActive: boolean) =>
+    cn(
+      "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+      isActive ? "bg-[#F2B33D] text-[#03264E]" : "text-white/60 hover:bg-white/10 hover:text-white"
+    );
+
   // Extensão automática de recorrentes + backfill de recurrence_id (roda 1x por sessão)
   useEffect(() => {
     if (!session) return;
@@ -103,41 +111,41 @@ function AppLayout() {
     <TooltipProvider>
       <div style={{ display:"block", background:"var(--color-background)", minHeight:"100dvh", width:"100%", maxWidth:"100vw", overflowX:"hidden" }}>
         {/* ══ SIDEBAR DESKTOP ═══════════════════════════════════════════ */}
-        <aside className="hidden md:flex flex-col fixed inset-y-0 left-0 w-64 border-r bg-card z-30 shadow-sm">
+        <aside className="hidden md:flex flex-col fixed inset-y-0 left-0 w-64 border-r border-white/10 z-30 shadow-sm" style={{ background: "#03264E" }}>
 
           {/* Brand */}
           <Link to="/dashboard"
-            className="flex items-center gap-3 px-5 py-5 border-b hover:bg-accent/30 transition-colors shrink-0">
+            className="flex items-center gap-3 px-5 py-5 border-b border-white/10 hover:bg-white/5 transition-colors shrink-0">
             <img src="/icons/icon-192.png" alt="KyraOne" className="h-9 w-9 shrink-0 rounded-xl object-cover shadow-sm"/>
             <div>
-              <p className="font-bold text-foreground leading-none text-sm">KyraOne</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Finanças Pessoais</p>
+              <p className="font-bold text-white leading-none text-sm">KyraOne</p>
+              <p className="text-[11px] text-white/50 mt-0.5">Finanças Pessoais</p>
             </div>
           </Link>
 
           {/* ── Botões de lançamento (destaque) ── */}
           <div className="px-3 pt-4 pb-2 shrink-0">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-2 pb-2">Lançar</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 px-2 pb-2">Lançar</p>
             <div className="grid grid-cols-3 gap-1.5">
               <button onClick={()=>router.navigate({to:"/nova-transacao",search:{type:"income"}})}
-                className="flex flex-col items-center gap-1 rounded-xl py-2.5 px-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-colors">
+                className="flex flex-col items-center gap-1 rounded-xl py-2.5 px-1 bg-white/[0.06] hover:bg-white/[0.12] text-emerald-300 transition-colors">
                 <TrendingUp className="h-4 w-4"/>
                 <span className="text-[10px] font-semibold leading-none">Receita</span>
               </button>
               <button onClick={()=>router.navigate({to:"/nova-transacao",search:{type:"expense"}})}
-                className="flex flex-col items-center gap-1 rounded-xl py-2.5 px-1 bg-red-50 hover:bg-red-100 text-red-600 transition-colors">
+                className="flex flex-col items-center gap-1 rounded-xl py-2.5 px-1 bg-white/[0.06] hover:bg-white/[0.12] text-red-300 transition-colors">
                 <TrendingDown className="h-4 w-4"/>
                 <span className="text-[10px] font-semibold leading-none">Despesa</span>
               </button>
               <button onClick={()=>router.navigate({to:"/cartoes/nova-despesa"})}
-                className="flex flex-col items-center gap-1 rounded-xl py-2.5 px-1 bg-blue-50 hover:bg-blue-100 text-blue-600 transition-colors">
+                className="flex flex-col items-center gap-1 rounded-xl py-2.5 px-1 bg-white/[0.06] hover:bg-white/[0.12] text-sky-300 transition-colors">
                 <CreditCard className="h-4 w-4"/>
                 <span className="text-[10px] font-semibold leading-none">Cartão</span>
               </button>
             </div>
           </div>
 
-          <div className="mx-3 border-t mb-1"/>
+          <div className="mx-3 border-t border-white/10 mb-1"/>
 
           {/* ── Navegação principal ── */}
           <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-0.5">
@@ -150,42 +158,27 @@ function AppLayout() {
             ].map(({to,label,icon:Icon})=>{
               const isActive=pathname===to||pathname.startsWith(to+"/");
               return(
-                <Link key={to} to={to}
-                  className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-                    isActive?"bg-primary/10 text-primary":"text-muted-foreground hover:bg-accent hover:text-foreground"
-                  )}>
+                <Link key={to} to={to} className={navLinkClass(isActive)}>
                   <Icon className="h-4 w-4 shrink-0"/>{label}
                 </Link>
               );
             })}
-            <Link to="/metas"
-              className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-                pathname==="/metas"?"bg-primary/10 text-primary":"text-muted-foreground hover:bg-accent hover:text-foreground"
-              )}>
+            <Link to="/metas" className={navLinkClass(pathname==="/metas")}>
               <Target className="h-4 w-4 shrink-0"/>Metas e Orçamentos
             </Link>
-            <Link to="/perfil"
-              className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-                pathname==="/perfil"?"bg-primary/10 text-primary":"text-muted-foreground hover:bg-accent hover:text-foreground"
-              )}>
+            <Link to="/perfil" className={navLinkClass(pathname==="/perfil")}>
               <User className="h-4 w-4 shrink-0"/>Perfil
             </Link>
             {est.ehSuperadmin && (
-              <Link to="/admin"
-                className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-                  pathname==="/admin"?"bg-primary/10 text-primary":"text-muted-foreground hover:bg-accent hover:text-foreground"
-                )}>
+              <Link to="/admin" className={navLinkClass(pathname==="/admin")}>
                 <Settings className="h-4 w-4 shrink-0"/>Painel Admin
               </Link>
             )}
           </nav>
 
           {/* ── Configurações (último) ── */}
-          <div className="px-3 pb-4 pt-1 border-t shrink-0">
-            <Link to="/mais"
-              className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-                pathname==="/mais"?"bg-primary/10 text-primary":"text-muted-foreground hover:bg-accent hover:text-foreground"
-              )}>
+          <div className="px-3 pb-4 pt-1 border-t border-white/10 shrink-0">
+            <Link to="/mais" className={navLinkClass(pathname==="/mais")}>
               <Settings className="h-4 w-4 shrink-0"/>Configurações
             </Link>
           </div>

@@ -576,59 +576,64 @@ function DashboardPage() {
         <span className="text-[10px] font-bold text-primary/60 uppercase tracking-wide">Novo</span>
       </button>
 
-      {/* Balance Cards — Saldo do mês + Saldo da conta (mesma linha) */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="relative overflow-hidden rounded-2xl bg-primary p-5 text-primary-foreground shadow-lg shadow-primary/20">
-          <div className="absolute -right-6 -top-6 h-28 w-28 rounded-full bg-white/10"/>
-          <div className="absolute -bottom-8 -left-8 h-24 w-24 rounded-full bg-white/10"/>
-          <div className="relative">
-            <p className="text-xs opacity-90">Saldo do mês</p>
-            <p className="mt-1 text-2xl md:text-3xl font-bold tracking-tight">{hidden(balance)}</p>
-          </div>
-        </div>
+      {/* Balance Cards + Income/Expense — no desktop, as 4 ficam numa única linha
+          (via md:contents, sem alterar handlers/estrutura, só agrupamento visual) */}
+      <div className="space-y-3 md:space-y-0 md:grid md:grid-cols-4 md:gap-3">
 
-        <div className="relative overflow-hidden rounded-2xl bg-slate-800 p-5 text-white shadow-lg shadow-slate-800/20">
-          <div className="absolute -right-6 -top-6 h-28 w-28 rounded-full bg-white/10"/>
-          <div className="absolute -bottom-8 -left-8 h-24 w-24 rounded-full bg-white/10"/>
-          <div className="relative">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs opacity-80">Saldo da conta</p>
-              <button onClick={() => setOpenBalanceSetup(true)}
-                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/15 hover:bg-white/25 transition-colors"
-                title="Configurar saldo da conta">
-                <Settings className="h-3 w-3"/>
-              </button>
+        {/* Balance Cards — Saldo do mês + Saldo da conta (mesma linha) */}
+        <div className="grid grid-cols-2 gap-3 md:contents">
+          <div className="relative overflow-hidden rounded-2xl bg-primary md:bg-[#03264E] p-5 text-primary-foreground shadow-lg shadow-primary/20">
+            <div className="absolute -right-6 -top-6 h-28 w-28 rounded-full bg-white/10"/>
+            <div className="absolute -bottom-8 -left-8 h-24 w-24 rounded-full bg-white/10"/>
+            <div className="relative">
+              <p className="text-xs opacity-90">Saldo do mês</p>
+              <p className="mt-1 text-2xl md:text-3xl font-bold tracking-tight">{hidden(balance)}</p>
             </div>
-            {accountBalance.enabled ? (
-              <p className="mt-1 text-2xl md:text-3xl font-bold tracking-tight">{hidden(accountBalance.currentBalance)}</p>
-            ) : (
-              <button onClick={() => setOpenBalanceSetup(true)}
-                className="mt-2 text-left text-[13px] font-medium text-white/85 underline underline-offset-2">
-                Configurar saldo inicial
-              </button>
-            )}
+          </div>
+
+          <div className="relative overflow-hidden rounded-2xl bg-slate-800 md:bg-gradient-to-br md:from-[#C4693B] md:to-[#F2B33D] p-5 text-white md:text-[#03264E] shadow-lg shadow-slate-800/20">
+            <div className="absolute -right-6 -top-6 h-28 w-28 rounded-full bg-white/10"/>
+            <div className="absolute -bottom-8 -left-8 h-24 w-24 rounded-full bg-white/10"/>
+            <div className="relative">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs opacity-80">Saldo da conta</p>
+                <button onClick={() => setOpenBalanceSetup(true)}
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/15 hover:bg-white/25 md:bg-[#03264E]/10 md:hover:bg-[#03264E]/20 transition-colors"
+                  title="Configurar saldo da conta">
+                  <Settings className="h-3 w-3"/>
+                </button>
+              </div>
+              {accountBalance.enabled ? (
+                <p className="mt-1 text-2xl md:text-3xl font-bold tracking-tight">{hidden(accountBalance.currentBalance)}</p>
+              ) : (
+                <button onClick={() => setOpenBalanceSetup(true)}
+                  className="mt-2 text-left text-[13px] font-medium text-white/85 md:text-[#03264E]/85 underline underline-offset-2">
+                  Configurar saldo inicial
+                </button>
+              )}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Income / Expense */}
-      <div className="grid grid-cols-2 gap-3">
-        <button type="button" onClick={() => setOpenIncomeModal(true)}
-          className="rounded-xl border bg-card p-4 shadow-sm text-left transition-all active:scale-[0.97] hover:shadow-md hover:border-emerald-200">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2"><div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100"><TrendingUp className="h-4 w-4 text-emerald-600"/></div><span className="text-xs text-muted-foreground">Receitas</span></div>
-            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50"/>
-          </div>
-          <p className="mt-2 text-lg font-bold text-emerald-600">{hidden(income)}</p>
-        </button>
-        <button type="button" onClick={() => setOpenExpenseModal(true)}
-          className="rounded-xl border bg-card p-4 shadow-sm text-left transition-all active:scale-[0.97] hover:shadow-md hover:border-red-200">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2"><div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-100"><TrendingDown className="h-4 w-4 text-red-500"/></div><span className="text-xs text-muted-foreground">Despesas</span></div>
-            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50"/>
-          </div>
-          <p className="mt-2 text-lg font-bold text-red-500">{hidden(expense)}</p>
-        </button>
+        {/* Income / Expense */}
+        <div className="grid grid-cols-2 gap-3 md:contents">
+          <button type="button" onClick={() => setOpenIncomeModal(true)}
+            className="rounded-xl border bg-card p-4 shadow-sm text-left transition-all active:scale-[0.97] hover:shadow-md hover:border-emerald-200">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2"><div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100"><TrendingUp className="h-4 w-4 text-emerald-600"/></div><span className="text-xs text-muted-foreground">Receitas</span></div>
+              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50"/>
+            </div>
+            <p className="mt-2 text-lg font-bold text-emerald-600">{hidden(income)}</p>
+          </button>
+          <button type="button" onClick={() => setOpenExpenseModal(true)}
+            className="rounded-xl border bg-card p-4 shadow-sm text-left transition-all active:scale-[0.97] hover:shadow-md hover:border-red-200">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2"><div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-100"><TrendingDown className="h-4 w-4 text-red-500"/></div><span className="text-xs text-muted-foreground">Despesas</span></div>
+              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50"/>
+            </div>
+            <p className="mt-2 text-lg font-bold text-red-500">{hidden(expense)}</p>
+          </button>
+        </div>
       </div>
 
       {/* ── Pendências — logo abaixo das receitas/despesas ── */}
