@@ -8,6 +8,7 @@ import { useCardStore, type Invoice, type CreditCard as CreditCardType } from "@
 import { DatePicker } from "@/components/cartoes/date-picker";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ScopeBottomSheet } from "@/components/scope-bottom-sheet";
+import { OnboardingChecklist } from "@/components/onboarding/onboarding-checklist";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
@@ -547,6 +548,8 @@ function DashboardPage() {
           </DropdownMenu>
         </div>
       </div>
+
+      <OnboardingChecklist/>
 
       {/* Month selector */}
       <div className="flex items-center justify-between rounded-2xl border bg-card p-4 shadow-sm md:p-5">

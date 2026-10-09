@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { supabase } from "./supabase";
 import { addMonths, setDate, isAfter, format, parseISO, startOfDay } from "date-fns";
+import { markOnboardingStep } from "./onboarding-store";
 
 export type CardFlag = "Visa" | "Mastercard" | "Elo" | "Amex" | "Hipercard" | "Outro";
 export type InvoiceStatus = "open" | "closed" | "paid";
@@ -129,6 +130,7 @@ export const useCardStore = create<CardStore>((set, get) => ({
     const { data, error } = await supabase.from("credit_cards").insert({ ...card, user_id: user.id, is_default: isFirst }).select().single();
     if (error || !data) return;
     set(s => ({ cards: [...s.cards, data] }));
+    markOnboardingStep("cartao");
     await get().ensureInvoices(data);
   },
 
@@ -289,6 +291,7 @@ export const useCardStore = create<CardStore>((set, get) => ({
       const { data } = await supabase.from("card_expenses").insert(rows).select();
       if (data) set(s => ({ expenses: [...s.expenses, ...data] }));
       for (const inv of allInvoices.slice(0, 13)) await get().recalcInvoiceTotal(inv.id);
+      markOnboardingStep("despesa");
 
     } else if (installments > 1) {
       // ── Despesa parcelada ───────────────────────────────────────────────
@@ -353,6 +356,7 @@ export const useCardStore = create<CardStore>((set, get) => ({
           for (const id of ids) await get().recalcInvoiceTotal(id);
         }
       }
+      markOnboardingStep("despesa");
 
     } else {
       // ── Despesa avulsa ─────────────────────────────────────────────────
@@ -364,6 +368,7 @@ export const useCardStore = create<CardStore>((set, get) => ({
       }).select().single();
       if (data) set(s => ({ expenses: [...s.expenses, data] }));
       await get().recalcInvoiceTotal(invoiceId);
+      markOnboardingStep("despesa");
     }
   },
 

@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { supabase } from "./supabase";
+import { markOnboardingStep } from "./onboarding-store";
 
 export type CategoryType = "expense" | "income";
 
@@ -97,6 +98,7 @@ export async function addCategory(
   cache = [...cache, newCat];
   notify();
   await supabase.from("categories").insert({ ...newCat, user_id: user.id });
+  markOnboardingStep("categoria");
 }
 
 export async function updateCategory(

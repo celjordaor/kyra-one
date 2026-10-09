@@ -1,5 +1,6 @@
 import { useSyncExternalStore, useEffect } from "react";
 import { supabase } from "./supabase";
+import { markOnboardingStep } from "./onboarding-store";
 
 export type TransactionType = "income" | "expense";
 
@@ -189,6 +190,8 @@ export async function addTransaction(t: Omit<Transaction, "id">) {
     // Reverte se falhou
     cache = cache.filter(tx => tx.id !== id);
     notify();
+  } else {
+    markOnboardingStep("despesa");
   }
 }
 
@@ -223,6 +226,8 @@ export async function addTransactions(items: Omit<Transaction, "id">[]) {
     const ids = new Set(rows.map(r => r.id));
     cache = cache.filter(t => !ids.has(t.id));
     notify();
+  } else {
+    markOnboardingStep("despesa");
   }
 }
 

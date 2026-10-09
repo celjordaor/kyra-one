@@ -1,9 +1,11 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { LogOut, Settings, ChevronRight, CreditCard, ShieldCheck, MessageCircle, Check } from "lucide-react";
+import { LogOut, Settings, ChevronRight, CreditCard, ShieldCheck, MessageCircle, Check, Copy, ExternalLink } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import { useAssinatura, nomeNivel, diasRestantesTrial, podeAcessar } from "@/lib/assinaturas";
+import { markOnboardingStep } from "@/lib/onboarding-store";
+import { KYRA_WHATSAPP_NUMBER_DISPLAY, KYRA_WHATSAPP_NUMBER_WA_LINK } from "@/lib/constants";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -100,6 +102,7 @@ function PerfilPage() {
       }
       setTelefoneSalvo(dados.phone);
       toast.success("WhatsApp vinculado! Agora é só mandar mensagem pra Kyra.");
+      markOnboardingStep("whatsapp");
     } catch {
       toast.error("Não consegui salvar agora. Tenta de novo.");
     } finally {
@@ -176,11 +179,54 @@ function PerfilPage() {
             </div>
 
             {!telefoneSalvo && (
-              <div className="rounded-xl bg-muted/40 p-3 text-xs text-muted-foreground space-y-1">
-                <p className="font-semibold text-foreground">Como funciona:</p>
-                <p>1. Cadastra teu número de WhatsApp abaixo.</p>
-                <p>2. Manda uma mensagem pra Kyra contando um gasto (ex: "gastei 35 reais no mercado").</p>
-                <p>3. Ela entende, pergunta se é no cartão ou não, e registra certinho.</p>
+              <div className="rounded-xl bg-muted/40 p-3 space-y-3">
+                <p className="text-xs font-semibold text-foreground">Como conectar:</p>
+
+                {/* Número oficial da Kyra, em destaque, com copiar/abrir no WhatsApp */}
+                <div className="flex items-center gap-3 rounded-lg bg-white dark:bg-card border p-2.5">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100">
+                    <MessageCircle className="h-4 w-4 text-emerald-600"/>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] text-muted-foreground leading-none">Número da Kyra</p>
+                    <p className="text-sm font-semibold text-foreground tabular-nums">{KYRA_WHATSAPP_NUMBER_DISPLAY}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard?.writeText(KYRA_WHATSAPP_NUMBER_DISPLAY);
+                      toast.success("Número copiado!");
+                    }}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"
+                    aria-label="Copiar número"
+                  >
+                    <Copy className="h-4 w-4"/>
+                  </button>
+                  <a
+                    href={KYRA_WHATSAPP_NUMBER_WA_LINK}
+                    target="_blank" rel="noopener noreferrer"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-emerald-600 hover:bg-emerald-50"
+                    aria-label="Abrir no WhatsApp"
+                  >
+                    <ExternalLink className="h-4 w-4"/>
+                  </a>
+                </div>
+
+                {/* Passo a passo numerado */}
+                <div className="space-y-2">
+                  {[
+                    { n: 1, texto: <>Salva <span className="font-semibold text-foreground">{KYRA_WHATSAPP_NUMBER_DISPLAY}</span> como contato no teu celular.</> },
+                    { n: 2, texto: <>Manda um <span className="font-semibold text-foreground">"Oi"</span> pra Kyra — é assim que ela liga teu WhatsApp à tua conta.</> },
+                    { n: 3, texto: <>Vincula teu número aqui abaixo, pra ela te reconhecer e registrar certinho.</> },
+                  ].map(({ n, texto }) => (
+                    <div key={n} className="flex items-start gap-2.5">
+                      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[11px] font-bold text-emerald-700 mt-0.5">
+                        {n}
+                      </div>
+                      <p className="text-xs text-muted-foreground leading-relaxed">{texto}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
