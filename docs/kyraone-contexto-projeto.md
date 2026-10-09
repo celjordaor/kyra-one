@@ -118,6 +118,7 @@ Resumo — detalhe completo está no changelog do `quintalzim-contexto-projeto.m
 5. ~~Hostinger — e-mail Titan `@quintalzim.com.br` pendente de cancelamento~~ — **resolvido em 09/out/2026**, cancelado pelo fundador.
 6. ~~Conferir se não existe `.env.local`/`.env` com segredo real commitado antes da regra do `.gitignore`~~ — **auditado e resolvido em 09/out/2026**: `.env` apareceu em 2 commits antigos do histórico, mas só com `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` (públicos por design). Nenhuma service role key ou credencial de billing foi commitada. Sem risco, sem ação necessária.
 7. ~~Painel admin sem ações de gestão~~ — **resolvido em 09/out/2026**: `/admin` agora permite suspender/reativar assinatura, trocar plano, editar CPF e estender trial, por assinante (ver `api/admin/atualizar-conta.ts`). Não tem log/auditoria de quem fez a mudança ainda — avaliar se vira necessidade.
+9. ~~Perfil comercial do WhatsApp (Meta Business/WhatsApp Manager) ainda mostrando "Quintalzim" ao abrir o link `wa.me`~~ — **resolvido em 09/out/2026** pelo fundador direto no Meta Business Suite / WhatsApp Manager (fora do código — não é configuração do KyraOne nem do n8n).
 
 ---
 
