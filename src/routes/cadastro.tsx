@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/lib/supabase";
 
+const NAVY = "#03264E";
+
 const cadastroSchema = z
   .object({
     name: z.string().min(1, "Nome é obrigatório"),
@@ -192,7 +194,12 @@ function CadastroPage() {
             {errors.aceitaTermos && <p className="text-xs text-destructive">{errors.aceitaTermos.message}</p>}
           </div>
 
-          <Button type="submit" className="h-11 w-full font-bold shadow-md shadow-primary/25" disabled={isSubmitting}>
+          <Button
+            type="submit"
+            className="h-11 w-full font-bold text-white shadow-md hover:opacity-90"
+            style={{ background: NAVY, boxShadow: `0 4px 14px ${NAVY}40` }}
+            disabled={isSubmitting}
+          >
             {isSubmitting ? "Criando conta..." : "Criar conta"}
           </Button>
         </form>
