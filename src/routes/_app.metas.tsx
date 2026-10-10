@@ -608,8 +608,9 @@ function GoalsSection() {
         onCancel={() => setDeleting(null)}
         onConfirm={() => {
           if (deleting) {
-            deleteGoal(deleting.id);
-            toast.success("Meta excluída");
+            deleteGoal(deleting.id)
+              .then(() => toast.success("Meta excluída"))
+              .catch(() => toast.error("Erro ao excluir meta. Tente novamente."));
           }
           setDeleting(null);
         }}

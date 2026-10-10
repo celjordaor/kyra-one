@@ -185,10 +185,33 @@ export async function updateGoal(id: string, patch: Partial<Omit<Goal, "id" | "c
 }
 
 export async function deleteGoal(id: string) {
+  const prevGoals = goals;
+  const prevContributions = contributions;
+  const hadContributions = contributions.some((c) => c.goalId === id);
+
   goals = goals.filter((g) => g.id !== id);
   contributions = contributions.filter((c) => c.goalId !== id);
   notifyG(); notifyC();
-  await supabase.from("goals").delete().eq("id", id);
+
+  // Apaga primeiro os depósitos: goal_contributions referencia goals por FK,
+  // então excluir a meta antes podia ser rejeitado (silenciosamente, sem
+  // reverter o estado local) quando a meta já tinha depósitos — a meta
+  // sumia da tela mas continuava no banco, voltando a aparecer depois.
+  if (hadContributions) {
+    const { error: cErr } = await supabase.from("goal_contributions").delete().eq("goal_id", id);
+    if (cErr) {
+      goals = prevGoals; contributions = prevContributions;
+      notifyG(); notifyC();
+      throw cErr;
+    }
+  }
+
+  const { error } = await supabase.from("goals").delete().eq("id", id);
+  if (error) {
+    goals = prevGoals; contributions = prevContributions;
+    notifyG(); notifyC();
+    throw error;
+  }
 }
 
 // ── Contribution mutations ─────────────────────────────────────────────────
