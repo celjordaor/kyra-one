@@ -2,7 +2,7 @@
 
 *Conduzida em 10/out/2026 a pedido do fundador. Escopo: RLS/isolamento de dados no Supabase, autenticação, uso do service role nas Vercel Functions, integração Asaas, vínculo de WhatsApp (Kyra), exclusão de conta (LGPD). Plano original (prompt anexado na sessão) foi reescrito aqui porque referenciava um estágio anterior do projeto (antes do onboarding guiado, do billing Asaas em produção e do fluxo de exclusão com retenção, todos já entregues — ver `kyraone-contexto-projeto.md`).*
 
-**Como usar este documento**: Fase 1 (diagnóstico) está concluída. Fase 2 (correções P0/P1/P2 de banco) foi **aplicada e validada em 10/out/2026** — ver resultado no fim de cada seção. Itens P2/P3 que dependem de decisão de produto ou de código de aplicação (rate limit, log de auditoria do admin, tabela de exclusões LGPD, máscara de CPF na UI) continuam pendentes.
+**Status: Fase 2 encerrada em 10/out/2026.** Todos os 10 itens da Fase 2 foram aplicados (9 via código/SQL, 1 — leaked password protection — parcialmente, ver item 4). Resta em aberto só a Fase 3 (testes dinâmicos ponta a ponta), que é opcional/reforço, não bloqueio.
 
 ---
 
@@ -81,7 +81,7 @@ Rodadas via `mcp__Supabase__execute_sql` direto no projeto `eqzqrwbtibelafvzvbfb
 | 1 | **P0** | Trigger `BEFORE UPDATE` em `profiles` (`protect_profile_role()`) que bloqueia mudança de `role` quando `auth.uid()` não é nulo (bloqueia qualquer cliente autenticado comum; deixa passar SQL Editor/postgres e as Vercel Functions, que não carregam JWT de usuário) | ✅ **Aplicado e testado** |
 | 2 | **P0** | `WITH CHECK` explícito em `profiles_update_own` fixando `id` | ✅ Aplicado |
 | 3 | P1 | Revogar `EXECUTE` de `PUBLIC`/`anon`/`authenticated` em `handle_new_user()`, `rls_auto_enable()` e também na própria `protect_profile_role()` nova (nasce com `EXECUTE` público por padrão do Postgres — mesma categoria de achado, corrigida na hora) | ✅ Aplicado — `get_advisors` confirma os 2 avisos de `SECURITY DEFINER` zerados |
-| 4 | P1 | Ligar "Leaked Password Protection" no painel do Supabase Auth | ⏳ **Pendente** — só no painel (Authentication → Policies), não dá pra fazer via SQL/MCP |
+| 4 | P1 | Ligar "Leaked Password Protection" no painel do Supabase Auth | ⚠️ **Bloqueado pelo plano Free** — o toggle existe em Authentication → Providers → Email, mas o Supabase não aplica de fato fora do plano Pro ($25/mês); `get_advisors` continua acusando desligado mesmo com o toggle ligado e salvo. **Mitigação aplicada**: `minimum password length` subido de 6 para 8 (gratuito, mesma tela) — reduz senha fraca por tamanho, não cobre senha vazada em outro serviço. Reavaliar se/quando migrar pra Pro. |
 | 5 | P1 | Tabela de auditoria `admin_acoes_log` (quem, quando, campo, valor anterior/novo), gravada a cada escrita de `api/admin/atualizar-conta.ts` | ✅ Aplicado — tabela criada (RLS sem policy, só service role lê), `registrarLog()` chamado nas 4 ações (status/plano/trial/cpf). Sem UI de leitura ainda — hoje só consultável via SQL Editor; se quiser ver no painel, é uma seção nova em `/admin` |
 | 6 | P2 | Rate limit básico em `api/cartoes/lancar-despesa.ts` | ✅ Aplicado — bloqueia (`429 muitas_despesas_rapido`) acima de 8 despesas lançadas no mesmo minuto pro mesmo usuário, contando direto em `card_expenses.created_at` (sem infra nova) |
 | 7 | P2 | `CHECK (cpf ~ '^\d{11}$')` em `profiles.cpf` | ✅ Aplicado (`profiles_cpf_format`) |
@@ -113,6 +113,13 @@ Posso fazer esses testes dinâmicos usando o navegador (Claude in Chrome) contra
 
 ---
 
-## Próximo passo
+## Encerramento (10/out/2026)
 
-O crítico está fechado e validado. Restam, por ordem de prioridade: (4) ligar leaked-password-protection no painel (2 minutos, só você); (5) log de auditoria do admin; (6) rate limit do `lancar-despesa.ts`; (9) tabela de exclusões LGPD; (10) mascarar CPF no admin. Nenhum desses é urgente como o crítico era — posso detalhar e implementar cada um conforme prioridade, ou podemos rodar os testes dinâmicos da Fase 3 primeiro.
+**Fase 2 encerrada.** Dos 10 itens: 9 aplicados e validados (SQL + código, commits `aa83f65` e `6999f00`), 1 (leaked password protection) parcialmente mitigado — bloqueado pelo plano Free do Supabase, contornado subindo o tamanho mínimo de senha de 6 pra 8.
+
+**O que fica em aberto, sem bloquear nada:**
+- Fase 3 (testes dinâmicos ponta a ponta — isolamento entre duas contas reais, endpoints `/api/admin/*` via HTTP, webhook/lancar-despesa contra produção) — a lógica foi toda conferida estaticamente e o crítico foi validado via simulação SQL, mas um teste real fecha com mais confiança. Fica disponível sob demanda (via navegador) ou pra rodar manualmente quando quiser.
+- Upgrade pro plano Pro do Supabase, se algum dia quiser leaked-password-protection de verdade — não é urgente.
+- `rls_enabled_no_policy` (INFO, não WARN) nas duas tabelas novas (`admin_acoes_log`, `exclusoes_lgpd`) é esperado e intencional — só a service role acessa, de propósito.
+
+Sem pendência crítica, alta ou média em aberto. Auditoria considerada concluída até que surja um motivo pra reabrir (nova feature que toque RLS/auth, ou um achado novo).
