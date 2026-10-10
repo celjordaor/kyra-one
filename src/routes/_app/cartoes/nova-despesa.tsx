@@ -226,7 +226,7 @@ function NovaDespesaPage() {
   };
 
   return (
-    <div className="w-full bg-background md:max-w-4xl md:mx-auto">
+    <div className="w-full bg-background md:max-w-3xl md:mx-auto">
       <form id="nova-despesa-form" onSubmit={handleSubmit(onSubmit)} style={{ display:"block", width:"100%", margin:0 }}>
 
         {/* HEADER (mobile) */}
@@ -252,102 +252,105 @@ function NovaDespesaPage() {
         </div>
 
         {/* ── Corpo: no desktop, formulário (esquerda) + resumo fixo (direita) ── */}
-        <div className="md:grid md:grid-cols-[1.4fr_1fr] md:gap-6 md:items-start md:px-1">
-        <div>
+        <div className="md:grid md:grid-cols-[1fr_300px] md:gap-5 md:items-start md:px-1">
+        <div className="md:min-w-0">
 
         {/* VALOR — margem explícita, sem wrapper extra */}
         <div className="md:mx-0 md:mt-0" style={{ display:"block", marginLeft:"1rem", marginRight:"1rem",
-          marginTop:"-1rem", marginBottom:"1.25rem",
-          borderRadius:"1.5rem", background:"white", overflow:"hidden",
-          boxShadow:"0 10px 25px rgba(0,0,0,0.1)" }}>
-          <div style={{ padding:"1.25rem 1.25rem 0.75rem" }}>
-            <p style={{ fontSize:"0.6875rem", fontWeight:700, textTransform:"uppercase",
-              letterSpacing:"0.1em", color:"#818cf8", marginBottom:"0.5rem" }}>
+          marginTop:"-1rem", marginBottom:"1.25rem" }}>
+          <div style={{ borderRadius:"1.5rem", background:"white", overflow:"hidden",
+            boxShadow:"0 10px 25px rgba(0,0,0,0.1)" }}>
+          <div className="px-5 pt-5 pb-3 md:px-4 md:pt-4 md:pb-2">
+            <p className="text-[11px] mb-2 md:text-[10px] md:mb-1.5" style={{ fontWeight:700, textTransform:"uppercase",
+              letterSpacing:"0.1em", color:"#818cf8" }}>
               VALOR DA DESPESA
             </p>
-            <div style={{ display:"flex", alignItems:"baseline", gap:"0.5rem" }}>
-              <span style={{ fontSize:"1.5rem", fontWeight:700, color:"#94a3b8", flexShrink:0 }}>R$</span>
+            {/* Mobile: número grande */}
+            <div className="md:hidden flex items-baseline gap-2">
+              <span className="text-2xl font-bold text-slate-400 shrink-0">R$</span>
               <input type="text" inputMode="numeric" value={displayValue}
                 onChange={e => { const f = fmtInput(e.target.value); setDisplayValue(f); setValue("amount_raw", f, { shouldValidate: true }); }}
-                style={{ flex:1, minWidth:0, fontWeight:700, color:"#1e293b", background:"transparent",
-                  outline:"none", border:"none", fontSize:"clamp(2rem,9vw,3rem)", lineHeight:1.2 }}
+                className="min-w-0 flex-1 font-bold text-slate-800 bg-transparent outline-none placeholder-slate-200"
+                style={{ fontSize:"clamp(2rem,9vw,3rem)", lineHeight:1.2 }}
+                placeholder="0,00" />
+            </div>
+            {/* Desktop: número compacto */}
+            <div className="hidden md:flex items-baseline gap-1.5">
+              <span className="text-lg font-bold text-slate-400 shrink-0">R$</span>
+              <input type="text" inputMode="numeric" value={displayValue}
+                onChange={e => { const f = fmtInput(e.target.value); setDisplayValue(f); setValue("amount_raw", f, { shouldValidate: true }); }}
+                className="min-w-0 flex-1 font-bold text-slate-800 bg-transparent outline-none placeholder-slate-200 text-[1.75rem] leading-tight"
                 placeholder="0,00" />
             </div>
             {errors.amount_raw && <p style={{ fontSize:"0.75rem", color:"#ef4444", marginTop:"0.5rem" }}>{errors.amount_raw.message}</p>}
           </div>
           <div style={{ height:"4px", background:"linear-gradient(to right,#4f46e533,#4f46e5)" }} />
+          </div>
         </div>
 
         {/* SEÇÕES */}
         <div style={{ display:"block", paddingBottom:"1rem" }}>
 
           <TxSection title="Informações">
-            <FieldRow icon={<FileText className="h-5 w-5" />} label="Descrição" error={errors.description?.message}>
+            <FieldRow icon={<FileText className="h-5 w-5 md:h-4 md:w-4" />} label="Descrição" error={errors.description?.message}>
               <input {...register("description")}
-                style={{ fontSize:"1rem", fontWeight:500, color:"#1e293b",
-                  background:"transparent", outline:"none", border:"none", width:"100%" }}
+                className="text-[16px] md:text-[14px] font-medium text-slate-800 bg-transparent outline-none w-full"
                 placeholder="Ex: Netflix, Supermercado..." autoComplete="off" />
             </FieldRow>
-            <FieldRow icon={<CreditCard className="h-5 w-5" />} label="Cartão" onClick={() => setOpenCard(true)} error={errors.card_id?.message}>
+            <FieldRow icon={<CreditCard className="h-5 w-5 md:h-4 md:w-4" />} label="Cartão" onClick={() => setOpenCard(true)} error={errors.card_id?.message}>
               {selectedCard
-                ? <div style={{ display:"flex", alignItems:"center", gap:"0.5rem", marginTop:"0.125rem" }}>
-                    <span style={{ fontSize:"0.6875rem", fontWeight:700, color:"#4f46e5",
-                      border:"1px solid #a5b4fc", borderRadius:"0.375rem",
-                      padding:"0.125rem 0.375rem" }}>{selectedCard.flag}</span>
-                    <span style={{ fontSize:"1rem", fontWeight:500, color:"#1e293b" }}>{selectedCard.name}</span>
+                ? <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-[11px] md:text-[10px] font-bold text-indigo-600 border border-indigo-300 rounded-md px-1.5 py-0.5">{selectedCard.flag}</span>
+                    <span className="text-[16px] md:text-[14px] font-medium text-slate-800">{selectedCard.name}</span>
                   </div>
-                : <p style={{ fontSize:"1rem", color:"#cbd5e1" }}>Selecione o cartão</p>}
+                : <p className="text-[16px] md:text-[14px] text-slate-300">Selecione o cartão</p>}
             </FieldRow>
             <FieldRow
               icon={selectedCat
-                ? <div style={{ width:"2.5rem", height:"2.5rem", borderRadius:"0.75rem",
-                    display:"flex", alignItems:"center", justifyContent:"center", fontSize:"1.25rem",
-                    background:(selectedCat.color||"#6b7280")+"22" }}>
-                    {isEmoji(selectedCat.icon||"") ? selectedCat.icon : <Tag className="h-5 w-5" />}
+                ? <div className="h-10 w-10 md:h-9 md:w-9 rounded-xl flex items-center justify-center text-xl md:text-base"
+                    style={{ background:(selectedCat.color||"#6b7280")+"22" }}>
+                    {isEmoji(selectedCat.icon||"") ? selectedCat.icon : <Tag className="h-5 w-5 md:h-4 md:w-4" />}
                   </div>
-                : <Tag className="h-5 w-5" />}
+                : <Tag className="h-5 w-5 md:h-4 md:w-4" />}
               label="Categoria" onClick={() => setOpenCat(true)} last error={errors.category?.message}>
-              <p style={{ fontSize:"1rem", fontWeight:500,
-                color: selectedCatName ? "#1e293b" : "#cbd5e1" }}>
+              <p className={cn("text-[16px] md:text-[14px] font-medium", selectedCatName ? "text-slate-800" : "text-slate-300")}>
                 {selectedCatName || "Selecione a categoria"}
               </p>
             </FieldRow>
           </TxSection>
 
           <TxSection title="Data e fatura">
-            <FieldRow icon={<Calendar className="h-5 w-5" />} label="Data da compra">
+            <FieldRow icon={<Calendar className="h-5 w-5 md:h-4 md:w-4" />} label="Data da compra">
               <DatePicker value={purchaseDate} onChange={v => setValue("purchase_date", v)} />
             </FieldRow>
-            <FieldRow icon={<Receipt className="h-5 w-5" />} label="Fatura destino" onClick={() => setOpenBilling(true)} last error={errors.invoice_id?.message}>
+            <FieldRow icon={<Receipt className="h-5 w-5 md:h-4 md:w-4" />} label="Fatura destino" onClick={() => setOpenBilling(true)} last error={errors.invoice_id?.message}>
               {loadingInvoices
-                ? <p style={{ fontSize:"1rem", color:"#cbd5e1" }}>Carregando...</p>
+                ? <p className="text-[16px] md:text-[14px] text-slate-300">Carregando...</p>
                 : selectedInvoice
-                ? <div style={{ display:"flex", alignItems:"center", gap:"0.5rem" }}>
-                    <span style={{ fontSize:"1rem", fontWeight:600, color:"#1e293b" }}>{selectedInvoice.competence}</span>
-                    <span style={{ fontSize:"0.8125rem", color:"#94a3b8" }}>• vence {new Date(selectedInvoice.due_date+"T12:00:00").toLocaleDateString("pt-BR")}</span>
+                ? <div className="flex items-center gap-2">
+                    <span className="text-[16px] md:text-[14px] font-semibold text-slate-800">{selectedInvoice.competence}</span>
+                    <span className="text-[13px] md:text-[12px] text-slate-400">• vence {new Date(selectedInvoice.due_date+"T12:00:00").toLocaleDateString("pt-BR")}</span>
                   </div>
-                : <p style={{ fontSize:"1rem", color:"#cbd5e1" }}>Selecione a fatura</p>}
+                : <p className="text-[16px] md:text-[14px] text-slate-300">Selecione a fatura</p>}
             </FieldRow>
           </TxSection>
 
           {!isRecurring && parsedAmount > 0 && (
             <TxSection title="Parcelamento">
-              <div style={{ padding:"1rem", borderBottom:"1px solid #f1f5f9" }}>
-                <p style={{ fontSize:"0.6875rem", fontWeight:700, textTransform:"uppercase",
-                  letterSpacing:"0.06em", color:"#94a3b8", marginBottom:"0.75rem" }}>
+              <div className="p-4 md:p-3 border-b border-slate-100">
+                <p className="text-[11px] md:text-[10px] mb-3 md:mb-2" style={{ fontWeight:700, textTransform:"uppercase",
+                  letterSpacing:"0.06em", color:"#94a3b8" }}>
                   Número de parcelas
                 </p>
                 <InstallmentPicker amount={parsedAmount} value={installments} onChange={n => setValue("installments", n)} />
               </div>
-              <div style={{ display:"flex", alignItems:"center", gap:"0.75rem", padding:"1rem" }}>
-                <div style={{ flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center",
-                  width:"2.5rem", height:"2.5rem", borderRadius:"0.75rem",
-                  background:"#f1f5f9", color:"#64748b" }}>
-                  <Repeat className="h-5 w-5" />
+              <div className="flex items-center gap-3 p-4 md:p-3">
+                <div className="shrink-0 flex items-center justify-center h-10 w-10 md:h-9 md:w-9 rounded-xl bg-slate-100 text-slate-500">
+                  <Repeat className="h-5 w-5 md:h-4 md:w-4" />
                 </div>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <p style={{ fontSize:"1rem", fontWeight:500, color:"#1e293b" }}>Despesa recorrente</p>
-                  <p style={{ fontSize:"0.75rem", color:"#94a3b8", marginTop:"0.125rem" }}>Lançada nas próximas 12 faturas</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[16px] md:text-[14px] font-medium text-slate-800">Despesa recorrente</p>
+                  <p className="text-[12px] md:text-[11px] text-slate-400 mt-0.5">Lançada nas próximas 12 faturas</p>
                 </div>
                 <Controller name="is_recurring" control={control} render={({ field }) => (
                   <Switch checked={!!field.value} onCheckedChange={v => { field.onChange(v); if (v) setValue("installments", 1); }}
@@ -358,10 +361,9 @@ function NovaDespesaPage() {
           )}
 
           <TxSection title="Observações">
-            <FieldRow icon={<StickyNote className="h-5 w-5" />} label="Nota (opcional)" last>
+            <FieldRow icon={<StickyNote className="h-5 w-5 md:h-4 md:w-4" />} label="Nota (opcional)" last>
               <input {...register("observations")}
-                style={{ fontSize:"1rem", fontWeight:500, color:"#1e293b",
-                  background:"transparent", outline:"none", border:"none", width:"100%" }}
+                className="text-[16px] md:text-[14px] font-medium text-slate-800 bg-transparent outline-none w-full"
                 placeholder="Alguma nota sobre esta despesa" />
             </FieldRow>
           </TxSection>
@@ -373,18 +375,18 @@ function NovaDespesaPage() {
         </div>
 
         {/* ── Resumo fixo (desktop) ──────────────────────────────────── */}
-        <aside className="hidden md:block md:sticky md:top-5">
+        <aside className="hidden md:block md:sticky md:top-5 md:min-w-0">
           <div className="overflow-hidden rounded-2xl text-white"
             style={{ background: "linear-gradient(135deg, #03264E, #0b3a66)" }}>
-            <div className="p-5">
-              <span className="inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wide"
+            <div className="p-6">
+              <span className="inline-flex rounded-full px-3 py-1.5 text-[11px] font-bold tracking-wide"
                 style={{ background: "rgba(255,255,255,.15)" }}>
                 DESPESA NO CARTÃO
               </span>
-              <p className="mt-3 font-bold" style={{ fontFamily: "'Sora', sans-serif", fontSize: "26px" }}>
+              <p className="mt-4 font-bold" style={{ fontFamily: "'Sora', sans-serif", fontSize: "30px" }}>
                 {displayValue ? `R$ ${displayValue}` : "R$ 0,00"}
               </p>
-              <div className="mt-3 space-y-2 border-t border-white/15 pt-3 text-[12.5px]">
+              <div className="mt-4 space-y-2.5 border-t border-white/15 pt-4 text-[14px]">
                 <div className="flex justify-between gap-3 text-white/70">
                   <span>Cartão</span>
                   <span className="truncate text-right font-medium text-white">{selectedCard?.name || "—"}</span>
@@ -404,7 +406,7 @@ function NovaDespesaPage() {
               </div>
 
               <button type="submit" form="nova-despesa-form" disabled={isSubmitting}
-                className="mt-4 w-full rounded-xl py-3 text-[14px] font-bold text-white transition-opacity disabled:opacity-60"
+                className="mt-5 w-full rounded-xl py-3.5 text-[15px] font-bold text-white transition-opacity disabled:opacity-60"
                 style={{ background: isSubmitting ? "#818cf8" : "#4f46e5" }}>
                 {isSubmitting ? "Salvando..." : "Lançar despesa"}
               </button>

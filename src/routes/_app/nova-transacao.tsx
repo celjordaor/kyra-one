@@ -230,7 +230,7 @@ function NovaTransacaoPage() {
   };
 
   return (
-    <div className="bg-background md:max-w-4xl md:mx-auto" style={{ width: "100%", maxWidth: "min(100%, 672px)", minHeight: "100dvh" }}>
+    <div className="w-full bg-background max-w-[672px] md:max-w-3xl mx-auto" style={{ minHeight: "100dvh" }}>
       <form id="nova-tx-form" onSubmit={handleSubmit(onSubmit)} className="w-full">
 
         {/* ── HEADER (mobile) ──────────────────────────────────────────── */}
@@ -279,19 +279,28 @@ function NovaTransacaoPage() {
         </div>
 
         {/* ── Corpo: no desktop, formulário (esquerda) + resumo fixo (direita) ── */}
-        <div className="md:grid md:grid-cols-[1.4fr_1fr] md:gap-6 md:items-start md:px-1">
-        <div>
+        <div className="md:grid md:grid-cols-[1fr_300px] md:gap-5 md:items-start md:px-1">
+        <div className="md:min-w-0">
 
         {/* ── VALOR ─────────────────────────────────────────────────── */}
         <div className="mx-4 md:mx-0 -mt-4 md:mt-0 mb-5 rounded-3xl bg-white dark:bg-card shadow-xl border border-white/50 overflow-hidden">
-          <div className="px-5 pt-5 pb-3">
-            <p className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color: accentHex }}>VALOR</p>
-            <div className="flex items-baseline gap-2">
+          <div className="px-5 pt-5 pb-3 md:px-4 md:pt-4 md:pb-2">
+            <p className="text-[11px] font-bold uppercase tracking-widest mb-2 md:text-[10px] md:mb-1.5" style={{ color: accentHex }}>VALOR</p>
+            {/* Mobile: número grande */}
+            <div className="md:hidden flex items-baseline gap-2">
               <span className="text-2xl font-bold text-slate-400 shrink-0">R$</span>
               <input type="text" inputMode="decimal"
                 value={amountDisplay} onChange={e => handleAmountChange(e.target.value)}
                 className="min-w-0 flex-1 font-bold text-slate-800 dark:text-foreground bg-transparent outline-none placeholder-slate-200"
                 style={{ fontSize: "clamp(2rem, 9vw, 3rem)", lineHeight: 1.2 }}
+                placeholder="0,00" />
+            </div>
+            {/* Desktop: número compacto */}
+            <div className="hidden md:flex items-baseline gap-1.5">
+              <span className="text-lg font-bold text-slate-400 shrink-0">R$</span>
+              <input type="text" inputMode="decimal"
+                value={amountDisplay} onChange={e => handleAmountChange(e.target.value)}
+                className="min-w-0 flex-1 font-bold text-slate-800 dark:text-foreground bg-transparent outline-none placeholder-slate-200 text-[1.75rem] leading-tight"
                 placeholder="0,00" />
             </div>
             {errors.amount && <p className="text-[12px] text-destructive mt-1">{errors.amount.message}</p>}
@@ -301,20 +310,20 @@ function NovaTransacaoPage() {
 
         {/* ── INFORMAÇÕES ───────────────────────────────────────────── */}
         <TxSection title="Informações">
-          <FieldRow icon={<FileText className="h-5 w-5" />} label="Descrição" error={errors.title?.message}>
+          <FieldRow icon={<FileText className="h-5 w-5 md:h-4 md:w-4" />} label="Descrição" error={errors.title?.message}>
             <input {...register("title")}
-              className="text-[16px] font-medium text-slate-800 dark:text-foreground bg-transparent outline-none w-full placeholder-slate-300"
+              className="text-[16px] md:text-[14px] font-medium text-slate-800 dark:text-foreground bg-transparent outline-none w-full placeholder-slate-300"
               placeholder="Ex: Supermercado, Salário..." autoComplete="off" />
           </FieldRow>
           <FieldRow
             icon={selectedCat
-              ? <div className="h-10 w-10 rounded-xl flex items-center justify-center text-xl"
+              ? <div className="h-10 w-10 md:h-9 md:w-9 rounded-xl flex items-center justify-center text-xl md:text-base"
                   style={{ background: (selectedCat.color || "#6b7280") + "22" }}>
-                  {isEmoji(selectedCat.icon || "") ? selectedCat.icon : <Tag className="h-5 w-5" />}
+                  {isEmoji(selectedCat.icon || "") ? selectedCat.icon : <Tag className="h-5 w-5 md:h-4 md:w-4" />}
                 </div>
-              : <Tag className="h-5 w-5" />}
+              : <Tag className="h-5 w-5 md:h-4 md:w-4" />}
             label="Categoria" onClick={() => setOpenCat(true)} last error={errors.category?.message}>
-            <p className={cn("text-[16px] font-medium", categoryValue ? "text-slate-800 dark:text-foreground" : "text-slate-300")}>
+            <p className={cn("text-[16px] md:text-[14px] font-medium", categoryValue ? "text-slate-800 dark:text-foreground" : "text-slate-300")}>
               {categoryValue || "Selecione a categoria"}
             </p>
           </FieldRow>
@@ -322,11 +331,11 @@ function NovaTransacaoPage() {
 
         {/* ── DATA E PAGAMENTO ──────────────────────────────────────── */}
         <TxSection title="Data e pagamento">
-          <FieldRow icon={<Calendar className="h-5 w-5" />} label="Data">
+          <FieldRow icon={<Calendar className="h-5 w-5 md:h-4 md:w-4" />} label="Data">
             <DatePicker value={dateValue} onChange={v => setValue("date", v)} />
           </FieldRow>
           <SwitchRow
-            icon={<CheckCircle2 className={cn("h-5 w-5", isIncome ? "text-emerald-500" : "text-rose-500")} />}
+            icon={<CheckCircle2 className={cn("h-5 w-5 md:h-4 md:w-4", isIncome ? "text-emerald-500" : "text-rose-500")} />}
             label={isIncome ? "Recebida" : "Paga"}
             description={isFuture ? "Data futura — disponível após a data" : `Marque se já foi ${isIncome ? "recebida" : "paga"}`}
             checked={settled && !isFuture} onCheckedChange={setSettled} disabled={isFuture} last />
@@ -334,18 +343,18 @@ function NovaTransacaoPage() {
 
         {/* ── REPETIÇÃO ─────────────────────────────────────────────── */}
         <TxSection title="Repetição">
-          <SwitchRow icon={<Repeat className="h-5 w-5" />} label="Recorrente"
+          <SwitchRow icon={<Repeat className="h-5 w-5 md:h-4 md:w-4" />} label="Recorrente"
             description={`Replica pelos próximos ${RECURRING_MONTHS} meses`}
             checked={recurring} onCheckedChange={v => { setRecurring(v); if (v) setRepeat(false); }} />
 
           <div className={cn(repeat && "bg-slate-50/80 dark:bg-muted/20")}>
-            <div className="flex items-center gap-3 px-4 py-4 border-b border-slate-100 dark:border-border">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-muted text-slate-500">
-                <Repeat2 className="h-5 w-5" />
+            <div className="flex items-center gap-3 px-4 py-4 md:py-3 border-b border-slate-100 dark:border-border">
+              <div className="flex h-10 w-10 md:h-9 md:w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-muted text-slate-500">
+                <Repeat2 className="h-5 w-5 md:h-4 md:w-4" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[16px] font-medium text-slate-800 dark:text-foreground">Repetir N meses</p>
-                <p className="text-[12px] text-slate-400 mt-0.5">
+                <p className="text-[16px] md:text-[14px] font-medium text-slate-800 dark:text-foreground">Repetir N meses</p>
+                <p className="text-[12px] md:text-[11px] text-slate-400 mt-0.5">
                   {repeat ? `${repeatMonths} parcelas a partir desta data` : "Cria cópias nos próximos meses"}
                 </p>
               </div>
@@ -353,27 +362,27 @@ function NovaTransacaoPage() {
             </div>
             {repeat && (
               <div className="flex items-center justify-between px-4 pb-4 pt-2 border-b border-slate-100 dark:border-border">
-                <p className="text-[13px] text-slate-500">Meses</p>
+                <p className="text-[13px] md:text-[12px] text-slate-500">Meses</p>
                 <div className="flex items-center gap-4">
                   <button type="button" onClick={() => setRepeatMonths(n => Math.max(2, n - 1))}
-                    className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-slate-200 dark:border-border bg-white dark:bg-background">
-                    <Minus className="h-4 w-4" />
+                    className="flex h-10 w-10 md:h-8 md:w-8 items-center justify-center rounded-full border-2 border-slate-200 dark:border-border bg-white dark:bg-background">
+                    <Minus className="h-4 w-4 md:h-3.5 md:w-3.5" />
                   </button>
                   <div className="flex w-10 flex-col items-center">
-                    <span className="text-xl font-bold" style={{ color: accentHex }}>{repeatMonths}</span>
-                    <span className="text-[11px] text-slate-400">{repeatMonths === 1 ? "mês" : "meses"}</span>
+                    <span className="text-xl md:text-base font-bold" style={{ color: accentHex }}>{repeatMonths}</span>
+                    <span className="text-[11px] md:text-[10px] text-slate-400">{repeatMonths === 1 ? "mês" : "meses"}</span>
                   </div>
                   <button type="button" onClick={() => setRepeatMonths(n => Math.min(36, n + 1))}
-                    className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-slate-200 dark:border-border bg-white dark:bg-background">
-                    <Plus className="h-4 w-4" />
+                    className="flex h-10 w-10 md:h-8 md:w-8 items-center justify-center rounded-full border-2 border-slate-200 dark:border-border bg-white dark:bg-background">
+                    <Plus className="h-4 w-4 md:h-3.5 md:w-3.5" />
                   </button>
                 </div>
               </div>
             )}
           </div>
 
-          <FieldRow icon={<Layers className="h-5 w-5" />} label="Parcelamento de cartão" last>
-            <p className="text-[13px] text-slate-400">Use "Nova Despesa Cartão" para parcelamento via fatura</p>
+          <FieldRow icon={<Layers className="h-5 w-5 md:h-4 md:w-4" />} label="Parcelamento de cartão" last>
+            <p className="text-[13px] md:text-[12px] text-slate-400">Use "Nova Despesa Cartão" para parcelamento via fatura</p>
           </FieldRow>
         </TxSection>
 
@@ -385,18 +394,18 @@ function NovaTransacaoPage() {
         </div>
 
         {/* ── Resumo fixo (desktop) ──────────────────────────────────── */}
-        <aside className="hidden md:block md:sticky md:top-5">
+        <aside className="hidden md:block md:sticky md:top-5 md:min-w-0">
           <div className="overflow-hidden rounded-2xl text-white"
             style={{ background: "linear-gradient(135deg, #03264E, #0b3a66)" }}>
-            <div className="p-5">
-              <span className="inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wide"
+            <div className="p-6">
+              <span className="inline-flex rounded-full px-3 py-1.5 text-[11px] font-bold tracking-wide"
                 style={{ background: "rgba(255,255,255,.15)" }}>
                 {isIncome ? "RECEITA" : "DESPESA"}
               </span>
-              <p className="mt-3 font-bold" style={{ fontFamily: "'Sora', sans-serif", fontSize: "26px" }}>
+              <p className="mt-4 font-bold" style={{ fontFamily: "'Sora', sans-serif", fontSize: "30px" }}>
                 {amountDisplay ? `R$ ${amountDisplay}` : "R$ 0,00"}
               </p>
-              <div className="mt-3 space-y-2 border-t border-white/15 pt-3 text-[12.5px]">
+              <div className="mt-4 space-y-2.5 border-t border-white/15 pt-4 text-[14px]">
                 <div className="flex justify-between gap-3 text-white/70">
                   <span>Descrição</span>
                   <span className="truncate text-right font-medium text-white">{watch("title") || "—"}</span>
@@ -420,12 +429,12 @@ function NovaTransacaoPage() {
               </div>
 
               <button type="submit" form="nova-tx-form" disabled={isSubmitting}
-                className="mt-4 w-full rounded-xl py-3 text-[14px] font-bold text-white transition-opacity disabled:opacity-60"
+                className="mt-5 w-full rounded-xl py-3.5 text-[15px] font-bold text-white transition-opacity disabled:opacity-60"
                 style={{ background: accentHex }}>
                 {isSubmitting ? "Salvando..." : isIncome ? "Registrar receita" : "Registrar despesa"}
               </button>
               {success && (
-                <div className="mt-3 flex items-center gap-2 rounded-xl px-3 py-2 text-[12.5px] font-bold text-white"
+                <div className="mt-3 flex items-center gap-2 rounded-xl px-3 py-2.5 text-[13px] font-bold text-white"
                   style={{ backgroundColor: accentHex }}>
                   <CheckCircle2 className="h-4 w-4 shrink-0" /> {success}
                 </div>
