@@ -2,7 +2,7 @@
 
 *Conduzida em 10/out/2026 a pedido do fundador. Escopo: RLS/isolamento de dados no Supabase, autenticação, uso do service role nas Vercel Functions, integração Asaas, vínculo de WhatsApp (Kyra), exclusão de conta (LGPD). Plano original (prompt anexado na sessão) foi reescrito aqui porque referenciava um estágio anterior do projeto (antes do onboarding guiado, do billing Asaas em produção e do fluxo de exclusão com retenção, todos já entregues — ver `kyraone-contexto-projeto.md`).*
 
-**Como usar este documento**: Fase 1 (diagnóstico) está concluída e é a fonte de verdade das descobertas. Fase 2 (correções) é uma lista priorizada — nada foi alterado no banco ou no código ainda, está pendente de aprovação item por item. Fase 3 (validação) só começa depois que algum item da Fase 2 for aplicado.
+**Como usar este documento**: Fase 1 (diagnóstico) está concluída. Fase 2 (correções P0/P1/P2 de banco) foi **aplicada e validada em 10/out/2026** — ver resultado no fim de cada seção. Itens P2/P3 que dependem de decisão de produto ou de código de aplicação (rate limit, log de auditoria do admin, tabela de exclusões LGPD, máscara de CPF na UI) continuam pendentes.
 
 ---
 
@@ -72,39 +72,47 @@ Já registrado como pendência aberta no documento de contexto (item 7, nunca fe
 
 ---
 
-## FASE 2 — CORREÇÕES PROPOSTAS (nenhuma aplicada ainda)
+## FASE 2 — CORREÇÕES (aplicadas em 10/out/2026)
 
-| # | Prioridade | Ação | Onde |
+Rodadas via `mcp__Supabase__execute_sql` direto no projeto `eqzqrwbtibelafvzvbfb` (o `apply_migration`/lotes grandes foram cancelados pelo MCP sem explicação — contornado rodando `CREATE FUNCTION`, `CREATE TRIGGER` e os `REVOKE` isoladamente; `ALTER POLICY`/`CREATE INDEX` em lote funcionaram normalmente). Nenhuma migration ficou registrada em `supabase_migrations` (só o SQL direto) — considerar formalizar como migration num momento calmo, não é urgente.
+
+| # | Prioridade | Ação | Status |
 |---|---|---|---|
-| 1 | **P0** | Trigger `BEFORE UPDATE` em `profiles` que bloqueia mudança de `role` quando a sessão não é `service_role` (deixa SQL Editor/postgres e as Vercel Functions passarem; bloqueia qualquer `PATCH` autenticado comum) | migration nova |
-| 2 | **P0** | `WITH CHECK` explícito em `profiles_update_own` fixando `id` (reforço, já coberto pelo trigger acima, mas deixa a intenção explícita na própria policy) | mesma migration |
-| 3 | P1 | Revogar `EXECUTE` de `anon`/`authenticated` em `handle_new_user()` e `rls_auto_enable()` | mesma migration |
-| 4 | P1 | Ligar "Leaked Password Protection" no painel do Supabase Auth | config, sem código |
-| 5 | P1 | Tabela de auditoria simples (`admin_acoes_log`: quem, quando, o quê, valor anterior/novo) gravada em toda escrita de `api/admin/atualizar-conta.ts` | migration + 1 insert no endpoint |
-| 6 | P2 | Rate limit básico em `api/cartoes/lancar-despesa.ts` por telefone (ex: Upstash/Vercel KV, ou simples contagem em tabela) | código |
-| 7 | P2 | `CHECK (cpf ~ '^\d{11}$')` em `profiles.cpf` (defesa em profundidade — já validado na API, reforça no banco) | mesma migration |
-| 8 | P2 | Wrap de `auth.uid()`/`auth.role()` em `(select ...)` nas 44 policies + índices nas 9 FKs sem cobertura | mesma migration |
-| 9 | P3 | Tabela `exclusoes_lgpd` com hash não-reversível + timestamp, inserida no fim de `api/conta/excluir.ts` | migration + 1 insert |
-| 10 | P3 | Mascarar CPF na UI do admin (mostrar só os últimos 3 dígitos) | `src/routes/_app.admin.tsx` |
-
-Itens 1, 2, 3, 7 e 8 cabem numa única migration (todos tocam RLS/constraints de `profiles` e performance das mesmas policies). Proponho rodar essa migration primeiro — é o item que fecha o risco crítico — e tratar 4-10 em paralelo ou depois, conforme prioridade.
+| 1 | **P0** | Trigger `BEFORE UPDATE` em `profiles` (`protect_profile_role()`) que bloqueia mudança de `role` quando `auth.uid()` não é nulo (bloqueia qualquer cliente autenticado comum; deixa passar SQL Editor/postgres e as Vercel Functions, que não carregam JWT de usuário) | ✅ **Aplicado e testado** |
+| 2 | **P0** | `WITH CHECK` explícito em `profiles_update_own` fixando `id` | ✅ Aplicado |
+| 3 | P1 | Revogar `EXECUTE` de `PUBLIC`/`anon`/`authenticated` em `handle_new_user()`, `rls_auto_enable()` e também na própria `protect_profile_role()` nova (nasce com `EXECUTE` público por padrão do Postgres — mesma categoria de achado, corrigida na hora) | ✅ Aplicado — `get_advisors` confirma os 2 avisos de `SECURITY DEFINER` zerados |
+| 4 | P1 | Ligar "Leaked Password Protection" no painel do Supabase Auth | ⏳ **Pendente** — só no painel (Authentication → Policies), não dá pra fazer via SQL/MCP |
+| 5 | P1 | Tabela de auditoria simples (`admin_acoes_log`: quem, quando, o quê, valor anterior/novo) gravada em toda escrita de `api/admin/atualizar-conta.ts` | ⏳ Pendente — decisão de produto (onde exibir o histórico) antes de implementar |
+| 6 | P2 | Rate limit básico em `api/cartoes/lancar-despesa.ts` por telefone | ⏳ Pendente |
+| 7 | P2 | `CHECK (cpf ~ '^\d{11}$')` em `profiles.cpf` | ✅ Aplicado (`profiles_cpf_format`) |
+| 8 | P2 | Wrap de `auth.uid()` em `(select ...)` nas 44 policies + índices nas 9 FKs sem cobertura | ✅ Aplicado — `get_advisors` (performance) confirma os 44 avisos `auth_rls_initplan` zerados; os 9 índices aparecem como "unused" por enquanto (esperado, zero tráfego neles ainda) |
+| 9 | P3 | Tabela `exclusoes_lgpd` com hash não-reversível + timestamp | ⏳ Pendente |
+| 10 | P3 | Mascarar CPF na UI do admin | ⏳ Pendente |
 
 ---
 
-## FASE 3 — VALIDAÇÃO (depois da Fase 2)
+## FASE 3 — VALIDAÇÃO
 
-Usando a conta de teste `celjordaor+kyraone@gmail.com` (e uma segunda conta de teste a ser criada, pra testar isolamento *entre* contas):
+### ✅ Feito nesta sessão (via SQL, sem precisar da conta de teste)
 
-1. **Confirmar o fechamento do crítico**: repetir o `PATCH /rest/v1/profiles {"role":"admin"}` com o token da conta de teste — tem que ser rejeitado após a migration (e eu documento que, antes da migration, esse teste teria sucesso — não vou executá-lo contra uma conta antes do fix pra não deixar uma promoção real pendente de reversão).
-2. **Isolamento entre as duas contas de teste** em todas as tabelas pessoais (categorias, cartões, transações, metas, orçamentos, saldo, faturas, despesas de cartão/parcelas): tentar ler/escrever a linha da conta B autenticado como conta A, confirmar 0 linhas / erro em todos os casos.
-3. **Endpoints `/api/admin/*`** rejeitando a conta de teste comum (403) e aceitando só depois de promovida **pela via correta** (SQL direto como postgres, ou uma rota admin-only ainda a criar — hoje não existe nenhuma, a promoção sempre foi manual via SQL Editor).
-4. **Webhook do Asaas** rejeitando chamada sem o header `asaas-access-token` certo.
-5. **`lancar-despesa.ts`** rejeitando sem `x-kyra-whatsapp-key`, e respeitando o gate de plano (conta trial/Pro passa, conta sem acesso recebe `sem_acesso_pro`).
-6. **Exclusão de conta** ponta a ponta na conta de teste: assinatura (se houver) cancelada no Asaas, as 10 tabelas + `assinaturas` + `profiles` zeradas, usuário removido do Auth, token antigo invalidado, e (se o item 9 da Fase 2 for aplicado) linha criada em `exclusoes_lgpd`.
-7. Rodar `get_advisors` (security) de novo no final — critério de sucesso: os 2 avisos de `SECURITY DEFINER` e o de leaked password resolvidos, zero aviso novo introduzido pela migration.
+1. **Fechamento do crítico confirmado**: simulei, dentro de uma transação com `ROLLBACK` (nenhum dado real tocado), uma sessão `authenticated` com `request.jwt.claims.sub` = um `profiles.id` real tentando `UPDATE profiles SET role='admin' WHERE id = <próprio id>`. Resultado: **rejeitado** — `ERRO 42501: Não autorizado a alterar role.`, disparado pelo trigger novo. Antes do fix (Fase 1), essa mesma chamada teria sucesso — não cheguei a confirmar isso contra dado real por decisão de não deixar uma promoção de verdade pendente de reversão, mas o código da policy antiga (sem `WITH CHECK`) não deixava dúvida.
+2. **Caminho legítimo continua funcionando**: a mesma simulação alterando só `name` (não `role`) passou normal. E a promoção de `role` feita sem contexto de usuário (como o SQL Editor roda, ou como as Vercel Functions operam com a service role) **continua funcionando** — testei `UPDATE profiles SET role='admin'` sem `SET ROLE authenticated`/sem JWT, sucesso (também dentro de transação com `ROLLBACK`).
+3. **`get_advisors` (security)**: zerou os 2 avisos de `SECURITY DEFINER` (e corrigiu de brinde um terceiro que a própria função nova introduziu, `protect_profile_role` nasce com `EXECUTE` público por padrão do Postgres — revogado na mesma hora). Sobra só o aviso de leaked-password-protection (item 4, pendente, painel apenas).
+4. **`get_advisors` (performance)**: zerou os 44 avisos de `auth_rls_initplan`. Os 9 índices novos aparecem como "unused" — esperado, ainda não rodou tráfego real contra eles.
+
+### ⏳ Ainda não feito — precisa de teste ponta a ponta no app (não dá pra fazer só com SQL)
+
+Itens que dependem de login real, criação de dados via UI, ou chamada HTTP contra `kyraone.com.br`/Vercel (fora do alcance de rede desta sessão sem usar um navegador):
+
+1. **Isolamento entre duas contas de teste reais** em todas as tabelas pessoais — a lógica das policies foi conferida estaticamente (todas usam `user_id = auth.uid()`/`WITH CHECK` correto) e é o mesmo padrão em todas, mas um teste ponta a ponta com duas contas reais fecha com mais confiança.
+2. **Endpoints `/api/admin/*`** rejeitando a conta de teste comum (403) e aceitando só depois de promovida pela via correta.
+3. **Webhook do Asaas** e **`lancar-despesa.ts`** rejeitando chamada sem a chave/token certos — comportamento já revisado no código (Fase 1), não testado contra produção nesta sessão.
+4. **Exclusão de conta** ponta a ponta — já testado parcialmente em sessão anterior (ver `kyraone-contexto-projeto.md` v1.10); falta a execução real do endpoint implantado.
+
+Posso fazer esses testes dinâmicos usando o navegador (Claude in Chrome) contra `kyraone.com.br` com a conta `celjordaor+kyraone@gmail.com` se você quiser — envolve logar, criar uma segunda conta de teste, e mexer em dados de teste reais (vou pedir confirmação antes de qualquer ação irreversível, como sempre). Ou, se preferir, você mesmo roda esses testes manualmente — o roteiro acima serve como roteiro de teste.
 
 ---
 
 ## Próximo passo
 
-Aguardando sua decisão sobre a Fase 2: posso aplicar os itens 1/2/3/7/8 (a migration que fecha o crítico) agora, ou prefere revisar o SQL antes de eu rodar? Os itens 5, 6, 9, 10 dependem de decisão de produto (ex: onde mostrar o log de auditoria) e posso detalhar cada um à parte.
+O crítico está fechado e validado. Restam, por ordem de prioridade: (4) ligar leaked-password-protection no painel (2 minutos, só você); (5) log de auditoria do admin; (6) rate limit do `lancar-despesa.ts`; (9) tabela de exclusões LGPD; (10) mascarar CPF no admin. Nenhum desses é urgente como o crítico era — posso detalhar e implementar cada um conforme prioridade, ou podemos rodar os testes dinâmicos da Fase 3 primeiro.
