@@ -129,7 +129,7 @@ function ScopeSheet({ open, onClose, expenseType, action, onSingle, onFuture, lo
 // ── Seção e FieldRow ── mesmo padrão de nova-despesa ──────────────────────
 function TxSection({ title, children }: { title?: string; children: React.ReactNode }) {
   return (
-    <div style={{ paddingLeft:"1rem", paddingRight:"1rem", marginBottom:"0.75rem" }}>
+    <div className="px-4 md:px-0" style={{ marginBottom:"0.75rem" }}>
       {title && <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 px-0.5">{title}</p>}
       <div className="w-full rounded-2xl bg-white dark:bg-card shadow-sm border border-slate-100 dark:border-border overflow-hidden">
         {children}
@@ -331,12 +331,11 @@ function EditarDespesaPage() {
   const typeColor = TYPE_COLOR[expenseType];
 
   return (
-    <div style={{ width:"100vw", maxWidth:"100vw", overflowX:"hidden" }}
-      className="min-h-screen bg-background md:max-w-2xl md:mx-auto">
+    <div className="w-full overflow-x-hidden min-h-screen bg-background md:max-w-4xl md:mx-auto">
 
-      {/* HEADER */}
-      <div style={{ background: canEdit ? "#4f46e5" : "#64748b", paddingTop:"calc(env(safe-area-inset-top,0px) + 1rem)" }}
-        className="text-white px-4 pb-8">
+      {/* HEADER (mobile) */}
+      <div className="md:hidden text-white px-4 pb-8"
+        style={{ background: canEdit ? "#4f46e5" : "#64748b", paddingTop:"calc(env(safe-area-inset-top,0px) + 1rem)" }}>
         <div className="flex items-center justify-between">
           <button onClick={() => router.history.back()}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/20">
@@ -353,12 +352,44 @@ function EditarDespesaPage() {
         </div>
       </div>
 
+      {/* HEADER (desktop, compacto) */}
+      <div className="hidden md:flex md:items-center md:justify-between md:px-1 md:pt-5 md:pb-4">
+        <h1 className="text-[17px] font-bold text-foreground">
+          {invoiceStatus === "paid"
+            ? "Detalhes da despesa"
+            : invoiceStatus === "closed"
+            ? "Editar despesa (fatura fechada)"
+            : "Editar despesa"}
+        </h1>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-semibold text-white"
+            style={{ background: typeColor }}>
+            {TYPE_ICON[expenseType]}
+            {TYPE_LABEL[expenseType]}
+          </div>
+          {invoiceStatus === "paid" && (
+            <div className="flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-[12px] font-semibold text-slate-500">
+              <Lock className="h-3 w-3" /> Fatura paga
+            </div>
+          )}
+          {invoiceStatus === "closed" && (
+            <div className="flex items-center gap-1 rounded-full bg-slate-800/10 px-3 py-1 text-[12px] font-semibold text-slate-600">
+              🔒 Fatura fechada — edições permitidas
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Corpo: no desktop, formulário (esquerda) + resumo fixo (direita) ── */}
+      <div className="md:grid md:grid-cols-[1.4fr_1fr] md:gap-6 md:items-start md:px-1">
+      <div>
+
       {/* VALOR */}
-      <div style={{ paddingLeft:"1rem", paddingRight:"1rem", marginTop:"-1rem", marginBottom:"1.25rem" }}>
+      <div className="md:mx-0 md:mt-0" style={{ paddingLeft:"1rem", paddingRight:"1rem", marginTop:"-1rem", marginBottom:"1.25rem" }}>
         <div style={{ borderRadius:"1.5rem", background:"white", overflow:"hidden", boxShadow:"0 10px 25px rgba(0,0,0,.1)" }}>
           <div className="px-5 pt-5 pb-3">
-            {/* Tipo da despesa */}
-            <div className="flex items-center gap-2 mb-3">
+            {/* Tipo da despesa (mobile) */}
+            <div className="md:hidden flex items-center gap-2 mb-3">
               <div className="flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-semibold text-white"
                 style={{ background: typeColor }}>
                 {TYPE_ICON[expenseType]}
@@ -438,9 +469,9 @@ function EditarDespesaPage() {
           </FieldRow>
         </TxSection>
 
-        {/* Botões */}
+        {/* Botões (mobile) */}
         {canEdit && (
-          <div style={{ paddingLeft:"1rem", paddingRight:"1rem", marginTop:"0.5rem" }} className="space-y-3">
+          <div className="md:hidden space-y-3" style={{ paddingLeft:"1rem", paddingRight:"1rem", marginTop:"0.5rem" }}>
             <button onClick={handleSave} disabled={saving}
               className="flex w-full h-[60px] items-center justify-center rounded-2xl text-white font-bold text-[17px] transition-all active:scale-95 disabled:opacity-70"
               style={{ background:"#4f46e5", boxShadow:"0 6px 20px #4f46e544" }}>
@@ -456,13 +487,69 @@ function EditarDespesaPage() {
         )}
 
         {!canEdit && (
-          <div style={{ paddingLeft:"1rem", paddingRight:"1rem", marginTop:"0.5rem" }}>
+          <div className="md:hidden" style={{ paddingLeft:"1rem", paddingRight:"1rem", marginTop:"0.5rem" }}>
             <button onClick={() => router.history.back()}
               className="flex w-full h-[60px] items-center justify-center rounded-2xl font-bold text-[17px] bg-slate-100 text-slate-600 transition-all active:scale-95">
               Fechar
             </button>
           </div>
         )}
+      </div>
+
+      </div>
+
+      {/* ── Resumo fixo (desktop) ──────────────────────────────────── */}
+      <aside className="hidden md:block md:sticky md:top-5">
+        <div className="overflow-hidden rounded-2xl text-white"
+          style={{ background: "linear-gradient(135deg, #03264E, #0b3a66)" }}>
+          <div className="p-5">
+            <span className="inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wide"
+              style={{ background: "rgba(255,255,255,.15)" }}>
+              {TYPE_LABEL[expenseType].toUpperCase()}
+            </span>
+            <p className="mt-3 font-bold" style={{ fontFamily: "'Sora', sans-serif", fontSize: "26px" }}>
+              {amountDisplay ? `R$ ${amountDisplay}` : "R$ 0,00"}
+            </p>
+            <div className="mt-3 space-y-2 border-t border-white/15 pt-3 text-[12.5px]">
+              <div className="flex justify-between gap-3 text-white/70">
+                <span>Descrição</span>
+                <span className="truncate text-right font-medium text-white">{description || "—"}</span>
+              </div>
+              <div className="flex justify-between gap-3 text-white/70">
+                <span>Categoria</span>
+                <span className="truncate text-right font-medium text-white">{category || "—"}</span>
+              </div>
+              <div className="flex justify-between gap-3 text-white/70">
+                <span>Data</span>
+                <span className="font-medium text-white">
+                  {date ? `${date.slice(8,10)}/${date.slice(5,7)}/${date.slice(0,4)}` : "—"}
+                </span>
+              </div>
+            </div>
+
+            {canEdit ? (
+              <div className="mt-4 space-y-2">
+                <button onClick={handleSave} disabled={saving}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-[14px] font-bold text-white transition-opacity disabled:opacity-60"
+                  style={{ background: "#4f46e5" }}>
+                  <Save className="h-4 w-4" />
+                  {saving ? "Salvando..." : "Salvar alterações"}
+                </button>
+                <button onClick={handleDelete} disabled={saving}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-[13px] font-semibold text-red-300 bg-white/5 border border-white/15 transition-opacity disabled:opacity-60">
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Excluir despesa
+                </button>
+              </div>
+            ) : (
+              <button onClick={() => router.history.back()}
+                className="mt-4 flex w-full items-center justify-center rounded-xl py-3 text-[14px] font-bold text-white/90 bg-white/10">
+                Fechar
+              </button>
+            )}
+          </div>
+        </div>
+      </aside>
       </div>
 
       {/* BOTTOM SHEET: CATEGORIA */}
