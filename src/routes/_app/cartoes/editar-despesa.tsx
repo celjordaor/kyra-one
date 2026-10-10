@@ -331,7 +331,7 @@ function EditarDespesaPage() {
   const typeColor = TYPE_COLOR[expenseType];
 
   return (
-    <div className="w-full overflow-x-hidden min-h-screen bg-background md:max-w-4xl md:mx-auto">
+    <div className="w-full overflow-x-hidden min-h-screen bg-background md:max-w-3xl md:mx-auto">
 
       {/* HEADER (mobile) */}
       <div className="md:hidden text-white px-4 pb-8"
@@ -381,13 +381,13 @@ function EditarDespesaPage() {
       </div>
 
       {/* ── Corpo: no desktop, formulário (esquerda) + resumo fixo (direita) ── */}
-      <div className="md:grid md:grid-cols-[1.4fr_1fr] md:gap-6 md:items-start md:px-1">
-      <div>
+      <div className="md:grid md:grid-cols-[1fr_300px] md:gap-5 md:items-start md:px-1">
+      <div className="md:min-w-0">
 
       {/* VALOR */}
       <div className="md:mx-0 md:mt-0" style={{ paddingLeft:"1rem", paddingRight:"1rem", marginTop:"-1rem", marginBottom:"1.25rem" }}>
         <div style={{ borderRadius:"1.5rem", background:"white", overflow:"hidden", boxShadow:"0 10px 25px rgba(0,0,0,.1)" }}>
-          <div className="px-5 pt-5 pb-3">
+          <div className="px-5 pt-5 pb-3 md:px-4 md:pt-4 md:pb-2">
             {/* Tipo da despesa (mobile) */}
             <div className="md:hidden flex items-center gap-2 mb-3">
               <div className="flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-semibold text-white"
@@ -406,10 +406,11 @@ function EditarDespesaPage() {
                 </div>
               )}
             </div>
-            <p className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color: typeColor }}>
+            <p className="text-[11px] font-bold uppercase tracking-widest mb-2 md:text-[10px] md:mb-1.5" style={{ color: typeColor }}>
               VALOR DA DESPESA
             </p>
-            <div className="flex items-baseline gap-2">
+            {/* Mobile: número grande (clamp até 3rem) */}
+            <div className="md:hidden flex items-baseline gap-2">
               <span className="text-2xl font-bold text-slate-400 shrink-0">R$</span>
               {canEdit ? (
                 <input type="text" inputMode="numeric" value={amountDisplay}
@@ -424,6 +425,20 @@ function EditarDespesaPage() {
                 </span>
               )}
             </div>
+            {/* Desktop: número compacto */}
+            <div className="hidden md:flex items-baseline gap-1.5">
+              <span className="text-lg font-bold text-slate-400 shrink-0">R$</span>
+              {canEdit ? (
+                <input type="text" inputMode="numeric" value={amountDisplay}
+                  onChange={e => { const f = fmtInput(e.target.value); setAmountDisplay(f); }}
+                  className="min-w-0 flex-1 font-bold text-slate-800 bg-transparent outline-none placeholder-slate-200 text-[1.75rem] leading-tight"
+                  placeholder="0,00" />
+              ) : (
+                <span className="font-bold text-slate-800 text-[1.75rem] leading-tight">
+                  {amountDisplay}
+                </span>
+              )}
+            </div>
           </div>
           <div className="h-1" style={{ background: `linear-gradient(to right, ${typeColor}33, ${typeColor})` }} />
         </div>
@@ -432,38 +447,38 @@ function EditarDespesaPage() {
       {/* CAMPOS */}
       <div className="pb-4">
         <TxSection title="Informações">
-          <FieldRow icon={<FileText className="h-5 w-5" />} label="Descrição" readonly={!canEdit}>
+          <FieldRow icon={<FileText className="h-5 w-5 md:h-4 md:w-4" />} label="Descrição" readonly={!canEdit}>
             {canEdit ? (
               <input value={description} onChange={e => setDescription(e.target.value)}
-                className="text-[16px] font-medium text-slate-800 bg-transparent outline-none w-full placeholder-slate-300"
+                className="text-[16px] md:text-[14px] font-medium text-slate-800 bg-transparent outline-none w-full placeholder-slate-300"
                 placeholder="Descrição da despesa" />
             ) : (
-              <p className="text-[16px] font-medium text-slate-800">{description}</p>
+              <p className="text-[16px] md:text-[14px] font-medium text-slate-800">{description}</p>
             )}
           </FieldRow>
 
           <FieldRow
             icon={selectedCat
-              ? <div className="h-10 w-10 rounded-xl flex items-center justify-center text-xl"
+              ? <div className="h-10 w-10 md:h-9 md:w-9 rounded-xl flex items-center justify-center text-xl md:text-base"
                   style={{ background: (selectedCat.color || "#6b7280") + "22" }}>
-                  {isEmoji(selectedCat.icon || "") ? selectedCat.icon : <Tag className="h-5 w-5" />}
+                  {isEmoji(selectedCat.icon || "") ? selectedCat.icon : <Tag className="h-5 w-5 md:h-4 md:w-4" />}
                 </div>
-              : <Tag className="h-5 w-5" />}
+              : <Tag className="h-5 w-5 md:h-4 md:w-4" />}
             label="Categoria"
             onClick={canEdit ? () => setOpenCat(true) : undefined}
             readonly={!canEdit}
             last>
-            <p className={cn("text-[16px] font-medium", category ? "text-slate-800" : "text-slate-300")}>
+            <p className={cn("text-[16px] md:text-[14px] font-medium", category ? "text-slate-800" : "text-slate-300")}>
               {category || "Selecione a categoria"}
             </p>
           </FieldRow>
         </TxSection>
 
         <TxSection title="Data">
-          <FieldRow icon={<Calendar className="h-5 w-5" />} label="Data da compra" last readonly={!canEdit}>
+          <FieldRow icon={<Calendar className="h-5 w-5 md:h-4 md:w-4" />} label="Data da compra" last readonly={!canEdit}>
             {canEdit
               ? <DatePicker value={date} onChange={setDate} />
-              : <p className="text-[16px] font-medium text-slate-800">
+              : <p className="text-[16px] md:text-[14px] font-medium text-slate-800">
                   {date ? new Date(date + "T12:00:00").toLocaleDateString("pt-BR", { dateStyle: "long" }) : "—"}
                 </p>}
           </FieldRow>
@@ -499,18 +514,18 @@ function EditarDespesaPage() {
       </div>
 
       {/* ── Resumo fixo (desktop) ──────────────────────────────────── */}
-      <aside className="hidden md:block md:sticky md:top-5">
+      <aside className="hidden md:block md:sticky md:top-5 md:min-w-0">
         <div className="overflow-hidden rounded-2xl text-white"
           style={{ background: "linear-gradient(135deg, #03264E, #0b3a66)" }}>
-          <div className="p-5">
-            <span className="inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wide"
+          <div className="p-4">
+            <span className="inline-flex rounded-full px-2 py-0.5 text-[9px] font-bold tracking-wide"
               style={{ background: "rgba(255,255,255,.15)" }}>
               {TYPE_LABEL[expenseType].toUpperCase()}
             </span>
-            <p className="mt-3 font-bold" style={{ fontFamily: "'Sora', sans-serif", fontSize: "26px" }}>
+            <p className="mt-2 font-bold" style={{ fontFamily: "'Sora', sans-serif", fontSize: "20px" }}>
               {amountDisplay ? `R$ ${amountDisplay}` : "R$ 0,00"}
             </p>
-            <div className="mt-3 space-y-2 border-t border-white/15 pt-3 text-[12.5px]">
+            <div className="mt-2.5 space-y-1.5 border-t border-white/15 pt-2.5 text-[11.5px]">
               <div className="flex justify-between gap-3 text-white/70">
                 <span>Descrição</span>
                 <span className="truncate text-right font-medium text-white">{description || "—"}</span>
@@ -528,22 +543,22 @@ function EditarDespesaPage() {
             </div>
 
             {canEdit ? (
-              <div className="mt-4 space-y-2">
+              <div className="mt-3 space-y-1.5">
                 <button onClick={handleSave} disabled={saving}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-[14px] font-bold text-white transition-opacity disabled:opacity-60"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-[13px] font-bold text-white transition-opacity disabled:opacity-60"
                   style={{ background: "#4f46e5" }}>
-                  <Save className="h-4 w-4" />
+                  <Save className="h-3.5 w-3.5" />
                   {saving ? "Salvando..." : "Salvar alterações"}
                 </button>
                 <button onClick={handleDelete} disabled={saving}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-[13px] font-semibold text-red-300 bg-white/5 border border-white/15 transition-opacity disabled:opacity-60">
+                  className="flex w-full items-center justify-center gap-2 rounded-xl py-2 text-[12px] font-semibold text-red-300 bg-white/5 border border-white/15 transition-opacity disabled:opacity-60">
                   <Trash2 className="h-3.5 w-3.5" />
                   Excluir despesa
                 </button>
               </div>
             ) : (
               <button onClick={() => router.history.back()}
-                className="mt-4 flex w-full items-center justify-center rounded-xl py-3 text-[14px] font-bold text-white/90 bg-white/10">
+                className="mt-3 flex w-full items-center justify-center rounded-xl py-2.5 text-[13px] font-bold text-white/90 bg-white/10">
                 Fechar
               </button>
             )}
