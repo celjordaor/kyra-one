@@ -82,12 +82,12 @@ Rodadas via `mcp__Supabase__execute_sql` direto no projeto `eqzqrwbtibelafvzvbfb
 | 2 | **P0** | `WITH CHECK` explícito em `profiles_update_own` fixando `id` | ✅ Aplicado |
 | 3 | P1 | Revogar `EXECUTE` de `PUBLIC`/`anon`/`authenticated` em `handle_new_user()`, `rls_auto_enable()` e também na própria `protect_profile_role()` nova (nasce com `EXECUTE` público por padrão do Postgres — mesma categoria de achado, corrigida na hora) | ✅ Aplicado — `get_advisors` confirma os 2 avisos de `SECURITY DEFINER` zerados |
 | 4 | P1 | Ligar "Leaked Password Protection" no painel do Supabase Auth | ⏳ **Pendente** — só no painel (Authentication → Policies), não dá pra fazer via SQL/MCP |
-| 5 | P1 | Tabela de auditoria simples (`admin_acoes_log`: quem, quando, o quê, valor anterior/novo) gravada em toda escrita de `api/admin/atualizar-conta.ts` | ⏳ Pendente — decisão de produto (onde exibir o histórico) antes de implementar |
-| 6 | P2 | Rate limit básico em `api/cartoes/lancar-despesa.ts` por telefone | ⏳ Pendente |
+| 5 | P1 | Tabela de auditoria `admin_acoes_log` (quem, quando, campo, valor anterior/novo), gravada a cada escrita de `api/admin/atualizar-conta.ts` | ✅ Aplicado — tabela criada (RLS sem policy, só service role lê), `registrarLog()` chamado nas 4 ações (status/plano/trial/cpf). Sem UI de leitura ainda — hoje só consultável via SQL Editor; se quiser ver no painel, é uma seção nova em `/admin` |
+| 6 | P2 | Rate limit básico em `api/cartoes/lancar-despesa.ts` | ✅ Aplicado — bloqueia (`429 muitas_despesas_rapido`) acima de 8 despesas lançadas no mesmo minuto pro mesmo usuário, contando direto em `card_expenses.created_at` (sem infra nova) |
 | 7 | P2 | `CHECK (cpf ~ '^\d{11}$')` em `profiles.cpf` | ✅ Aplicado (`profiles_cpf_format`) |
 | 8 | P2 | Wrap de `auth.uid()` em `(select ...)` nas 44 policies + índices nas 9 FKs sem cobertura | ✅ Aplicado — `get_advisors` (performance) confirma os 44 avisos `auth_rls_initplan` zerados; os 9 índices aparecem como "unused" por enquanto (esperado, zero tráfego neles ainda) |
-| 9 | P3 | Tabela `exclusoes_lgpd` com hash não-reversível + timestamp | ⏳ Pendente |
-| 10 | P3 | Mascarar CPF na UI do admin | ⏳ Pendente |
+| 9 | P3 | Tabela `exclusoes_lgpd` com hash não-reversível + timestamp, inserida no fim de `api/conta/excluir.ts` | ✅ Aplicado — `sha256(email)` gravado depois do `deleteUser`, não bloqueia a resposta se falhar |
+| 10 | P3 | Mascarar CPF na UI do admin | ✅ Aplicado — `api/admin/dashboard.ts` agora devolve o CPF mascarado (`••••••••XXX`, só os 3 últimos dígitos) na listagem geral; o campo de edição em `/admin` começa vazio (placeholder mostra o valor mascarado) em vez de pré-carregar a máscara como se fosse o CPF real |
 
 ---
 

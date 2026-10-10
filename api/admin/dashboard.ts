@@ -51,6 +51,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const emailPorId = new Map((usuariosAuth?.users ?? []).map((u) => [u.id, u.email ?? ""]));
     const cpfPorId = new Map((perfis ?? []).map((p) => [p.id as string, (p as { cpf?: string }).cpf ?? ""]));
 
+    // Mascara o CPF na listagem geral (docs/auditoria-seguranca-2026-10.md,
+    // item 10) — evita devolver CPF em texto plano de todos os assinantes
+    // numa única resposta. Só os 3 últimos dígitos ficam visíveis.
+    function mascararCpf(cpf: string): string {
+      if (cpf.length !== 11) return cpf ? "•••••••••••" : "";
+      return `••••••••${cpf.slice(-3)}`;
+    }
+
     const totalContas = perfis?.length ?? 0;
     const assinantesAtivos = (assinaturas ?? []).filter((a) => a.status === "ativa");
     const emTrial = (assinaturas ?? []).filter(
@@ -76,7 +84,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .map((a) => ({
         profileId: a.profile_id,
         email: emailPorId.get(a.profile_id as string) ?? "—",
-        cpf: cpfPorId.get(a.profile_id as string) ?? "",
+        cpf: mascararCpf(cpfPorId.get(a.profile_id as string) ?? ""),
         planoId: a.plano,
         plano: buscarPlano(a.plano as string)?.nome ?? a.plano,
         status: a.status,

@@ -4,6 +4,7 @@
 // remove o usuário do Supabase Auth. Irreversível — a confirmação final
 // acontece no client (ver excluir-conta-dialog.tsx) antes de chegar aqui.
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { createHash } from "node:crypto";
 import { cancelarAssinatura } from "../_lib/asaas.js";
 import { clienteAdmin, usuarioAutenticado } from "../_lib/supabase-admin.js";
 
@@ -97,6 +98,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({
       erro: "Seus dados foram apagados, mas não consegui remover sua conta de acesso. Fala com o suporte.",
     });
+  }
+
+  // 4) Comprovante não-reversível da exclusão (LGPD art. 18 — ver
+  // docs/auditoria-seguranca-2026-10.md, item 9). Só o hash do e-mail, nunca
+  // o e-mail em si — não dá pra reconstruir o original a partir daqui. Não
+  // bloqueia a resposta se falhar: os dados pessoais já foram apagados de
+  // verdade nos passos 1-3, que é o que importa.
+  if (user.email) {
+    const hashEmail = createHash("sha256").update(user.email).digest("hex");
+    const { error: erroLog } = await admin.from("exclusoes_lgpd").insert({ hash_email: hashEmail });
+    if (erroLog) console.error("Erro ao registrar comprovante de exclusão LGPD:", erroLog);
   }
 
   return res.status(200).json({ ok: true });

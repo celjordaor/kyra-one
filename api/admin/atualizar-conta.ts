@@ -50,6 +50,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(404).json({ erro: "Essa conta não tem assinatura cadastrada." });
     }
 
+    const { data: perfilAlvo } = await admin.from("profiles").select("cpf").eq("id", profileId).maybeSingle();
+
+    // Auditoria (docs/auditoria-seguranca-2026-10.md, item 5): registra quem
+    // mudou o quê, quando, e o valor de/para — não bloqueia a resposta ao
+    // admin se a gravação do log falhar (a ação em si já foi bem-sucedida).
+    async function registrarLog(campo: string, valorAnterior: unknown, valorNovo: unknown) {
+      const { error } = await admin!.from("admin_acoes_log").insert({
+        admin_id: user!.id,
+        profile_id_alvo: profileId,
+        campo,
+        valor_anterior: valorAnterior === null || valorAnterior === undefined ? null : String(valorAnterior),
+        valor_novo: valorNovo === null || valorNovo === undefined ? null : String(valorNovo),
+      });
+      if (error) console.error("[admin/atualizar-conta] erro ao gravar log de auditoria:", error);
+    }
+
     // ── Trocar status (suspender / reativar / marcar inadimplente etc.) ──
     if (body.status !== undefined) {
       const novoStatus = body.status as string;
@@ -61,6 +77,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .update({ status: novoStatus, updated_at: new Date().toISOString() })
         .eq("profile_id", profileId);
       if (error) throw error;
+      await registrarLog("assinaturas.status", assinaturaAtual.status, novoStatus);
     }
 
     // ── Trocar plano ──
@@ -74,6 +91,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .update({ plano: plano.id, updated_at: new Date().toISOString() })
         .eq("profile_id", profileId);
       if (error) throw error;
+      await registrarLog("assinaturas.plano", assinaturaAtual.plano, plano.id);
     }
 
     // ── Estender trial (soma dias ao trial_fim atual, ou a partir de agora
@@ -105,6 +123,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         })
         .eq("profile_id", profileId);
       if (error) throw error;
+      await registrarLog("assinaturas.trial_fim", assinaturaAtual.trial_fim, novoTrialFim.toISOString());
     }
 
     // ── Editar CPF ──
@@ -115,6 +134,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       const { error } = await admin.from("profiles").update({ cpf }).eq("id", profileId);
       if (error) throw error;
+      await registrarLog("profiles.cpf", perfilAlvo?.cpf ?? null, cpf);
     }
 
     return res.status(200).json({ ok: true });

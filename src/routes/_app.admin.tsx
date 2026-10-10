@@ -127,7 +127,10 @@ function AdminPage() {
     setEditandoId(a.profileId);
     setFStatus(a.status);
     setFPlano(a.planoId);
-    setFCpf(a.cpf || "");
+    // CPF vem mascarado do /api/admin/dashboard (só os 3 últimos dígitos) —
+    // começa vazio pra não salvar a máscara sem querer; o placeholder mostra
+    // o que já está cadastrado.
+    setFCpf("");
     setFDiasTrial("7");
   }
 
@@ -311,7 +314,7 @@ function AdminPage() {
                         <Input
                           value={fCpf}
                           onChange={(e) => setFCpf(e.target.value)}
-                          placeholder="000.000.000-00"
+                          placeholder={a.cpf ? `Atual: ${a.cpf}` : "000.000.000-00"}
                           className="h-9 flex-1"
                         />
                         <Button size="sm" disabled={salvando} onClick={() => salvar("cpf", a)}>

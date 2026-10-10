@@ -102,6 +102,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const userId = perfil.id as string;
   const ehSuperadmin = perfil.role === "admin";
 
+  // ── 1b. Rate limit básico (docs/auditoria-seguranca-2026-10.md, item 6) ──
+  // Protege contra abuso se a KYRA_WHATSAPP_API_KEY vazar: um usuário real
+  // mandando mensagem pro WhatsApp não lança mais que uns poucos lançamentos
+  // por minuto. Conta despesas recém-criadas pro mesmo usuário em vez de
+  // depender de infra extra (Redis/KV) — já temos `created_at` em
+  // `card_expenses`.
+  const umMinutoAtras = new Date(Date.now() - 60_000).toISOString();
+  const { count: lancamentosRecentes } = await admin
+    .from("card_expenses")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .gte("created_at", umMinutoAtras);
+  if ((lancamentosRecentes ?? 0) >= 8) {
+    return res.status(429).json({ erro: "muitas_despesas_rapido" });
+  }
+
   // ── 2. Checa gating (Kyra One Pro, ou trial ainda ativo, ou superadmin) ──
   if (!ehSuperadmin) {
     const { data: assinatura } = await admin
