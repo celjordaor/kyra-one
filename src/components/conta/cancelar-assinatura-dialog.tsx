@@ -31,7 +31,7 @@ export function CancelarAssinaturaDialog({
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  onConfirmarCancelamento: () => Promise<void> | void;
+  onConfirmarCancelamento: () => Promise<boolean>;
 }) {
   const est = useAssinatura();
   const recarregar = useRecarregarAssinatura();
@@ -98,8 +98,15 @@ export function CancelarAssinaturaDialog({
   async function confirmarCancelamento() {
     setCarregando(true);
     try {
-      await onConfirmarCancelamento();
-      fechar();
+      // onConfirmarCancelamento() (a função cancelar() de /assinar) já
+      // mostra seu próprio toast de erro/sucesso e nunca lança — só fecha
+      // o diálogo quando ela de fato conseguir cancelar, senão o usuário
+      // fica com um diálogo fechado e nenhuma pista do que deu errado.
+      const sucesso = await onConfirmarCancelamento();
+      if (sucesso) fechar();
+    } catch (erro) {
+      console.error("Erro ao confirmar cancelamento:", erro);
+      toast.error("Não consegui cancelar agora. Tenta de novo.");
     } finally {
       setCarregando(false);
     }

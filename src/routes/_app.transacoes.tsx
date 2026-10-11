@@ -24,6 +24,7 @@ import {
 } from "@/components/cartoes/expense-detail-modal";
 import { ScopeBottomSheet } from "@/components/scope-bottom-sheet";
 import { TransactionEditDialog } from "@/components/transacoes/transaction-edit-dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export const Route = createFileRoute("/_app/transacoes")({
   head: () => ({ meta: [{ title: "Transações — Finanças Pessoais" }] }),
@@ -120,6 +121,10 @@ function TransacoesPage() {
   const [sort, setSort]                   = useState<SortKey>("date-desc");
   const [editingId, setEditingId]         = useState<string | null>(null);
   const [deleteScopeTarget, setDeleteScopeTarget] = useState<Transaction | null>(null);
+  // Confirmação pra exclusão de uma transação avulsa (sem série) — antes o
+  // clique na lixeira apagava direto, sem nenhuma confirmação, a mesma
+  // falha já corrigida no botão "Cancelar assinatura".
+  const [deleteSingleTarget, setDeleteSingleTarget] = useState<Transaction | null>(null);
   const [editScopeTarget, setEditScopeTarget] = useState<Transaction | null>(null);
   const [bulkEdit, setBulkEdit]               = useState(false);
   const [showTransactions, setShowTransactions] = useState(true);
@@ -421,7 +426,7 @@ function TransacoesPage() {
                                 if (isSeriesTransaction(t)) {
                                   setDeleteScopeTarget(t);
                                 } else {
-                                  deleteTransactionWithScope(t, "single");
+                                  setDeleteSingleTarget(t);
                                 }
                               }}
                               disabled={t.settled}
@@ -573,6 +578,24 @@ function TransacoesPage() {
         onSelect={(scope) => {
           if (deleteScopeTarget) deleteTransactionWithScope(deleteScopeTarget, scope);
           setDeleteScopeTarget(null);
+        }}
+      />
+
+      {/* Confirmação de exclusão de transação avulsa (sem série) */}
+      <ConfirmDialog
+        open={!!deleteSingleTarget}
+        onClose={() => setDeleteSingleTarget(null)}
+        variant="destructive"
+        title="Excluir transação?"
+        confirmLabel="Excluir"
+        description={
+          deleteSingleTarget
+            ? `"${getDisplayTitle(deleteSingleTarget)}" será excluída permanentemente. Essa ação não pode ser desfeita.`
+            : ""
+        }
+        onConfirm={() => {
+          if (deleteSingleTarget) deleteTransactionWithScope(deleteSingleTarget, "single");
+          setDeleteSingleTarget(null);
         }}
       />
     </div>

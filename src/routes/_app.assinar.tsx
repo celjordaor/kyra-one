@@ -101,13 +101,20 @@ function AssinarPage() {
     }
   }
 
-  async function cancelar() {
+  // Devolve se cancelou com sucesso — usado por CancelarAssinaturaDialog pra
+  // só fechar o diálogo quando a chamada realmente funcionou (antes, mesmo
+  // com erro, o diálogo fechava igual, já que essa função engolia o erro
+  // internamente e nunca sinalizava falha pra quem chamou).
+  async function cancelar(): Promise<boolean> {
     setCarregando(true);
     try {
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      if (!session) return;
+      if (!session) {
+        toast.error("Sessão expirada. Entra de novo.");
+        return false;
+      }
 
       const resp = await fetch("/api/asaas/cancelar", {
         method: "POST",
@@ -116,13 +123,17 @@ function AssinarPage() {
           Authorization: `Bearer ${session.access_token}`,
         },
       });
-      const dados = await resp.json();
+      const dados = await resp.json().catch(() => null);
       if (!resp.ok) {
         toast.error(dados?.erro ?? "Não consegui cancelar agora.");
-        return;
+        return false;
       }
       await recarregar();
       toast.success("Assinatura cancelada.");
+      return true;
+    } catch {
+      toast.error("Não consegui cancelar agora. Tenta de novo.");
+      return false;
     } finally {
       setCarregando(false);
     }
@@ -142,7 +153,10 @@ function AssinarPage() {
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      if (!session) return;
+      if (!session) {
+        toast.error("Sessão expirada. Entra de novo.");
+        return;
+      }
 
       const resp = await fetch("/api/asaas/cancelar", {
         method: "POST",
@@ -151,7 +165,7 @@ function AssinarPage() {
           Authorization: `Bearer ${session.access_token}`,
         },
       });
-      const dados = await resp.json();
+      const dados = await resp.json().catch(() => null);
       if (!resp.ok) {
         toast.error(dados?.erro ?? "Não consegui trocar de plano agora.");
         return;
@@ -162,6 +176,8 @@ function AssinarPage() {
       toast.success(
         `Assinatura atual cancelada. Agora é só confirmar o ${outroPlano.nome} abaixo.`
       );
+    } catch {
+      toast.error("Não consegui trocar de plano agora. Tenta de novo.");
     } finally {
       setCarregando(false);
     }

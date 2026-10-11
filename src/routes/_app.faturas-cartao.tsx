@@ -1,6 +1,7 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, ChevronRight, CreditCard, Lock } from "lucide-react";
+import { toast } from "sonner";
 import { useCardStore } from "@/lib/card-store";
 import { cn } from "@/lib/utils";
 
@@ -48,6 +49,9 @@ function FaturasCartaoPage() {
         await Promise.all(
           activeCards.flatMap(card => [ensureInvoices(card), fetchInvoices(card.id)])
         );
+      } catch (erro) {
+        console.error("Erro ao carregar cartões/faturas:", erro);
+        toast.error("Não consegui carregar seus cartões e faturas. Tenta recarregar a página.");
       } finally { setLoading(false); }
     })();
   }, []);

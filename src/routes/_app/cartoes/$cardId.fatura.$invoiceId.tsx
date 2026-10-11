@@ -72,6 +72,9 @@ function FaturaDetailPage() {
         await fetchInvoices(cardId);
         await fetchExpenses(invoiceId);
         await fetchInstallments(invoiceId);
+      } catch (erro) {
+        console.error("Erro ao carregar fatura:", erro);
+        toast.error("Não consegui carregar essa fatura. Tenta recarregar a página.");
       } finally {
         setLoading(false);
       }

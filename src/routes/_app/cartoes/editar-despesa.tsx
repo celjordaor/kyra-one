@@ -175,6 +175,9 @@ function EditarDespesaPage() {
         setInstallNum(data.installment_number ?? 1);
         const abs = Math.abs(data.amount ?? 0);
         setAmountDisplay(abs.toLocaleString("pt-BR", { minimumFractionDigits: 2 }));
+      } catch (erro) {
+        console.error("Erro ao carregar despesa:", erro);
+        toast.error("Não consegui carregar essa despesa. Tenta de novo.");
       } finally { setLoading(false); }
     })();
   }, [expenseId, isInstallment]);

@@ -71,7 +71,16 @@ async function loadFromSupabase(): Promise<void> {
       if (!error && data) {
         cache = data.map(mapRow);
         notify();
+      } else if (error) {
+        // Antes, um erro aqui (ex: RLS, rede) era só ignorado — o dashboard
+        // ficava mostrando a cache antiga/vazia sem nenhuma pista do porquê.
+        // Sem toast aqui de propósito (carregamento roda em background, às
+        // vezes repetidas vezes — um toast a cada falha transitória seria
+        // barulho); pelo menos fica no console pra investigar.
+        console.error("Erro ao carregar transações:", error);
       }
+    } catch (erro) {
+      console.error("Erro inesperado ao carregar transações:", erro);
     } finally {
       loadingPromise = null;
     }
