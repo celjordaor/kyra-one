@@ -1571,7 +1571,7 @@ function PendingSection({transactions,showValues,selectedMonth,selectedYear,card
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 mb-2">
                 <TrendingDown className="h-4 w-4 text-amber-600"/>
               </div>
-              <p className="text-xs text-muted-foreground">Despesas</p>
+              <p className="text-xs text-muted-foreground">Despesas em aberto</p>
               <p className="text-lg font-bold text-amber-700 mt-0.5">{showValues?fmtCurrency(totalExpenses):"••••"}</p>
               <p className="text-[11px] text-amber-600 mt-0.5">{pendingExpenses.length} pendente{pendingExpenses.length!==1?"s":""}</p>
             </button>
