@@ -180,39 +180,54 @@ function BudgetsSection() {
   const [deleting, setDeleting] = useState<Budget | null>(null);
   const [detailBudget, setDetailBudget] = useState<Budget | null>(null);
 
-  // ── Despesas de cartão de crédito por mês de compra ───────────────────────
-  // Buscamos card_expenses e card_installments pelo purchase_date (data da compra),
-  // não pela data de vencimento da fatura. Assim "Alimentação" de julho aparece
-  // no orçamento de julho mesmo que a fatura só vença em agosto.
-  // `id`/`description` só são usados pelo detalhamento por item (BudgetDetailDialog);
-  // os totais em spentByCategory continuam usando só category/amount/purchase_date.
+  // ── Despesas de cartão de crédito do mês ──────────────────────────────────
+  // FIX: antes buscávamos por `purchase_date` dentro do mês civil atual — mas
+  // em compra parcelada (card-store.ts/addExpense), TODAS as parcelas são
+  // gravadas com o mesmo `purchase_date` (a data da compra original); só o
+  // `invoice_id` muda, apontando pra fatura real de cada parcela (confirmado
+  // via SQL: um parcelamento 1/8 feito em 05/10 tem as 8 linhas com
+  // purchase_date=2026-10-05, mas competence 11/2026, 12/2026, 01/2027...).
+  // O mesmo vale pra despesa recorrente (uma linha por fatura aberta, todas
+  // com o `purchase_date` da criação). Ou seja: filtrar por purchase_date
+  // somava TODAS as parcelas futuras (e todas as ocorrências futuras de uma
+  // recorrente) no "gasto" do mês da compra — não só a que de fato cai na
+  // fatura deste mês. Corrigido buscando pelo `invoice_id`: só conta quem
+  // pertence à fatura cuja `competence` é o mês/ano atual (mesmo conceito já
+  // usado nas telas de fatura/cartão) — é essa fatura que realmente pesa no
+  // orçamento deste mês, não a data em que a compra foi feita.
+  // `id`/`description` só são usados pelo detalhamento por item (BudgetDetailDialog).
   const [cardExpenses, setCardExpenses] = useState<
     { id: string; description: string; category: string; amount: number; purchase_date: string }[]
   >([]);
 
   useEffect(() => {
-    const now = new Date();
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, "0");
-    const monthStart = `${yyyy}-${mm}-01`;
-    const monthEnd = `${yyyy}-${mm}-31`;
+    async function carregar() {
+      const now = new Date();
+      const competenciaAtual = `${String(now.getMonth() + 1).padStart(2, "0")}/${now.getFullYear()}`;
 
-    Promise.all([
-      supabase
-        .from("card_expenses")
-        .select("id, description, category, amount, purchase_date")
-        .gte("purchase_date", monthStart)
-        .lte("purchase_date", monthEnd),
-      supabase
-        .from("card_installments")
-        .select("id, description, category, amount, purchase_date")
-        .gte("purchase_date", monthStart)
-        .lte("purchase_date", monthEnd),
-    ])
-      .then(([expRes, instRes]) => {
-        setCardExpenses([...(expRes.data ?? []), ...(instRes.data ?? [])]);
-      })
-      .catch(() => {});
+      const { data: invoicesDoMes } = await supabase
+        .from("invoices")
+        .select("id")
+        .eq("competence", competenciaAtual);
+      const invoiceIds = (invoicesDoMes ?? []).map((i) => i.id);
+      if (invoiceIds.length === 0) {
+        setCardExpenses([]);
+        return;
+      }
+
+      const [expRes, instRes] = await Promise.all([
+        supabase
+          .from("card_expenses")
+          .select("id, description, category, amount, purchase_date")
+          .in("invoice_id", invoiceIds),
+        supabase
+          .from("card_installments")
+          .select("id, description, category, amount, purchase_date")
+          .in("invoice_id", invoiceIds),
+      ]);
+      setCardExpenses([...(expRes.data ?? []), ...(instRes.data ?? [])]);
+    }
+    carregar().catch(() => {});
   }, []);
 
   const expenseCategories = useMemo(
@@ -241,13 +256,12 @@ function BudgetsSection() {
       map.set(t.category, (map.get(t.category) ?? 0) + Math.abs(t.amount));
     });
 
-    // ── Despesas de cartão de crédito (por data da compra) ─────────────────
-    // Inclui card_expenses (avulsas, recorrentes, parceladas 1ª parcela)
-    // e card_installments (parcelas 2..N). O purchase_date é sempre a data
-    // real da compra, não a data de vencimento da fatura.
-    const monthPrefix = `${curYr}-${String(curMon + 1).padStart(2, "0")}`;
+    // ── Despesas de cartão de crédito ───────────────────────────────────────
+    // `cardExpenses` já vem filtrado pela fatura do mês atual (ver o
+    // useEffect acima) — inclui card_expenses (avulsas, recorrentes,
+    // parceladas 1ª parcela) e card_installments (parcelas 2..N), mas só as
+    // linhas cuja fatura (`invoice_id`) é a do mês/ano corrente.
     cardExpenses.forEach((e) => {
-      if (!e.purchase_date.startsWith(monthPrefix)) return;
       map.set(e.category, (map.get(e.category) ?? 0) + Math.abs(e.amount));
     });
 
@@ -285,9 +299,8 @@ function BudgetsSection() {
       });
     });
 
-    const monthPrefix = `${curYr}-${String(curMon + 1).padStart(2, "0")}`;
+    // `cardExpenses` já vem filtrado pela fatura do mês atual (ver useEffect acima).
     cardExpenses.forEach((e) => {
-      if (!e.purchase_date.startsWith(monthPrefix)) return;
       const [yyyy, mm, dd] = e.purchase_date.split("-");
       push(e.category, {
         id: e.id,

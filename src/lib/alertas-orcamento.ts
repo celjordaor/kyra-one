@@ -34,20 +34,29 @@ export async function verificarAlertaOrcamento(
     const ano = hoje.getFullYear();
     const mes = hoje.getMonth(); // 0-indexed
     const anoMes = `${ano}-${String(mes + 1).padStart(2, "0")}`;
-    const inicioMes = `${anoMes}-01`;
-    // Limite superior exclusivo do mês (1º dia do mês seguinte) — sem isso,
-    // a busca de card_expenses/card_installments ficava sem teto e somava
-    // compras de QUALQUER mês futuro também, não só o atual.
-    const proxMes = new Date(ano, mes + 1, 1);
-    const inicioProxMes = `${proxMes.getFullYear()}-${String(proxMes.getMonth() + 1).padStart(2, "0")}-01`;
+    const competenciaAtual = `${String(mes + 1).padStart(2, "0")}/${ano}`;
 
-    // Mesmas 3 fontes que a tela /metas usa pra calcular "gasto" de um
-    // orçamento (BudgetsSection.spentByCategory em _app.metas.tsx): transações
-    // avulsas, card_expenses (compras de cartão, 1ª parcela/avulsa/recorrente)
-    // e card_installments (parcelas 2..N de compras parceladas) — as 3 pelo
-    // purchase_date/date real, não pela data de vencimento da fatura. Faltava
-    // card_installments aqui antes, o que fazia o alerta nunca cruzar o
-    // limite mesmo com a tela /metas já mostrando "excedido".
+    // Mesmas fontes que a tela /metas usa pra calcular "gasto" de um
+    // orçamento (BudgetsSection em _app.metas.tsx): transações avulsas
+    // (filtradas por `date`) + card_expenses/card_installments.
+    //
+    // FIX: card_expenses/card_installments eram filtrados por `purchase_date`
+    // dentro do mês civil atual — mas numa compra parcelada (ver
+    // card-store.ts/addExpense), TODAS as parcelas são gravadas com o mesmo
+    // `purchase_date` (a data da compra original); só o `invoice_id` muda,
+    // apontando pra fatura real de cada parcela. O mesmo vale pra despesa
+    // recorrente (uma linha por fatura aberta, todas com o `purchase_date`
+    // da criação). Ou seja: filtrar por purchase_date somava TODAS as
+    // parcelas/ocorrências futuras no "gasto" do mês da compra, não só a que
+    // de fato cai na fatura deste mês — por isso o alerta às vezes cruzava o
+    // limite cedo demais. Corrigido buscando pelo `invoice_id`: só conta quem
+    // pertence à fatura cuja `competence` é o mês/ano atual.
+    const { data: invoicesDoMes } = await supabase
+      .from("invoices")
+      .select("id")
+      .eq("competence", competenciaAtual);
+    const invoiceIds = (invoicesDoMes ?? []).map((i) => i.id);
+
     const [{ data: transacoes }, { data: despesasCartao }, { data: parcelasCartao }] =
       await Promise.all([
         supabase
@@ -56,20 +65,22 @@ export async function verificarAlertaOrcamento(
           .eq("user_id", user.id)
           .eq("type", "expense")
           .eq("category", categoria),
-        supabase
-          .from("card_expenses")
-          .select("amount")
-          .eq("user_id", user.id)
-          .eq("category", categoria)
-          .gte("purchase_date", inicioMes)
-          .lt("purchase_date", inicioProxMes),
-        supabase
-          .from("card_installments")
-          .select("amount")
-          .eq("user_id", user.id)
-          .eq("category", categoria)
-          .gte("purchase_date", inicioMes)
-          .lt("purchase_date", inicioProxMes),
+        invoiceIds.length === 0
+          ? Promise.resolve({ data: [] })
+          : supabase
+              .from("card_expenses")
+              .select("amount")
+              .eq("user_id", user.id)
+              .eq("category", categoria)
+              .in("invoice_id", invoiceIds),
+        invoiceIds.length === 0
+          ? Promise.resolve({ data: [] })
+          : supabase
+              .from("card_installments")
+              .select("amount")
+              .eq("user_id", user.id)
+              .eq("category", categoria)
+              .in("invoice_id", invoiceIds),
       ]);
 
     // `transactions.amount` pode vir negativo pra despesa (ver dashboard,
