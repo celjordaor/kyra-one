@@ -2100,53 +2100,6 @@ function PendingSection({transactions,showValues,selectedMonth,selectedYear,card
         </div>
       )}
 
-      {/* InvoiceDetailModal mantido para compatibilidade */}
     </>
-  );
-}
-
-// ── InvoiceDetailModal ────────────────────────────────────────────────
-function InvoiceDetailModal({invoice,card,expenses,installments,open,onClose,onAddExpense}:{
-  invoice:Invoice|null;card:CreditCardType|null;
-  expenses:ReturnType<typeof useCardStore.getState>["expenses"];
-  installments:ReturnType<typeof useCardStore.getState>["installments"];
-  open:boolean;onClose:()=>void;onAddExpense:()=>void;
-}) {
-  if(!invoice||!card)return null;
-  const isPaid=invoice.status==="paid";
-  const allItems=[
-    ...expenses.map(e=>({id:e.id,description:e.description,amount:e.amount,category:e.category,date:e.purchase_date})),
-    ...installments.map(i=>({id:i.id,description:i.description,amount:i.amount,category:i.category,date:i.purchase_date})),
-  ].sort((a,b)=>new Date(b.date).getTime()-new Date(a.date).getTime());
-
-  return(
-    <Dialog open={open} onOpenChange={o=>!o&&onClose()}>
-      <DialogContent className="max-w-sm p-0 overflow-hidden">
-        <div className="bg-primary px-5 pt-5 pb-4 text-primary-foreground">
-          <DialogHeader><DialogTitle className="text-primary-foreground">Fatura {card.name}</DialogTitle></DialogHeader>
-          <p className="mt-1 text-sm text-primary-foreground/80">{invoice.competence} • Vence {new Date(invoice.due_date+"T12:00:00").toLocaleDateString("pt-BR")}</p>
-          <p className="mt-3 text-2xl font-bold">{fmtCurrency(invoice.total_amount)}</p>
-          <span className={cn("mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold",isPaid?"bg-emerald-400/30 text-emerald-100":"bg-amber-400/30 text-amber-100")}>{isPaid?"Paga":"Em aberto"}</span>
-        </div>
-        <div className="max-h-72 overflow-y-auto">
-          {allItems.length===0
-            ?<p className="py-8 text-center text-sm text-muted-foreground">Nenhuma despesa lançada nesta fatura.</p>
-            :<div className="divide-y">{allItems.map(item=>(
-              <div key={item.id} className="flex items-center justify-between gap-3 px-5 py-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-foreground">{item.description}</p>
-                  <p className="text-xs text-muted-foreground">{item.category} • {new Date(item.date+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"short"})}</p>
-                </div>
-                <p className="shrink-0 text-sm font-semibold text-red-500">-{fmtCurrency(item.amount)}</p>
-              </div>
-            ))}</div>
-          }
-        </div>
-        <div className="flex items-center justify-between border-t px-5 py-4">
-          <Button variant="outline" size="sm" onClick={onClose}>Fechar</Button>
-          {!isPaid&&(<button onClick={onAddExpense} className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md shadow-primary/25 hover:-translate-y-0.5 transition-all"><Plus className="h-5 w-5"/></button>)}
-        </div>
-      </DialogContent>
-    </Dialog>
   );
 }

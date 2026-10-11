@@ -129,8 +129,12 @@ function TransacoesPage() {
   const [bulkEdit, setBulkEdit]               = useState(false);
   const [showTransactions, setShowTransactions] = useState(true);
   const [showCards, setShowCards]               = useState(true);
-  const [detailInvoice, setDetailInvoice] = useState<Invoice | null>(null);
-  const [detailCard, setDetailCard]       = useState<CreditCardType | null>(null);
+  // Guardamos só os IDs, nunca os objetos — invoice/card são derivados
+  // reativamente da store a cada render (ver abaixo), senão o cabeçalho do
+  // modal mostra valores desatualizados até fechar e abrir de novo (ex.:
+  // total da fatura depois de editar/excluir uma despesa com o modal aberto).
+  const [detailInvoiceId, setDetailInvoiceId] = useState<string | null>(null);
+  const [detailCardId, setDetailCardId]       = useState<string | null>(null);
 
   const editing = useMemo(
     () => allTransactions.find(t => t.id === editingId) ?? null,
@@ -206,8 +210,13 @@ function TransacoesPage() {
   const totalBalance = settledBalance;
   const totalFaturas = cardInvoices.reduce((s, i) => s + i.invoice.total_amount, 0);
 
+  // Derivados reativamente da store a cada render — nunca um snapshot do
+  // momento em que o modal foi aberto (ver comentário no useState acima).
+  const detailInvoice = detailInvoiceId ? invoices.find(i => i.id === detailInvoiceId) ?? null : null;
+  const detailCard    = detailCardId ? cards.find(c => c.id === detailCardId) ?? null : null;
+
   const openDetail = async (invoice: Invoice, card: CreditCardType) => {
-    setDetailInvoice(invoice); setDetailCard(card);
+    setDetailInvoiceId(invoice.id); setDetailCardId(card.id);
     await fetchExpenses(invoice.id);
     await fetchInstallments(invoice.id);
   };
@@ -509,10 +518,10 @@ function TransacoesPage() {
         expenses={expenses.filter(e => e.invoice_id === detailInvoice?.id)}
         installments={installments.filter(i => i.invoice_id === detailInvoice?.id)}
         open={!!detailInvoice}
-        onClose={() => { setDetailInvoice(null); setDetailCard(null); }}
+        onClose={() => { setDetailInvoiceId(null); setDetailCardId(null); }}
         onAddExpense={() => {
           const cardId = detailCard?.id;
-          setDetailInvoice(null); setDetailCard(null);
+          setDetailInvoiceId(null); setDetailCardId(null);
           router.navigate({ to: "/cartoes/nova-despesa", search: { cardId } });
         }}
         onDataChanged={async () => {
