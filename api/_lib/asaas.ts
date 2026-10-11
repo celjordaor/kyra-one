@@ -117,12 +117,17 @@ export async function atualizarValorAssinatura(
   subscriptionId: string,
   value: number,
 ): Promise<void> {
-  const { ok, status } = await chamarAsaas(`/subscriptions/${subscriptionId}`, {
+  // Inclui o corpo de erro devolvido pelo Asaas na mensagem — sem isso, o
+  // endpoint só sabia dizer "falhou", sem nenhuma pista de por quê (motivo
+  // real do bug reportado pelo fundador: botão de desconto sem feedback).
+  const { ok, status, dados } = await chamarAsaas(`/subscriptions/${subscriptionId}`, {
     method: "PUT",
     body: { value },
   });
   if (!ok) {
-    throw new Error(`Falha ao atualizar valor da assinatura no Asaas (status ${status}).`);
+    throw new Error(
+      `Falha ao atualizar valor da assinatura no Asaas (status ${status}): ${JSON.stringify(dados)}`,
+    );
   }
 }
 

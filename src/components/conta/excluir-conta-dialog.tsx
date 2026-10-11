@@ -67,7 +67,13 @@ export function ExcluirContaDialog({
       });
       const dados = await resp.json().catch(() => null);
       if (!resp.ok) {
-        toast.error(dados?.erro ?? "Não consegui aplicar o desconto agora. Tenta de novo.");
+        // `detalhe` é temporário (ver api/conta/aplicar-desconto-retencao.ts)
+        // — ajuda a diagnosticar a causa raiz direto pela tela.
+        toast.error(
+          [dados?.erro ?? "Não consegui aplicar o desconto agora. Tenta de novo.", dados?.detalhe]
+            .filter(Boolean)
+            .join(" — "),
+        );
         return;
       }
       toast.success(

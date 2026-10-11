@@ -48,7 +48,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await atualizarValorAssinatura(assinatura.asaas_subscription_id, plano.valorDesconto);
   } catch (erro) {
     console.error("Erro ao aplicar desconto de retenção no Asaas:", erro);
-    return res.status(502).json({ erro: "Não consegui aplicar o desconto agora. Tenta de novo." });
+    // `detalhe` temporário pra diagnosticar o motivo real sem precisar dos
+    // logs da Vercel — remover depois que a causa raiz for confirmada e
+    // corrigida (ver docs/kyraone-contexto-projeto.md).
+    return res.status(502).json({
+      erro: "Não consegui aplicar o desconto agora. Tenta de novo.",
+      detalhe: erro instanceof Error ? erro.message : String(erro),
+    });
   }
 
   await admin
