@@ -8,6 +8,7 @@ import {
 import { useEffect } from "react";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AuthProvider, useAuth } from "../lib/auth";
+import { Toaster } from "../components/ui/sonner";
 
 function NotFoundComponent() {
   // Logado, volta pro dashboard; sem sessão, volta pra landing pública (/).
@@ -92,6 +93,14 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <Outlet />
+        {/* Sem isso, toast.success()/toast.error() em qualquer lugar do app
+            só empilhava no store interno do sonner e nunca desenhava nada na
+            tela — o <Toaster/> é quem de fato renderiza os toasts, e nunca
+            tinha sido montado em lugar nenhum da árvore. Causa raiz real do
+            "clico e não acontece nada" reportado em vários fluxos
+            diferentes (desconto de retenção, cancelamento, etc.) — não era
+            bug de cada fluxo individualmente, era a ausência do Toaster. */}
+        <Toaster richColors position="top-center" />
       </AuthProvider>
     </QueryClientProvider>
   );
