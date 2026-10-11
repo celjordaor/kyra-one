@@ -1,7 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { useEffect, useMemo, useState } from "react";
-import { Target, Plus, TrendingDown, Pencil, Trash2, PiggyBank, DollarSign } from "lucide-react";
+import {
+  Target,
+  Plus,
+  TrendingDown,
+  Pencil,
+  Trash2,
+  PiggyBank,
+  DollarSign,
+  Receipt,
+  CreditCard,
+  Wallet,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -147,6 +158,19 @@ function MetasPage() {
 
 /* ======================== BUDGETS ======================== */
 
+// Item individual que compõe o "gasto" de um orçamento no mês — usado pelo
+// BudgetDetailDialog (ver botão de detalhamento em cada card de orçamento).
+type BudgetDetailItem = {
+  id: string;
+  title: string;
+  amount: number;
+  /** dd/mm/yyyy, só pra exibição */
+  dateLabel: string;
+  /** usado só pra ordenar por data (mais recente primeiro) */
+  sortKey: string;
+  source: "manual" | "cartao";
+};
+
 function BudgetsSection() {
   const budgets = useBudgets();
   const categories = useCategories();
@@ -154,39 +178,41 @@ function BudgetsSection() {
   const [editing, setEditing] = useState<Budget | null>(null);
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState<Budget | null>(null);
+  const [detailBudget, setDetailBudget] = useState<Budget | null>(null);
 
   // ── Despesas de cartão de crédito por mês de compra ───────────────────────
   // Buscamos card_expenses e card_installments pelo purchase_date (data da compra),
   // não pela data de vencimento da fatura. Assim "Alimentação" de julho aparece
   // no orçamento de julho mesmo que a fatura só vença em agosto.
+  // `id`/`description` só são usados pelo detalhamento por item (BudgetDetailDialog);
+  // os totais em spentByCategory continuam usando só category/amount/purchase_date.
   const [cardExpenses, setCardExpenses] = useState<
-    { category: string; amount: number; purchase_date: string }[]
+    { id: string; description: string; category: string; amount: number; purchase_date: string }[]
   >([]);
 
   useEffect(() => {
     const now = new Date();
     const yyyy = now.getFullYear();
-    const mm   = String(now.getMonth() + 1).padStart(2, "0");
+    const mm = String(now.getMonth() + 1).padStart(2, "0");
     const monthStart = `${yyyy}-${mm}-01`;
-    const monthEnd   = `${yyyy}-${mm}-31`;
+    const monthEnd = `${yyyy}-${mm}-31`;
 
     Promise.all([
       supabase
         .from("card_expenses")
-        .select("category, amount, purchase_date")
+        .select("id, description, category, amount, purchase_date")
         .gte("purchase_date", monthStart)
         .lte("purchase_date", monthEnd),
       supabase
         .from("card_installments")
-        .select("category, amount, purchase_date")
+        .select("id, description, category, amount, purchase_date")
         .gte("purchase_date", monthStart)
         .lte("purchase_date", monthEnd),
-    ]).then(([expRes, instRes]) => {
-      setCardExpenses([
-        ...(expRes.data  ?? []),
-        ...(instRes.data ?? []),
-      ]);
-    }).catch(() => {});
+    ])
+      .then(([expRes, instRes]) => {
+        setCardExpenses([...(expRes.data ?? []), ...(instRes.data ?? [])]);
+      })
+      .catch(() => {});
   }, []);
 
   const expenseCategories = useMemo(
@@ -195,10 +221,10 @@ function BudgetsSection() {
   );
 
   const spentByCategory = useMemo(() => {
-    const now    = new Date();
+    const now = new Date();
     const curMon = now.getMonth();
-    const curYr  = now.getFullYear();
-    const map    = new Map<string, number>();
+    const curYr = now.getFullYear();
+    const map = new Map<string, number>();
 
     // ── Transações normais ─────────────────────────────────────────────────
     transactions.forEach((t) => {
@@ -208,10 +234,7 @@ function BudgetsSection() {
       // Esses registros têm título no formato "Fatura <Cartão> – MM/YYYY"
       // e categoria "Cartão de Crédito". Eles não representam gastos reais
       // por categoria — as compras individuais são contadas abaixo via card_expenses.
-      if (
-        t.category === "Cartão de Crédito" &&
-        /^Fatura .+ – \d{2}\/\d{4}$/.test(t.title)
-      ) return;
+      if (t.category === "Cartão de Crédito" && /^Fatura .+ – \d{2}\/\d{4}$/.test(t.title)) return;
 
       const d = parseBrDate(t.date);
       if (d.getMonth() !== curMon || d.getFullYear() !== curYr) return;
@@ -231,11 +254,64 @@ function BudgetsSection() {
     return map;
   }, [transactions, cardExpenses]);
 
+  // ── Itens individuais por categoria (mesmas 2 fontes/filtros acima, mas
+  // linha a linha) — usado pelo detalhamento por orçamento (BudgetDetailDialog).
+  const itemsByCategory = useMemo(() => {
+    const now = new Date();
+    const curMon = now.getMonth();
+    const curYr = now.getFullYear();
+    const map = new Map<string, BudgetDetailItem[]>();
+
+    const push = (categoria: string, item: BudgetDetailItem) => {
+      const arr = map.get(categoria) ?? [];
+      arr.push(item);
+      map.set(categoria, arr);
+    };
+
+    transactions.forEach((t) => {
+      if (t.type !== "expense") return;
+      if (t.category === "Cartão de Crédito" && /^Fatura .+ – \d{2}\/\d{4}$/.test(t.title)) return;
+
+      const d = parseBrDate(t.date);
+      if (d.getMonth() !== curMon || d.getFullYear() !== curYr) return;
+
+      push(t.category, {
+        id: t.id,
+        title: t.title,
+        amount: Math.abs(t.amount),
+        dateLabel: t.date,
+        sortKey: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
+        source: "manual",
+      });
+    });
+
+    const monthPrefix = `${curYr}-${String(curMon + 1).padStart(2, "0")}`;
+    cardExpenses.forEach((e) => {
+      if (!e.purchase_date.startsWith(monthPrefix)) return;
+      const [yyyy, mm, dd] = e.purchase_date.split("-");
+      push(e.category, {
+        id: e.id,
+        title: e.description,
+        amount: Math.abs(e.amount),
+        dateLabel: `${dd}/${mm}/${yyyy}`,
+        sortKey: e.purchase_date,
+        source: "cartao",
+      });
+    });
+
+    map.forEach((arr) => arr.sort((a, b) => (a.sortKey < b.sortKey ? 1 : -1)));
+    return map;
+  }, [transactions, cardExpenses]);
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-foreground">Orçamentos do mês</h2>
-        <Button size="sm" onClick={() => setCreating(true)} className="h-8 gap-1 rounded-full px-3 text-xs">
+        <Button
+          size="sm"
+          onClick={() => setCreating(true)}
+          className="h-8 gap-1 rounded-full px-3 text-xs"
+        >
           <Plus className="h-3.5 w-3.5" />
           Novo
         </Button>
@@ -254,8 +330,7 @@ function BudgetsSection() {
         const pct = b.limit > 0 ? Math.min((spent / b.limit) * 100, 100) : 0;
         const rawPct = b.limit > 0 ? (spent / b.limit) * 100 : 0;
         const remaining = b.limit - spent;
-        const barColor =
-          rawPct > 90 ? "bg-danger" : rawPct >= 70 ? "bg-warning" : "bg-success";
+        const barColor = rawPct > 90 ? "bg-danger" : rawPct >= 70 ? "bg-warning" : "bg-success";
         const textColor =
           rawPct > 90 ? "text-danger" : rawPct >= 70 ? "text-warning" : "text-success";
         return (
@@ -271,6 +346,14 @@ function BudgetsSection() {
                 </div>
               </div>
               <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setDetailBudget(b)}
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
+                  aria-label="Ver despesas que compõem este gasto"
+                  title="Ver despesas"
+                >
+                  <Receipt className="h-3.5 w-3.5" />
+                </button>
                 <button
                   onClick={() => setEditing(b)}
                   className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
@@ -289,9 +372,7 @@ function BudgetsSection() {
             </div>
 
             <div className="mt-3 flex items-baseline justify-between">
-              <p className={`text-sm font-bold ${textColor}`}>
-                {formatBRL(spent)}
-              </p>
+              <p className={`text-sm font-bold ${textColor}`}>{formatBRL(spent)}</p>
               <p className="text-xs text-muted-foreground">de {formatBRL(b.limit)}</p>
             </div>
 
@@ -355,7 +436,100 @@ function BudgetsSection() {
           setDeleting(null);
         }}
       />
+
+      <BudgetDetailDialog
+        open={!!detailBudget}
+        onOpenChange={(v) => !v && setDetailBudget(null)}
+        budget={detailBudget}
+        items={detailBudget ? (itemsByCategory.get(detailBudget.category) ?? []) : []}
+      />
     </div>
+  );
+}
+
+// Detalhamento das despesas que compõem o "gasto" de um orçamento no mês —
+// aberto pelo ícone de recibo em cada card de orçamento (ver botão acima).
+// Mesmo padrão visual/estrutural de ContributionsDialog (lista rolável
+// dentro de um Dialog "plain", já comprovado responsivo em mobile/desktop
+// neste mesmo arquivo), só que com ícone por fonte (cartão vs. lançamento
+// avulso) em vez de um ícone fixo.
+function BudgetDetailDialog({
+  open,
+  onOpenChange,
+  budget,
+  items,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  budget: Budget | null;
+  items: BudgetDetailItem[];
+}) {
+  const total = items.reduce((s, i) => s + i.amount, 0);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Despesas do mês</DialogTitle>
+          <DialogDescription>
+            {budget ? `Itens que compõem o gasto de "${budget.category}"` : ""}
+          </DialogDescription>
+        </DialogHeader>
+
+        {items.length === 0 ? (
+          <div className="rounded-lg border border-dashed bg-card/50 px-4 py-8 text-center">
+            <p className="text-sm text-muted-foreground">
+              Nenhuma despesa lançada nesta categoria este mês.
+            </p>
+          </div>
+        ) : (
+          <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
+            {items.map((item) => (
+              <div
+                key={`${item.source}-${item.id}`}
+                className="flex items-center justify-between gap-2 rounded-lg border bg-card px-3 py-2"
+              >
+                <div className="flex min-w-0 items-center gap-2">
+                  <div
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                      item.source === "cartao" ? "bg-indigo-500/10" : "bg-secondary"
+                    }`}
+                  >
+                    {item.source === "cartao" ? (
+                      <CreditCard className="h-4 w-4 text-indigo-600" />
+                    ) : (
+                      <Wallet className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-medium text-foreground">{item.title}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {item.dateLabel} · {item.source === "cartao" ? "Cartão" : "Lançamento"}
+                    </p>
+                  </div>
+                </div>
+                <p className="shrink-0 text-sm font-semibold text-foreground">
+                  {formatBRL(item.amount)}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {items.length > 0 && (
+          <div className="flex items-center justify-between border-t pt-3">
+            <span className="text-xs text-muted-foreground">Total gasto</span>
+            <span className="text-sm font-bold text-foreground">{formatBRL(total)}</span>
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            Fechar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -432,7 +606,6 @@ function BudgetDialog({
           </div>
         </div>
 
-
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancelar
@@ -458,7 +631,11 @@ function GoalsSection() {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-foreground">Metas de economia</h2>
-        <Button size="sm" onClick={() => setCreating(true)} className="h-8 gap-1 rounded-full px-3 text-xs">
+        <Button
+          size="sm"
+          onClick={() => setCreating(true)}
+          className="h-8 gap-1 rounded-full px-3 text-xs"
+        >
           <Plus className="h-3.5 w-3.5" />
           Nova
         </Button>
@@ -490,7 +667,9 @@ function GoalsSection() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-foreground">{g.name}</p>
-                  <p className="text-xs text-muted-foreground">Meta: {formatDeadline(g.deadline)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Meta: {formatDeadline(g.deadline)}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-1">
@@ -528,9 +707,7 @@ function GoalsSection() {
             </div>
 
             <div className="mt-3 flex items-baseline justify-between">
-              <p className={`text-sm font-bold ${textColor}`}>
-                {formatBRL(g.current)}
-              </p>
+              <p className={`text-sm font-bold ${textColor}`}>{formatBRL(g.current)}</p>
               <p className="text-xs text-muted-foreground">de {formatBRL(g.target)}</p>
             </div>
 
@@ -592,8 +769,6 @@ function GoalsSection() {
           setDepositing(null);
         }}
       />
-
-
 
       <ContributionsDialog
         open={!!history}
@@ -682,14 +857,9 @@ function GoalDialog({
             <AmountInput value={current} onChange={setCurrent} />
           </div>
 
-
           <div className="space-y-1.5">
             <Label className="text-xs">Prazo</Label>
-            <Input
-              type="month"
-              value={deadline}
-              onChange={(e) => setDeadline(e.target.value)}
-            />
+            <Input type="month" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
           </div>
         </div>
 
@@ -732,16 +902,13 @@ function DepositDialog({
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>Adicionar depósito</DialogTitle>
-          <DialogDescription>
-            {goal ? `Contribuir para "${goal.name}"` : ""}
-          </DialogDescription>
+          <DialogDescription>{goal ? `Contribuir para "${goal.name}"` : ""}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-1.5">
           <Label className="text-xs">Valor</Label>
           <AmountInput value={amount} onChange={setAmount} autoFocus />
         </div>
-
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
@@ -798,10 +965,7 @@ function ConfirmDelete({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel onClick={onCancel}>Cancelar</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={onConfirm}
-            className="bg-red-500 text-white hover:bg-red-600"
-          >
+          <AlertDialogAction onClick={onConfirm} className="bg-red-500 text-white hover:bg-red-600">
             Excluir
           </AlertDialogAction>
         </AlertDialogFooter>
@@ -822,9 +986,7 @@ function ContributionsDialog({
   const all = useGoalContributions();
   const items = useMemo<GoalContribution[]>(() => {
     if (!goal) return [];
-    return all
-      .filter((c) => c.goalId === goal.id)
-      .sort((a, b) => (a.date < b.date ? 1 : -1));
+    return all.filter((c) => c.goalId === goal.id).sort((a, b) => (a.date < b.date ? 1 : -1));
   }, [all, goal]);
 
   const total = items.reduce((s, c) => s + c.amount, 0);
@@ -840,9 +1002,7 @@ function ContributionsDialog({
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>Depósitos realizados</DialogTitle>
-          <DialogDescription>
-            {goal ? `Histórico de "${goal.name}"` : ""}
-          </DialogDescription>
+          <DialogDescription>{goal ? `Histórico de "${goal.name}"` : ""}</DialogDescription>
         </DialogHeader>
 
         {items.length === 0 ? (
@@ -862,9 +1022,7 @@ function ContributionsDialog({
                   </div>
                   <p className="text-xs text-muted-foreground">{formatDate(c.date)}</p>
                 </div>
-                <p className="text-sm font-semibold text-foreground">
-                  {formatBRL(c.amount)}
-                </p>
+                <p className="text-sm font-semibold text-foreground">{formatBRL(c.amount)}</p>
               </div>
             ))}
           </div>
@@ -878,10 +1036,11 @@ function ContributionsDialog({
         )}
 
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>Fechar</Button>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            Fechar
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
-
