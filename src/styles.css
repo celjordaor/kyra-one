@@ -75,8 +75,13 @@
 
 :root {
   --radius: 0.75rem;
-  /* ── Marca KyraOne (herdada do Quintalzim por enquanto) ── primária #3F6B34, acentos #C4693B / #F2B33D, fundo #FBF7EC ── */
-  --background: oklch(0.9762 0.0151 90.23);
+  /* ── Marca KyraOne ── primária #3F6B34, acentos #C4693B / #F2B33D ──
+     Fundo "Opção C" (azul-acinzentado claro), escolhido em 11/out/2026 pra
+     substituir o beige herdado do Quintalzim (#FBF7EC / oklch(0.9762 0.0151
+     90.23)) — mesma escala de L/C de antes, só girando o hue de ~85-90
+     (amarelo quente) pra ~255 (azul), ecoando o navy da sidebar/landing
+     (#03264E). Ver preview: https://claude.ai/artifact/HHfgq4HRdwXA3FZziB6CRD ── */
+  --background: oklch(0.9665 0.0100 255);
   --foreground: oklch(0.2077 0.0398 265.75);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.2077 0.0398 265.75);
@@ -84,29 +89,29 @@
   --popover-foreground: oklch(0.2077 0.0398 265.75);
   --primary: oklch(0.4815 0.0968 139.58);
   --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.93 0.02 85);
+  --secondary: oklch(0.93 0.015 255);
   --secondary-foreground: oklch(0.2077 0.0398 265.75);
-  --muted: oklch(0.93 0.02 85);
-  --muted-foreground: oklch(0.55 0.02 85);
+  --muted: oklch(0.93 0.015 255);
+  --muted-foreground: oklch(0.55 0.02 255);
   --accent: oklch(0.7845 0.1325 45.96);
   --accent-foreground: oklch(0.2077 0.0398 265.75);
   --destructive: oklch(0.6368 0.2078 25.33);
   --destructive-foreground: oklch(1 0 0);
-  --border: oklch(0.90 0.02 85);
-  --input: oklch(0.75 0.02 85); /* Fix: contraste adequado para Switch */
+  --border: oklch(0.90 0.015 255);
+  --input: oklch(0.75 0.02 255); /* Fix: contraste adequado para Switch */
   --ring: oklch(0.4815 0.0968 139.58);
   --chart-1: oklch(0.4815 0.0968 139.58);
   --chart-2: oklch(0.6173 0.1307 45.96);
   --chart-3: oklch(0.8059 0.1471 78.99);
   --chart-4: oklch(0.5544 0.0407 85);
   --chart-5: oklch(0.2077 0.0398 265.75);
-  --sidebar: oklch(0.9762 0.0151 90.23);
+  --sidebar: oklch(0.9665 0.0100 255);
   --sidebar-foreground: oklch(0.2077 0.0398 265.75);
   --sidebar-primary: oklch(0.4815 0.0968 139.58);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.93 0.02 85);
+  --sidebar-accent: oklch(0.93 0.015 255);
   --sidebar-accent-foreground: oklch(0.2077 0.0398 265.75);
-  --sidebar-border: oklch(0.90 0.02 85);
+  --sidebar-border: oklch(0.90 0.015 255);
   --sidebar-ring: oklch(0.4815 0.0968 139.58);
   --settled: oklch(0.95 0.04 139);
   --settled-foreground: oklch(0.30 0.08 139);

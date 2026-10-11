@@ -80,10 +80,10 @@ function LandingPage() {
 
       <div
         className="w-full overflow-x-hidden"
-        style={{ fontFamily: "'Figtree', system-ui, sans-serif", background: "#FBF7EC", color: "#1C2333" }}
+        style={{ fontFamily: "'Figtree', system-ui, sans-serif", background: "#F2F4F7", color: "#1C2333" }}
       >
         {/* ============ NAV ============ */}
-        <header className="sticky top-0 z-50 border-b border-[#03264E]/10 backdrop-blur-md" style={{ background: "rgba(251,247,236,0.88)" }}>
+        <header className="sticky top-0 z-50 border-b border-[#03264E]/10 backdrop-blur-md" style={{ background: "rgba(242,244,247,0.88)" }}>
           <div className="mx-auto flex max-w-[1180px] items-center justify-between gap-6 px-5 py-3.5 sm:px-8">
             <a href="#topo" className="flex items-center gap-2.5" aria-label="KyraOne — início">
               <img src="/icons/icon-192.png" alt="" width={34} height={34} className="h-[34px] w-[34px] rounded-[9px]" />
@@ -99,7 +99,7 @@ function LandingPage() {
             </nav>
             <Link
               to="/login"
-              style={{ background: NAVY, color: "#FBF7EC" }}
+              style={{ background: NAVY, color: "#F2F4F7" }}
               className="rounded-full px-5 py-2.5 text-sm font-semibold transition-transform hover:-translate-y-0.5"
             >
               Entrar
@@ -130,12 +130,12 @@ function LandingPage() {
                 14 dias grátis · sem cartão de crédito
               </span>
               <h1
-                style={{ fontFamily: "'Sora', sans-serif", color: "#FBF7EC" }}
+                style={{ fontFamily: "'Sora', sans-serif", color: "#F2F4F7" }}
                 className="mb-5 text-[2.1rem] font-extrabold leading-[1.08] sm:text-[2.6rem] lg:text-[3.4rem]"
               >
                 Suas finanças, organizadas sem drama.
               </h1>
-              <p className="mb-8 max-w-[480px] text-[17.5px] leading-relaxed" style={{ color: "rgba(251,247,236,0.72)" }}>
+              <p className="mb-8 max-w-[480px] text-[17.5px] leading-relaxed" style={{ color: "rgba(242,244,247,0.72)" }}>
                 O KyraOne mostra pra onde seu dinheiro vai: contas, cartões, faturas e metas, tudo num lugar só.
                 Sem planilha, sem letra miúda, sem complicação.
               </p>
@@ -147,7 +147,7 @@ function LandingPage() {
                 >
                   Entrar no KyraOne
                 </Link>
-                <span className="text-[13.5px]" style={{ color: "rgba(251,247,236,0.55)" }}>
+                <span className="text-[13.5px]" style={{ color: "rgba(242,244,247,0.55)" }}>
                   Leva menos de 1 minuto pra criar sua conta.
                 </span>
               </div>
@@ -163,11 +163,11 @@ function LandingPage() {
                 alt="Logo KyraOne"
                 className="absolute left-1/2 top-1/2 h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 rounded-[34px] shadow-[0_30px_60px_-18px_rgba(0,0,0,0.5)] sm:h-[168px] sm:w-[168px]"
               />
-              <div className="absolute left-1 top-4 flex max-w-[210px] items-center gap-2.5 rounded-2xl bg-[#FBF7EC] px-4 py-3 shadow-[0_16px_30px_-12px_rgba(0,0,0,0.35)]">
+              <div className="absolute left-1 top-4 flex max-w-[210px] items-center gap-2.5 rounded-2xl bg-[#F2F4F7] px-4 py-3 shadow-[0_16px_30px_-12px_rgba(0,0,0,0.35)]">
                 <ArrowRightLeft className="h-5 w-5 shrink-0" style={{ color: "#3F6B34" }} />
                 <span className="text-[13px] font-semibold text-[#1C2333]">Receitas &amp; despesas em dia</span>
               </div>
-              <div className="absolute bottom-3 right-0 flex max-w-[200px] items-center gap-2.5 rounded-2xl bg-[#FBF7EC] px-4 py-3 shadow-[0_16px_30px_-12px_rgba(0,0,0,0.35)]">
+              <div className="absolute bottom-3 right-0 flex max-w-[200px] items-center gap-2.5 rounded-2xl bg-[#F2F4F7] px-4 py-3 shadow-[0_16px_30px_-12px_rgba(0,0,0,0.35)]">
                 <Target className="h-5 w-5 shrink-0" style={{ color: CLAY }} />
                 <span className="text-[13px] font-semibold text-[#1C2333]">Metas no caminho certo</span>
               </div>
@@ -267,12 +267,12 @@ function LandingPage() {
                 <MessageCircle className="h-[15px] w-[15px]" /> Novidade
               </span>
               <h2
-                style={{ fontFamily: "'Sora', sans-serif", color: "#FBF7EC" }}
+                style={{ fontFamily: "'Sora', sans-serif", color: "#F2F4F7" }}
                 className="mb-4 text-[1.8rem] font-extrabold leading-tight sm:text-[2.5rem]"
               >
                 Lança uma despesa só mandando um "oi" pra Kyra.
               </h2>
-              <p className="mb-7 max-w-[480px] text-[16.5px] leading-relaxed" style={{ color: "rgba(251,247,236,0.72)" }}>
+              <p className="mb-7 max-w-[480px] text-[16.5px] leading-relaxed" style={{ color: "rgba(242,244,247,0.72)" }}>
                 Gastou no mercado, no Uber, no delivery? Manda uma mensagem pro WhatsApp da Kyra contando o
                 que foi — ela registra a despesa certinha, na hora, sem você precisar abrir o app.
               </p>
@@ -286,7 +286,7 @@ function LandingPage() {
                 >
                   <MessageCircle className="h-5 w-5" /> Falar com a Kyra agora
                 </a>
-                <span className="text-[13.5px]" style={{ color: "rgba(251,247,236,0.55)" }}>
+                <span className="text-[13.5px]" style={{ color: "rgba(242,244,247,0.55)" }}>
                   {KYRA_WHATSAPP_NUMBER_DISPLAY}
                 </span>
               </div>
@@ -360,20 +360,20 @@ function LandingPage() {
                   )}
                   <div>
                     <h3
-                      style={{ fontFamily: "'Sora', sans-serif", color: p.destaque ? "#FBF7EC" : NAVY }}
+                      style={{ fontFamily: "'Sora', sans-serif", color: p.destaque ? "#F2F4F7" : NAVY }}
                       className="mb-1.5 text-[19px] font-bold"
                     >
                       {p.plano.nome}
                     </h3>
-                    <p className="text-sm" style={{ color: p.destaque ? "rgba(251,247,236,0.65)" : "#55596A" }}>
+                    <p className="text-sm" style={{ color: p.destaque ? "rgba(242,244,247,0.65)" : "#55596A" }}>
                       {p.desc}
                     </p>
                   </div>
                   <div className="flex items-baseline gap-1.5">
-                    <span style={{ fontFamily: "'Sora', sans-serif", color: p.destaque ? "#FBF7EC" : NAVY }} className="text-[34px] font-extrabold">
+                    <span style={{ fontFamily: "'Sora', sans-serif", color: p.destaque ? "#F2F4F7" : NAVY }} className="text-[34px] font-extrabold">
                       R$ {fmtPreco(p.plano.valor)}
                     </span>
-                    <span className="text-[13.5px]" style={{ color: p.destaque ? "rgba(251,247,236,0.55)" : "#55596A" }}>
+                    <span className="text-[13.5px]" style={{ color: p.destaque ? "rgba(242,244,247,0.55)" : "#55596A" }}>
                       /mês
                     </span>
                   </div>
@@ -381,7 +381,7 @@ function LandingPage() {
                     {p.itens.map((it) => (
                       <div key={it} className="flex items-start gap-2.5">
                         <Check className="mt-0.5 h-[18px] w-[18px] shrink-0" style={{ color: p.destaque ? GOLD : "#3F6B34" }} />
-                        <span className="text-sm leading-tight" style={{ color: p.destaque ? "rgba(251,247,236,0.85)" : "#1C2333" }}>
+                        <span className="text-sm leading-tight" style={{ color: p.destaque ? "rgba(242,244,247,0.85)" : "#1C2333" }}>
                           {it}
                         </span>
                       </div>
@@ -394,7 +394,7 @@ function LandingPage() {
             <div className="mt-9 text-center">
               <Link
                 to="/login"
-                style={{ background: NAVY, color: "#FBF7EC", fontFamily: "'Sora', sans-serif" }}
+                style={{ background: NAVY, color: "#F2F4F7", fontFamily: "'Sora', sans-serif" }}
                 className="inline-block rounded-full px-8 py-4 text-[15.5px] font-bold transition-transform hover:-translate-y-0.5"
               >
                 Entrar e começar meu trial
@@ -410,10 +410,10 @@ function LandingPage() {
             style={{ background: "radial-gradient(circle, rgba(111,207,151,0.22), rgba(111,207,151,0) 70%)" }}
           />
           <div className="relative mx-auto max-w-[640px]">
-            <h2 style={{ fontFamily: "'Sora', sans-serif", color: "#FBF7EC" }} className="mb-4 text-[1.9rem] font-extrabold leading-tight sm:text-[2.7rem]">
+            <h2 style={{ fontFamily: "'Sora', sans-serif", color: "#F2F4F7" }} className="mb-4 text-[1.9rem] font-extrabold leading-tight sm:text-[2.7rem]">
               Bora organizar essa grana?
             </h2>
-            <p className="mb-8 text-[16.5px]" style={{ color: "rgba(251,247,236,0.7)" }}>
+            <p className="mb-8 text-[16.5px]" style={{ color: "rgba(242,244,247,0.7)" }}>
               14 dias grátis, Pro completo, zero cartão de crédito. Só entrar e começar.
             </p>
             <Link
@@ -431,18 +431,18 @@ function LandingPage() {
           <div className="mx-auto flex max-w-[1180px] flex-col items-start gap-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2.5">
               <img src="/icons/icon-192.png" alt="" width={26} height={26} className="h-[26px] w-[26px] rounded-[7px]" />
-              <span className="text-[13.5px]" style={{ color: "rgba(251,247,236,0.6)" }}>
+              <span className="text-[13.5px]" style={{ color: "rgba(242,244,247,0.6)" }}>
                 🌱 Seu cantinho pra cuidar do dinheiro · © 2026 KyraOne
               </span>
             </div>
             <div className="flex flex-wrap gap-x-6 gap-y-2">
-              <Link to="/login" className="text-[13.5px] font-medium" style={{ color: "rgba(251,247,236,0.75)" }}>
+              <Link to="/login" className="text-[13.5px] font-medium" style={{ color: "rgba(242,244,247,0.75)" }}>
                 Entrar
               </Link>
-              <Link to="/termos" className="text-[13.5px] font-medium" style={{ color: "rgba(251,247,236,0.75)" }}>
+              <Link to="/termos" className="text-[13.5px] font-medium" style={{ color: "rgba(242,244,247,0.75)" }}>
                 Termos de Uso
               </Link>
-              <Link to="/privacidade" className="text-[13.5px] font-medium" style={{ color: "rgba(251,247,236,0.75)" }}>
+              <Link to="/privacidade" className="text-[13.5px] font-medium" style={{ color: "rgba(242,244,247,0.75)" }}>
                 Privacidade
               </Link>
             </div>
