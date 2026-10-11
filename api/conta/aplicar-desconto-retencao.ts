@@ -3,9 +3,15 @@
 // src/components/conta/excluir-conta-dialog.tsx). Atualiza o valor da
 // cobrança no Asaas e registra em `assinaturas.valor_desconto`.
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { atualizarValorAssinatura } from "../_lib/asaas.js";
+import { AsaasError, atualizarValorAssinatura, mensagemAmigavelAsaas } from "../_lib/asaas.js";
 import { buscarPlano } from "../../src/lib/planos.js";
 import { clienteAdmin, usuarioAutenticado } from "../_lib/supabase-admin.js";
+
+// Códigos de erro do Asaas que não vão sumir numa nova tentativa — a conta
+// precisa de intervenção (suporte, assinatura recriada, etc.). O client usa
+// isso pra decidir entre um toast comum (erro passageiro) e o modal de
+// aviso (precisa de atenção, não adianta só clicar de novo).
+const CODIGOS_ERRO_PERMANENTE = ["invalid_action", "invalid_customer", "invalid_creditCard"];
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
@@ -48,12 +54,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await atualizarValorAssinatura(assinatura.asaas_subscription_id, plano.valorDesconto);
   } catch (erro) {
     console.error("Erro ao aplicar desconto de retenção no Asaas:", erro);
-    // `detalhe` temporário pra diagnosticar o motivo real sem precisar dos
-    // logs da Vercel — remover depois que a causa raiz for confirmada e
-    // corrigida (ver docs/kyraone-contexto-projeto.md).
+    // Mensagem sempre tratada pelo mensagemAmigavelAsaas() — nunca o JSON
+    // cru do Asaas na tela do usuário (bug anterior, corrigido aqui).
+    // `permanente: true` diz ao client pra usar o modal de aviso em vez de
+    // um toast comum, já que tentar de novo sozinho não resolve.
+    const codigo = erro instanceof AsaasError ? erro.codigo : undefined;
     return res.status(502).json({
-      erro: "Não consegui aplicar o desconto agora. Tenta de novo.",
-      detalhe: erro instanceof Error ? erro.message : String(erro),
+      erro: mensagemAmigavelAsaas(erro),
+      permanente: !!codigo && CODIGOS_ERRO_PERMANENTE.includes(codigo),
     });
   }
 

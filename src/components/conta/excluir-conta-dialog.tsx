@@ -5,6 +5,7 @@ import { Heart, Sparkles, AlertTriangle, Tag } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { supabase } from "@/lib/supabase";
 import { useAssinatura, diasRestantesTrial, nomeNivel } from "@/lib/assinaturas";
 import { buscarPlano } from "@/lib/planos";
@@ -32,6 +33,10 @@ export function ExcluirContaDialog({
   const [etapa, setEtapa] = useState<Etapa>("retencao");
   const [confirmText, setConfirmText] = useState("");
   const [carregando, setCarregando] = useState(false);
+  // Mesmo padrão do cancelar-assinatura-dialog.tsx: erro permanente (precisa
+  // de ação do usuário, ex: falar com suporte) vai pro modal de aviso em
+  // vez de um toast comum.
+  const [avisoPermanente, setAvisoPermanente] = useState<string | null>(null);
 
   const emTrialAtivo = est.status === "trial" && diasTrial !== null && diasTrial > 0;
   const assinantePagante = est.status === "ativa";
@@ -67,13 +72,12 @@ export function ExcluirContaDialog({
       });
       const dados = await resp.json().catch(() => null);
       if (!resp.ok) {
-        // `detalhe` é temporário (ver api/conta/aplicar-desconto-retencao.ts)
-        // — ajuda a diagnosticar a causa raiz direto pela tela.
-        toast.error(
-          [dados?.erro ?? "Não consegui aplicar o desconto agora. Tenta de novo.", dados?.detalhe]
-            .filter(Boolean)
-            .join(" — "),
-        );
+        // Mensagem já tratada pelo backend (mensagemAmigavelAsaas) — nunca
+        // o JSON cru do Asaas. `permanente` decide entre o modal de aviso e
+        // um toast comum.
+        const mensagem = dados?.erro ?? "Não consegui aplicar o desconto agora. Tenta de novo.";
+        if (dados?.permanente) setAvisoPermanente(mensagem);
+        else toast.error(mensagem);
         return;
       }
       toast.success(
@@ -121,6 +125,7 @@ export function ExcluirContaDialog({
   }
 
   return (
+    <>
     <Dialog open={open} onOpenChange={(v) => (v ? onOpenChange(v) : fechar())}>
       <DialogContent
         className="max-w-sm p-0 overflow-hidden"
@@ -248,5 +253,15 @@ export function ExcluirContaDialog({
         )}
       </DialogContent>
     </Dialog>
+
+    <ConfirmDialog
+      open={!!avisoPermanente}
+      onClose={() => setAvisoPermanente(null)}
+      alertOnly
+      variant="warning"
+      title="Não consegui aplicar o desconto"
+      description={avisoPermanente ?? ""}
+    />
+    </>
   );
 }

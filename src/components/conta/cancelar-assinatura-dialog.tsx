@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { Heart, Tag, AlertTriangle } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { supabase } from "@/lib/supabase";
 import { useAssinatura, useRecarregarAssinatura, nomeNivel } from "@/lib/assinaturas";
 import { buscarPlano } from "@/lib/planos";
@@ -39,6 +40,12 @@ export function CancelarAssinaturaDialog({
 
   const [etapa, setEtapa] = useState<Etapa>("retencao");
   const [carregando, setCarregando] = useState(false);
+  // Erro permanente (ex: assinatura apagada direto no Asaas) — mostrado no
+  // modal de aviso (padrão já existente em ConfirmDialog, modo `alertOnly`,
+  // antes nunca usado em lugar nenhum do app) em vez de só um toast, porque
+  // tentar de novo sozinho não resolve e o usuário precisa de uma ação
+  // diferente (falar com o suporte).
+  const [avisoPermanente, setAvisoPermanente] = useState<string | null>(null);
 
   function fechar() {
     onOpenChange(false);
@@ -67,14 +74,13 @@ export function CancelarAssinaturaDialog({
       });
       const dados = await resp.json().catch(() => null);
       if (!resp.ok) {
-        // `detalhe` é temporário (ver api/conta/aplicar-desconto-retencao.ts)
-        // — ajuda a diagnosticar a causa raiz direto pela tela, sem precisar
-        // abrir o DevTools.
-        toast.error(
-          [dados?.erro ?? "Não consegui aplicar o desconto agora. Tenta de novo.", dados?.detalhe]
-            .filter(Boolean)
-            .join(" — "),
-        );
+        // A API já devolve uma mensagem tratada (mensagemAmigavelAsaas no
+        // backend) — nunca o JSON cru do Asaas. `permanente` decide entre o
+        // modal de aviso (precisa de ação do usuário, ex: falar com
+        // suporte) e um toast comum (erro passageiro, só tentar de novo).
+        const mensagem = dados?.erro ?? "Não consegui aplicar o desconto agora. Tenta de novo.";
+        if (dados?.permanente) setAvisoPermanente(mensagem);
+        else toast.error(mensagem);
         return;
       }
       await recarregar();
@@ -115,6 +121,7 @@ export function CancelarAssinaturaDialog({
   if (!planoAtual) return null;
 
   return (
+    <>
     <Dialog open={open} onOpenChange={(v) => (v ? onOpenChange(v) : fechar())}>
       <DialogContent
         className="max-w-sm p-0 overflow-hidden"
@@ -199,5 +206,15 @@ export function CancelarAssinaturaDialog({
         )}
       </DialogContent>
     </Dialog>
+
+    <ConfirmDialog
+      open={!!avisoPermanente}
+      onClose={() => setAvisoPermanente(null)}
+      alertOnly
+      variant="warning"
+      title="Não consegui aplicar o desconto"
+      description={avisoPermanente ?? ""}
+    />
+    </>
   );
 }
