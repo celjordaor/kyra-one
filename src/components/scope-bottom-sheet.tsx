@@ -110,8 +110,9 @@ export function ScopeBottomSheet({
           </button>
         </div>
 
-        {/* Opções */}
-        <div className="px-4 py-4 space-y-3 pb-[env(safe-area-inset-bottom,16px)]">
+        {/* Opções — padding inferior generoso pra não cortar o último card
+            (soma a margem de segurança do iOS quando houver) */}
+        <div className="px-4 pt-4 space-y-3" style={{ paddingBottom: "max(1.5rem, calc(env(safe-area-inset-bottom, 0px) + 1.25rem))" }}>
 
           {/* Opção azul — Apenas esta */}
           <button
