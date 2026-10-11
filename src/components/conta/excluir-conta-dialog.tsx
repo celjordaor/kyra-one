@@ -53,7 +53,10 @@ export function ExcluirContaDialog({
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      if (!session) return;
+      if (!session) {
+        toast.error("Sessão expirada. Entra de novo.");
+        return;
+      }
 
       const resp = await fetch("/api/conta/aplicar-desconto-retencao", {
         method: "POST",
@@ -62,15 +65,20 @@ export function ExcluirContaDialog({
           Authorization: `Bearer ${session.access_token}`,
         },
       });
-      const dados = await resp.json();
+      const dados = await resp.json().catch(() => null);
       if (!resp.ok) {
-        toast.error(dados?.erro ?? "Não consegui aplicar o desconto agora.");
+        toast.error(dados?.erro ?? "Não consegui aplicar o desconto agora. Tenta de novo.");
         return;
       }
       toast.success(
         `Combinado! Seu novo valor é R$ ${Number(dados.novoValor).toFixed(2).replace(".", ",")}/mês, pra sempre.`,
       );
       fechar();
+    } catch (erro) {
+      // Mesmo fix do cancelar-assinatura-dialog.tsx: sem catch, um erro de
+      // rede ou resposta não-JSON passava em branco, sem nenhum feedback.
+      console.error("Erro ao aplicar desconto de retenção:", erro);
+      toast.error("Não consegui aplicar o desconto agora. Tenta de novo em instantes.");
     } finally {
       setCarregando(false);
     }
