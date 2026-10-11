@@ -4,9 +4,11 @@ import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/cartoes/date-picker";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ScopeBottomSheet, type ScopeType } from "@/components/scope-bottom-sheet";
-import { supabase } from "@/lib/supabase";
 import { useCategories } from "@/lib/categories-store";
-import { useCardStore, type ExpenseType } from "@/lib/card-store";
+import {
+  useCardStore, type ExpenseType,
+  deleteExpenseWithScope, updateExpenseWithScope, type SeriesExpenseRef,
+} from "@/lib/card-store";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -57,73 +59,6 @@ export async function recalcTotal(invoiceId: string) {
   await useCardStore.getState().recalcInvoiceTotal(invoiceId);
 }
 
-// ── Modal de opções de exclusão (recorrente / parcelada) ───────────────────
-function DeleteOptionsModal({
-  open, item, onClose, onDeleteSingle, onDeleteFuture,
-}: {
-  open: boolean; item: UnifiedItem | null; onClose: () => void;
-  onDeleteSingle: () => Promise<void>; onDeleteFuture: () => Promise<void>;
-}) {
-  const [selected, setSelected] = useState<"single" | "future">("single");
-  const [loading, setLoading]   = useState(false);
-
-  useEffect(() => { if (open) setSelected("single"); }, [open]);
-  if (!item) return null;
-
-  const isRecurring = item.expense_type === "recurring";
-  const options = [
-    { key: "single" as const, title: "Deletar apenas essa despesa", description: "Remove somente este lançamento da fatura", danger: false },
-    { key: "future" as const, title: "Deletar essa e futuras", description: isRecurring ? "Remove este e todos os lançamentos recorrentes futuros" : "Remove esta parcela e todas as seguintes", danger: true },
-  ];
-
-  async function handleConfirm() {
-    setLoading(true);
-    try { selected === "single" ? await onDeleteSingle() : await onDeleteFuture(); }
-    finally { setLoading(false); }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={o => !o && onClose()}>
-      <DialogContent className="max-w-sm p-0 overflow-hidden" aria-describedby={undefined}>
-        <div className="px-5 pt-5 pb-2">
-          <DialogHeader><DialogTitle className="text-base">Excluir lançamento</DialogTitle></DialogHeader>
-          <p className="mt-1.5 text-sm text-muted-foreground">
-            Escolha como deseja excluir <span className="font-medium text-foreground">"{item.description}"</span>:
-          </p>
-        </div>
-        <div className="flex flex-col gap-2 px-5 py-3">
-          {options.map(opt => {
-            const isSel = selected === opt.key;
-            return (
-              <button key={opt.key} type="button" onClick={() => setSelected(opt.key)}
-                className={cn("flex w-full items-start gap-3 rounded-xl border p-3.5 text-left transition-all",
-                  isSel ? (opt.danger ? "border-destructive/50 bg-destructive/5" : "border-primary/50 bg-primary/5") : "border-border hover:bg-muted/40"
-                )}>
-                <div className={cn("mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
-                  isSel ? (opt.danger ? "border-destructive bg-destructive" : "border-primary bg-primary") : "border-muted-foreground/40"
-                )}>
-                  {isSel && <div className="h-2 w-2 rounded-full bg-white" />}
-                </div>
-                <div className="min-w-0">
-                  <p className={cn("text-sm font-medium leading-snug", isSel && opt.danger ? "text-destructive" : "text-foreground")}>{opt.title}</p>
-                  <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{opt.description}</p>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-        <div className="flex items-center justify-end gap-2 border-t px-5 py-4">
-          <Button variant="outline" size="sm" onClick={onClose} disabled={loading}>Cancelar</Button>
-          <Button size="sm" disabled={loading} onClick={handleConfirm}
-            className={cn(selected === "future" && "bg-destructive text-destructive-foreground hover:bg-destructive/90")}>
-            {loading ? "Excluindo..." : "Confirmar"}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 // ── ExpenseDetailModal (componente principal exportado) ────────────────────
 export function ExpenseDetailModal({
   item, invoiceStatus, open, onClose, onSaved, onDeleted,
@@ -137,7 +72,6 @@ export function ExpenseDetailModal({
   const [amountDisplay, setAmountDisplay] = useState("");
   const [date, setDate]                  = useState("");
   const [saving, setSaving]              = useState(false);
-  const [showDeleteOptions, setShowDeleteOptions] = useState(false);
   const [confirmSingle, setConfirmSingle]         = useState(false);
 
   const canEdit = invoiceStatus === "open";
@@ -151,6 +85,19 @@ export function ExpenseDetailModal({
     setAmountDisplay(abs.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
   }, [item]);
 
+  function toRef(it: UnifiedItem): SeriesExpenseRef {
+    return {
+      id: it.id,
+      description: it.description,       // original (prop), não o texto editado no form
+      expenseType: it.expense_type,
+      purchaseDate: it.purchase_date,     // original
+      invoiceId: it.invoiceId,
+      isInstallmentRow: it.isInstallment,
+      parentExpenseId: it.parentExpenseId,
+      installmentNumber: it.installmentNumber,
+    };
+  }
+
   async function handleSave() {
     if (!item || !canEdit) return;
     if (!description.trim()) { toast.error("Informe a descrição"); return; }
@@ -160,38 +107,8 @@ export function ExpenseDetailModal({
     setSaving(true);
     try {
       const patch = { description: description.trim(), category, amount, purchase_date: date };
-
-      if (editScope === "bulk" && isSeries) {
-        // Atualiza este e todos os próximos da mesma série
-        if (item.expense_type === "recurring") {
-          // FIX: seleciona os ids afetados primeiro e atualiza por id — evita
-          // depender de dois `.gte("purchase_date", ...)` separados (select +
-          // update) ficarem inconsistentes entre si.
-          const { data: rows } = await supabase.from("card_expenses").select("id")
-            .eq("description", item.description).eq("expense_type", "recurring")
-            .gte("purchase_date", item.purchase_date);
-          const ids = (rows ?? []).map(r => r.id);
-          if (ids.length > 0) {
-            await supabase.from("card_expenses").update(patch).in("id", ids);
-          }
-        } else if (item.expense_type === "installment") {
-          if (item.isInstallment && item.parentExpenseId && item.installmentNumber !== undefined) {
-            await supabase.from("card_installments").update(patch)
-              .eq("parent_expense_id", item.parentExpenseId)
-              .gte("installment_number", item.installmentNumber);
-          } else {
-            await supabase.from("card_expenses").update(patch).eq("id", item.id);
-            await supabase.from("card_installments").update(patch).eq("parent_expense_id", item.id);
-          }
-        }
-      } else {
-        // Atualiza apenas este
-        const table = item.isInstallment ? "card_installments" : "card_expenses";
-        const { error } = await supabase.from(table).update(patch).eq("id", item.id);
-        if (error) throw error;
-      }
-
-      await recalcTotal(item.invoiceId);
+      const scope = editScope === "bulk" && isSeries ? "bulk" : "single";
+      await updateExpenseWithScope(toRef(item), patch, scope);
       toast.success("Lançamento atualizado!");
       onSaved();
     } catch { toast.error("Erro ao salvar."); }
@@ -211,11 +128,8 @@ export function ExpenseDetailModal({
   async function deleteSingle() {
     if (!item) return;
     try {
-      const table = item.isInstallment ? "card_installments" : "card_expenses";
-      await supabase.from(table).delete().eq("id", item.id);
-      await recalcTotal(item.invoiceId);
+      await deleteExpenseWithScope(toRef(item), "single");
       toast.success("Lançamento excluído.");
-      setShowDeleteOptions(false);
       onDeleted();
     } catch { toast.error("Erro ao excluir."); }
   }
@@ -223,34 +137,8 @@ export function ExpenseDetailModal({
   async function deleteFuture() {
     if (!item) return;
     try {
-      const affectedIds = new Set<string>([item.invoiceId]);
-      if (item.expense_type === "installment") {
-        if (item.isInstallment && item.parentExpenseId && item.installmentNumber !== undefined) {
-          const { data: rows } = await supabase.from("card_installments").select("invoice_id")
-            .eq("parent_expense_id", item.parentExpenseId).gte("installment_number", item.installmentNumber);
-          rows?.forEach(r => affectedIds.add(r.invoice_id));
-          await supabase.from("card_installments").delete()
-            .eq("parent_expense_id", item.parentExpenseId).gte("installment_number", item.installmentNumber);
-        } else if (!item.isInstallment) {
-          const { data: children } = await supabase.from("card_installments").select("invoice_id").eq("parent_expense_id", item.id);
-          children?.forEach(r => affectedIds.add(r.invoice_id));
-          await supabase.from("card_expenses").delete().eq("id", item.id);
-          await supabase.from("card_installments").delete().eq("parent_expense_id", item.id);
-        }
-      } else if (item.expense_type === "recurring") {
-        // FIX: mesmo padrão — busca ids afetados uma vez e deleta por id,
-        // em vez de repetir o filtro `.gte` numa segunda query separada.
-        const { data: rows } = await supabase.from("card_expenses").select("id, invoice_id")
-          .eq("description", item.description).eq("expense_type", "recurring").gte("purchase_date", item.purchase_date);
-        const ids = (rows ?? []).map(r => r.id);
-        rows?.forEach(r => affectedIds.add(r.invoice_id));
-        if (ids.length > 0) {
-          await supabase.from("card_expenses").delete().in("id", ids);
-        }
-      }
-      await Promise.all([...affectedIds].map(id => recalcTotal(id)));
+      await deleteExpenseWithScope(toRef(item), "bulk");
       toast.success("Lançamentos excluídos.");
-      setShowDeleteOptions(false);
       onDeleted();
     } catch (e) {
       console.error("deleteFuture error:", e);
@@ -519,11 +407,6 @@ export function ExpenseDetailModal({
         </>
       )}
 
-      <DeleteOptionsModal
-        open={showDeleteOptions} item={item}
-        onClose={() => setShowDeleteOptions(false)}
-        onDeleteSingle={deleteSingle} onDeleteFuture={deleteFuture}
-      />
       <ConfirmDialog
         open={confirmSingle}
         title="Excluir lançamento"

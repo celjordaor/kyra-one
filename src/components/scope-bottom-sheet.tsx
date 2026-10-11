@@ -17,7 +17,14 @@ export interface ScopeBottomSheetProps {
   expenseType?: "installment" | "recurring" | "generic";
   /** Título opcional da transação (exibido no cabeçalho) */
   title?: string;
+  /** "edit" (padrão) | "delete" — ajusta cabeçalho e textos para a ação em questão */
+  action?: "edit" | "delete";
 }
+
+const VERBS: Record<"edit" | "delete", { heading: string; single: string; bulk: string }> = {
+  edit:   { heading: "Editar",  single: "Altera somente",        bulk: "Altera" },
+  delete: { heading: "Excluir", single: "Remove somente",         bulk: "Remove" },
+};
 
 const LABELS: Record<
   "installment" | "recurring" | "generic",
@@ -26,23 +33,23 @@ const LABELS: Record<
   installment: {
     heading:   "parcelada",
     single:    "Apenas esta parcela",
-    singleSub: "Altera somente a parcela atual",
+    singleSub: "a parcela atual",
     bulk:      "Esta e as próximas parcelas",
-    bulkSub:   "Altera da parcela atual em diante",
+    bulkSub:   "da parcela atual em diante",
   },
   recurring: {
     heading:   "recorrente",
     single:    "Apenas este lançamento",
-    singleSub: "Altera somente o lançamento do mês atual",
+    singleSub: "o lançamento do mês atual",
     bulk:      "Este e os próximos lançamentos",
-    bulkSub:   "Altera a partir deste mês em diante",
+    bulkSub:   "a partir deste mês em diante",
   },
   generic: {
     heading:   "repetida",
     single:    "Apenas esta ocorrência",
-    singleSub: "Altera somente este lançamento específico",
+    singleSub: "este lançamento específico",
     bulk:      "Esta e as próximas ocorrências",
-    bulkSub:   "Altera a partir deste ponto em diante",
+    bulkSub:   "a partir deste ponto em diante",
   },
 };
 
@@ -52,10 +59,12 @@ export function ScopeBottomSheet({
   onSelect,
   expenseType = "generic",
   title,
+  action = "edit",
 }: ScopeBottomSheetProps) {
   if (!open) return null;
 
   const L = LABELS[expenseType];
+  const V = VERBS[action];
 
   return (
     <>
@@ -83,7 +92,7 @@ export function ScopeBottomSheet({
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-border">
           <div>
             <h2 className="text-[18px] font-bold text-foreground">
-              Editar — <span className="text-slate-500 dark:text-muted-foreground font-semibold">{L.heading}</span>
+              {V.heading} — <span className="text-slate-500 dark:text-muted-foreground font-semibold">{L.heading}</span>
             </h2>
             {title && (
               <p className="text-sm text-muted-foreground mt-0.5 truncate max-w-[260px]">"{title}"</p>
@@ -113,7 +122,7 @@ export function ScopeBottomSheet({
             <div className="h-4 w-4 rounded-full bg-blue-500 shrink-0"/>
             <div className="min-w-0">
               <p className="text-[15px] font-bold text-blue-700 dark:text-blue-400 leading-snug">{L.single}</p>
-              <p className="text-[13px] text-slate-500 dark:text-muted-foreground mt-0.5">{L.singleSub}</p>
+              <p className="text-[13px] text-slate-500 dark:text-muted-foreground mt-0.5">{V.single} {L.singleSub}</p>
             </div>
           </button>
 
@@ -126,7 +135,7 @@ export function ScopeBottomSheet({
             <div className="h-4 w-4 rounded-full bg-red-500 shrink-0"/>
             <div className="min-w-0">
               <p className="text-[15px] font-bold text-red-600 dark:text-red-400 leading-snug">{L.bulk}</p>
-              <p className="text-[13px] text-slate-500 dark:text-muted-foreground mt-0.5">{L.bulkSub}</p>
+              <p className="text-[13px] text-slate-500 dark:text-muted-foreground mt-0.5">{V.bulk} {L.bulkSub}</p>
             </div>
           </button>
 

@@ -344,10 +344,6 @@ export async function deleteTransactionSeries(
       .eq("recurrence_id", recurrenceId)
       .gte("installment_number", fromInstallment);
   }
-
-  const { error } = await supabase // verifica erro genérico
-    .from("transactions").select("id").eq("id", "check").single();
-  void error; // a query acima é só pra checar conexão; os deletes já foram feitos
 }
 
 
@@ -490,6 +486,91 @@ function addMonths(date: Date, n: number): Date {
 // ── Helpers de série ──────────────────────────────────────────────────────
 export function isInstallmentTransaction(t: Transaction): boolean {
   return !!(t.recurrence_id && t.installments_total && t.installments_total > 1);
+}
+
+// Qualquer transação que faça parte de uma série (recorrente OU parcelada).
+// Usar esta função — e não isInstallmentTransaction isoladamente — em
+// qualquer lugar da UI que decida se deve oferecer "aplicar à série" em vez
+// de só ao registro único. Checar apenas isInstallmentTransaction deixa as
+// recorrentes de fora (bug original: botão de excluir em /transacoes nunca
+// oferecia a opção de série para recorrentes).
+export function isSeriesTransaction(t: Transaction): boolean {
+  return !!t.recurrence_id || t.recurring === true || isInstallmentTransaction(t);
+}
+
+// ── Membros futuros da série (inclusive) ──────────────────────────────────
+// Ponto único que sabe encontrar "este registro + os futuros da mesma
+// série" — usado tanto pela tela de Transações quanto pelo Dashboard, para
+// não ter duas implementações do mesmo filtro que podem divergir.
+export function getFutureSeriesMembers(
+  transaction: Transaction,
+  allTransactions: Transaction[]
+): Transaction[] {
+  if (isInstallmentTransaction(transaction)) {
+    return allTransactions.filter(
+      t => t.recurrence_id === transaction.recurrence_id &&
+           (t.installment_number ?? 0) >= (transaction.installment_number ?? 0)
+    );
+  }
+  if (transaction.recurrence_id) {
+    const fromMs = parseBrDate(transaction.date).getTime();
+    return allTransactions.filter(
+      t => t.recurrence_id === transaction.recurrence_id &&
+           parseBrDate(t.date).getTime() >= fromMs
+    );
+  }
+  if (transaction.recurring === true) {
+    // Recorrente antiga sem recurrence_id (não deveria mais ocorrer depois
+    // do backfill, mantido como rede de segurança): agrupa por título+tipo.
+    const fromMs = parseBrDate(transaction.date).getTime();
+    return allTransactions.filter(
+      t => t.recurring === true && t.title === transaction.title && t.type === transaction.type &&
+           parseBrDate(t.date).getTime() >= fromMs
+    );
+  }
+  return [transaction];
+}
+
+// ── Exclusão com escopo (única / série) ────────────────────────────────────
+// Ponto único de decisão "single vs série": a tela de Transações e o
+// Dashboard chamam esta função em vez de reimplementar a lógica cada um.
+export async function deleteTransactionWithScope(
+  transaction: Transaction,
+  scope: "single" | "bulk"
+) {
+  if (scope === "single" || !isSeriesTransaction(transaction)) {
+    await deleteTransaction(transaction.id);
+    return;
+  }
+  if (isInstallmentTransaction(transaction) && transaction.recurrence_id) {
+    await deleteTransactionSeries(transaction.recurrence_id, transaction.installment_number ?? 1);
+    return;
+  }
+  if (transaction.recurrence_id) {
+    await deleteTransactionSeries(transaction.recurrence_id, 1, transaction.date);
+    return;
+  }
+  // Recorrente antiga sem recurrence_id: fallback pelo título.
+  await deleteRecurringFuture(transaction.title, transaction.type, transaction.date);
+}
+
+// ── Edição em lote com escopo (única / série) ──────────────────────────────
+// patch é aplicado a todos os membros futuros da série sem distinção —
+// quem precisa de um patch diferente por membro (ex.: manter o dia do mês,
+// recalcular sinal do valor) deve calcular os membros via
+// getFutureSeriesMembers e chamar updateTransaction individualmente.
+export async function updateTransactionWithScope(
+  transaction: Transaction,
+  patch: Partial<Omit<Transaction, "id">>,
+  scope: "single" | "bulk",
+  allTransactions: Transaction[]
+) {
+  if (scope === "single" || !isSeriesTransaction(transaction)) {
+    await updateTransaction(transaction.id, patch);
+    return;
+  }
+  const members = getFutureSeriesMembers(transaction, allTransactions);
+  await Promise.all(members.map(t => updateTransaction(t.id, patch)));
 }
 
 export function getDisplayTitle(t: Transaction): string {

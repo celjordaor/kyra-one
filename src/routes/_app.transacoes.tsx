@@ -14,8 +14,9 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
-  useTransactions, toggleSettled, updateTransaction, deleteTransaction,
-  deleteTransactionSeries, isInstallmentTransaction, getDisplayTitle,
+  useTransactions, toggleSettled, updateTransaction,
+  deleteTransactionWithScope, isInstallmentTransaction, isSeriesTransaction,
+  getFutureSeriesMembers, getDisplayTitle,
   parseBrDate, formatBrDate, isTodayOrPast, type Transaction,
 } from "@/lib/transactions-store";
 import { useCardStore, type Invoice, type CreditCard as CreditCardType } from "@/lib/card-store";
@@ -123,7 +124,7 @@ function TransacoesPage() {
   const [selectedYear, setSelectedYear]   = useState<number>(initial.year);
   const [sort, setSort]                   = useState<SortKey>("date-desc");
   const [editingId, setEditingId]         = useState<string | null>(null);
-  const [deleteTarget, setDeleteTarget]   = useState<Transaction | null>(null);
+  const [deleteScopeTarget, setDeleteScopeTarget] = useState<Transaction | null>(null);
   const [editScopeTarget, setEditScopeTarget] = useState<Transaction | null>(null);
   const [bulkEdit, setBulkEdit]               = useState(false);
   const [showTransactions, setShowTransactions] = useState(true);
@@ -413,10 +414,10 @@ function TransacoesPage() {
                             <button
                               onClick={() => {
                                 if (t.settled) return;
-                                if (isInstallmentTransaction(t)) {
-                                  setDeleteTarget(t);
+                                if (isSeriesTransaction(t)) {
+                                  setDeleteScopeTarget(t);
                                 } else {
-                                  deleteTransaction(t.id);
+                                  deleteTransactionWithScope(t, "single");
                                 }
                               }}
                               disabled={t.settled}
@@ -552,106 +553,25 @@ function TransacoesPage() {
         }}
       />
 
-      {/* Modal de exclusão para transações parceladas */}
-      <TransactionDeleteModal
-        transaction={deleteTarget}
-        open={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        onDeleteSingle={() => {
-          if (deleteTarget) deleteTransaction(deleteTarget.id);
-          setDeleteTarget(null);
-        }}
-        onDeleteFuture={() => {
-          if (deleteTarget?.recurrence_id && deleteTarget.installment_number) {
-            deleteTransactionSeries(deleteTarget.recurrence_id, deleteTarget.installment_number);
-          }
-          setDeleteTarget(null);
+      {/* Modal de escopo de exclusão: apenas essa ou toda a série (recorrente ou parcelada) */}
+      <ScopeBottomSheet
+        open={!!deleteScopeTarget}
+        onClose={() => setDeleteScopeTarget(null)}
+        action="delete"
+        expenseType={
+          deleteScopeTarget
+            ? isInstallmentTransaction(deleteScopeTarget)
+              ? "installment"
+              : "recurring"
+            : "generic"
+        }
+        title={deleteScopeTarget?.title}
+        onSelect={(scope) => {
+          if (deleteScopeTarget) deleteTransactionWithScope(deleteScopeTarget, scope);
+          setDeleteScopeTarget(null);
         }}
       />
     </div>
-  );
-}
-
-// ── Modal de exclusão de série de transações ──────────────────────────────
-function TransactionDeleteModal({
-  transaction, open, onClose, onDeleteSingle, onDeleteFuture,
-}: {
-  transaction: Transaction | null;
-  open: boolean;
-  onClose: () => void;
-  onDeleteSingle: () => void;
-  onDeleteFuture: () => void;
-}) {
-  const [selected, setSelected] = useState<"single" | "future">("single");
-
-  useEffect(() => { if (open) setSelected("single"); }, [open]);
-  if (!transaction) return null;
-
-  const remaining = (transaction.installments_total ?? 0) - (transaction.installment_number ?? 0);
-
-  return (
-    <Dialog open={open} onOpenChange={o => !o && onClose()}>
-      <DialogContent className="max-w-sm p-0 overflow-hidden" aria-describedby={undefined}>
-        <div className="px-5 pt-5 pb-2">
-          <h3 className="text-base font-semibold text-foreground">Excluir transação</h3>
-          <p className="mt-1.5 text-sm text-muted-foreground">
-            Como deseja excluir <span className="font-medium text-foreground">"{transaction.title}"</span>?
-          </p>
-        </div>
-        <div className="flex flex-col gap-2 px-5 py-3">
-          {[
-            {
-              key: "single" as const,
-              title: "Excluir apenas essa parcela",
-              description: `Remove somente a parcela ${transaction.installment_number}/${transaction.installments_total}`,
-              danger: false,
-            },
-            {
-              key: "future" as const,
-              title: "Excluir essa e as próximas",
-              description: remaining > 0
-                ? `Remove esta parcela e as ${remaining} seguintes`
-                : "Remove esta última parcela",
-              danger: true,
-            },
-          ].map(opt => {
-            const isSel = selected === opt.key;
-            return (
-              <button key={opt.key} type="button" onClick={() => setSelected(opt.key)}
-                className={cn(
-                  "flex w-full items-start gap-3 rounded-xl border p-3.5 text-left transition-all",
-                  isSel
-                    ? opt.danger ? "border-destructive/50 bg-destructive/5" : "border-primary/50 bg-primary/5"
-                    : "border-border hover:bg-muted/40"
-                )}>
-                <div className={cn(
-                  "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
-                  isSel
-                    ? opt.danger ? "border-destructive bg-destructive" : "border-primary bg-primary"
-                    : "border-muted-foreground/40"
-                )}>
-                  {isSel && <div className="h-2 w-2 rounded-full bg-white" />}
-                </div>
-                <div className="min-w-0">
-                  <p className={cn("text-sm font-medium leading-snug",
-                    isSel && opt.danger ? "text-destructive" : "text-foreground"
-                  )}>{opt.title}</p>
-                  <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{opt.description}</p>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-        <div className="flex items-center justify-end gap-2 border-t px-5 py-4">
-          <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
-          <Button size="sm"
-            onClick={() => selected === "single" ? onDeleteSingle() : onDeleteFuture()}
-            className={cn(selected === "future" && "bg-destructive text-destructive-foreground hover:bg-destructive/90")}>
-            Confirmar
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
   );
 }
 
@@ -974,21 +894,11 @@ function EditTransactionDialog({ transaction, onClose, bulkEdit = false, allTran
 
     if (bulkEdit) {
       // ── Editar em lote: aplica a série ────────────────────────────────
-      const isInstallment = isInstallmentTransaction(transaction);
       const newDay = d; // dia escolhido — será mantido em cada mês
 
-      // Encontrar transações futuras da série
-      const futures = isInstallment
-        ? allTransactions.filter(t =>
-            t.recurrence_id === transaction.recurrence_id &&
-            (t.installment_number ?? 0) >= (transaction.installment_number ?? 0)
-          )
-        : allTransactions.filter(t =>
-            t.recurring === true &&
-            t.title === transaction.title &&
-            t.type === transaction.type &&
-            parseBrDate(t.date).getTime() >= parseBrDate(transaction.date).getTime()
-          );
+      // Encontrar transações futuras da série (lógica única, compartilhada
+      // com o Dashboard — ver getFutureSeriesMembers em transactions-store.ts)
+      const futures = getFutureSeriesMembers(transaction, allTransactions);
 
       for (const t of futures) {
         const patch: Partial<Transaction> = {};

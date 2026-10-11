@@ -1,7 +1,7 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { TrendingUp, TrendingDown, PiggyBank, ChevronLeft, ChevronRight, ChevronDown, CalendarDays, Eye, EyeOff, AlertCircle, Check, User, LogOut, CreditCard, Plus, Receipt, ListChecks, Settings, Wallet, X, Pencil, Save, Trash2, Search, ClipboardPaste, AlertCircle as AlertIcon } from "lucide-react";
-import { useTransactions, parseBrDate, toggleSettled, updateTransaction, deleteTransaction, deleteTransactionSeries, type Transaction } from "@/lib/transactions-store";
+import { useTransactions, parseBrDate, toggleSettled, updateTransaction, deleteTransactionWithScope, getFutureSeriesMembers, type Transaction } from "@/lib/transactions-store";
 import { useCategories } from "@/lib/categories-store";
 import { useAccountBalance, saveAccountBalance } from "@/lib/account-balance-store";
 import { useCardStore, type Invoice, type CreditCard as CreditCardType } from "@/lib/card-store";
@@ -1477,12 +1477,14 @@ function DashboardEditTxDialog({
 
     setSaving(true);
     try {
-      if (bulkEdit && tx.recurrence_id) {
-        const installNum = tx.installment_number ?? 1;
-        const related = allTransactions.filter(
-          t => t.recurrence_id === tx.recurrence_id && (t.installment_number ?? 1) >= installNum
-        );
-        await Promise.all(related.map(t => updateTransaction(t.id, patch)));
+      if (bulkEdit) {
+        // Mesma lógica usada na tela de Transações — ver
+        // getFutureSeriesMembers em transactions-store.ts. Antes, a
+        // condição aqui usava (installment_number ?? 1) >= installNum para
+        // recorrentes também, o que casava TODOS os registros da série
+        // (passados e futuros), já que ambos os lados caem em 1 >= 1.
+        const members = getFutureSeriesMembers(tx, allTransactions);
+        await Promise.all(members.map(t => updateTransaction(t.id, patch)));
       } else {
         await updateTransaction(tx.id, patch);
       }
@@ -1505,16 +1507,9 @@ function DashboardEditTxDialog({
     setConfirmDelete(false);
     setSaving(true);
     try {
-      if (bulkEdit && tx.recurrence_id) {
-        const { deleteTransactionSeries } = await import("@/lib/transactions-store");
-        if (tx.recurring) {
-          await deleteTransactionSeries(tx.recurrence_id, tx.installment_number ?? 1, tx.date);
-        } else {
-          await deleteTransactionSeries(tx.recurrence_id, tx.installment_number ?? 1);
-        }
-      } else {
-        await deleteTransaction(tx.id);
-      }
+      // Ponto único de decisão single/série — ver deleteTransactionWithScope
+      // em transactions-store.ts (mesma função usada na tela de Transações).
+      await deleteTransactionWithScope(tx, bulkEdit ? "bulk" : "single");
       toast.success("Transação excluída.");
       onClose();
     } catch {

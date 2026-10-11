@@ -418,3 +418,111 @@ export const useCardStore = create<CardStore>((set, get) => ({
     return total;
   },
 }));
+
+// ── Edição/exclusão de despesa de cartão com escopo (única / série) ────────
+// Ponto único de decisão "single vs série" para despesas de cartão —
+// substitui a lógica que antes era reimplementada, quase idêntica, em
+// expense-detail-modal.tsx e em editar-despesa.tsx. card_expenses não tem
+// uma coluna de agrupamento própria (como recurrence_id em transactions),
+// então uma despesa recorrente é localizada por description + expense_type
+// + purchase_date (mesmo critério usado nas duas implementações originais).
+export interface SeriesExpenseRef {
+  id: string;
+  /** Descrição ORIGINAL do lançamento — sempre a de antes de qualquer
+   *  edição, nunca o valor já digitado no formulário. É o que localiza os
+   *  demais lançamentos da série recorrente; usar a descrição já editada
+   *  faz a busca não encontrar nada quando o usuário também muda o texto. */
+  description: string;
+  expenseType: ExpenseType;
+  /** purchase_date original, formato yyyy-mm-dd */
+  purchaseDate: string;
+  invoiceId: string;
+  /** true se este item é uma linha de card_installments (parcela != 1) */
+  isInstallmentRow: boolean;
+  parentExpenseId?: string;
+  installmentNumber?: number;
+}
+
+async function refreshAffectedInvoices(invoiceIds: Iterable<string>) {
+  const store = useCardStore.getState();
+  await Promise.all(
+    [...new Set(invoiceIds)].map(async id => {
+      await store.fetchExpenses(id);
+      await store.fetchInstallments(id);
+      await store.recalcInvoiceTotal(id);
+    })
+  );
+}
+
+export async function deleteExpenseWithScope(ref: SeriesExpenseRef, scope: "single" | "bulk") {
+  const affected = new Set<string>([ref.invoiceId]);
+
+  if (scope === "single" || ref.expenseType === "single") {
+    const table = ref.isInstallmentRow ? "card_installments" : "card_expenses";
+    await supabase.from(table).delete().eq("id", ref.id);
+    await refreshAffectedInvoices(affected);
+    return;
+  }
+
+  if (ref.expenseType === "installment") {
+    if (ref.isInstallmentRow && ref.parentExpenseId && ref.installmentNumber !== undefined) {
+      const { data: rows } = await supabase.from("card_installments").select("invoice_id")
+        .eq("parent_expense_id", ref.parentExpenseId).gte("installment_number", ref.installmentNumber);
+      rows?.forEach(r => affected.add(r.invoice_id));
+      await supabase.from("card_installments").delete()
+        .eq("parent_expense_id", ref.parentExpenseId).gte("installment_number", ref.installmentNumber);
+    } else {
+      // ref é a própria parcela 1 (linha em card_expenses)
+      const { data: children } = await supabase.from("card_installments").select("invoice_id").eq("parent_expense_id", ref.id);
+      children?.forEach(r => affected.add(r.invoice_id));
+      await supabase.from("card_expenses").delete().eq("id", ref.id);
+      await supabase.from("card_installments").delete().eq("parent_expense_id", ref.id);
+    }
+  } else if (ref.expenseType === "recurring") {
+    const { data: rows } = await supabase.from("card_expenses").select("id, invoice_id")
+      .eq("description", ref.description).eq("expense_type", "recurring").gte("purchase_date", ref.purchaseDate);
+    const ids = (rows ?? []).map(r => r.id);
+    rows?.forEach(r => affected.add(r.invoice_id));
+    if (ids.length > 0) await supabase.from("card_expenses").delete().in("id", ids);
+  }
+
+  await refreshAffectedInvoices(affected);
+}
+
+export async function updateExpenseWithScope(
+  ref: SeriesExpenseRef,
+  patch: Partial<Pick<CardExpense, "description" | "category" | "amount" | "purchase_date">>,
+  scope: "single" | "bulk"
+) {
+  const affected = new Set<string>([ref.invoiceId]);
+
+  if (scope === "single" || ref.expenseType === "single") {
+    const table = ref.isInstallmentRow ? "card_installments" : "card_expenses";
+    await supabase.from(table).update(patch).eq("id", ref.id);
+    await refreshAffectedInvoices(affected);
+    return;
+  }
+
+  if (ref.expenseType === "recurring") {
+    const { data: rows } = await supabase.from("card_expenses").select("id, invoice_id")
+      .eq("description", ref.description).eq("expense_type", "recurring").gte("purchase_date", ref.purchaseDate);
+    const ids = (rows ?? []).map(r => r.id);
+    rows?.forEach(r => affected.add(r.invoice_id));
+    if (ids.length > 0) await supabase.from("card_expenses").update(patch).in("id", ids);
+  } else if (ref.expenseType === "installment") {
+    if (ref.isInstallmentRow && ref.parentExpenseId && ref.installmentNumber !== undefined) {
+      const { data: rows } = await supabase.from("card_installments").select("invoice_id")
+        .eq("parent_expense_id", ref.parentExpenseId).gte("installment_number", ref.installmentNumber);
+      rows?.forEach(r => affected.add(r.invoice_id));
+      await supabase.from("card_installments").update(patch)
+        .eq("parent_expense_id", ref.parentExpenseId).gte("installment_number", ref.installmentNumber);
+    } else {
+      const { data: children } = await supabase.from("card_installments").select("invoice_id").eq("parent_expense_id", ref.id);
+      children?.forEach(r => affected.add(r.invoice_id));
+      await supabase.from("card_expenses").update(patch).eq("id", ref.id);
+      await supabase.from("card_installments").update(patch).eq("parent_expense_id", ref.id);
+    }
+  }
+
+  await refreshAffectedInvoices(affected);
+}

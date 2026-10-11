@@ -7,6 +7,10 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useCategories } from "@/lib/categories-store";
+import {
+  deleteExpenseWithScope, updateExpenseWithScope, type SeriesExpenseRef,
+  type ExpenseType,
+} from "@/lib/card-store";
 import { DatePicker } from "@/components/cartoes/date-picker";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
@@ -35,8 +39,6 @@ function parseInput(v: string): number {
   return parseFloat(v.replace(/\./g, "").replace(",", ".")) || 0;
 }
 function isEmoji(s: string) { return (s?.codePointAt(0) ?? 0) > 0x2000; }
-
-type ExpenseType = "single" | "installment" | "recurring";
 
 const TYPE_ICON: Record<ExpenseType, React.ReactNode> = {
   single:      <ShoppingBag className="h-4 w-4" />,
@@ -183,6 +185,12 @@ function EditarDespesaPage() {
   const [installNum,  setInstallNum]  = useState<number>(1);
   const [loading,     setLoading]     = useState(true);
   const [saving,      setSaving]      = useState(false);
+  // Descrição/data ORIGINAIS (antes de qualquer edição no formulário) — é o
+  // que localiza os demais lançamentos da série recorrente. Usar o estado já
+  // editado (description/date acima) faz a busca não achar nada quando o
+  // usuário também muda o texto ou a data ao editar a série inteira.
+  const [originalDescription, setOriginalDescription] = useState("");
+  const [originalPurchaseDate, setOriginalPurchaseDate] = useState("");
 
   // Modais
   const [openCat,    setOpenCat]    = useState(false);
@@ -201,8 +209,10 @@ function EditarDespesaPage() {
         const { data, error } = await supabase.from(table).select("*").eq("id", expenseId).single();
         if (error || !data) { toast.error("Despesa não encontrada."); router.history.back(); return; }
         setDescription(data.description ?? "");
+        setOriginalDescription(data.description ?? "");
         setCategory(data.category ?? "");
         setDate(data.purchase_date ?? "");
+        setOriginalPurchaseDate(data.purchase_date ?? "");
         setExpenseType((data.expense_type ?? (isInstallment ? "installment" : "single")) as ExpenseType);
         setParentId(data.parent_expense_id ?? null);
         setInstallNum(data.installment_number ?? 1);
@@ -212,12 +222,18 @@ function EditarDespesaPage() {
     })();
   }, [expenseId, isInstallment]);
 
-  // ── Recalcular total da fatura ─────────────────────────────────────────
-  async function recalcTotal(invId: string) {
-    const { data: expData }  = await supabase.from("card_expenses").select("amount").eq("invoice_id", invId);
-    const { data: instData } = await supabase.from("card_installments").select("amount").eq("invoice_id", invId);
-    const total = [...(expData ?? []), ...(instData ?? [])].reduce((s, r) => s + (r.amount ?? 0), 0);
-    await supabase.from("invoices").update({ total_amount: total }).eq("id", invId);
+  // ── Referência compartilhada para as funções de escopo (card-store.ts) ──
+  function toRef(): SeriesExpenseRef {
+    return {
+      id: expenseId,
+      description: originalDescription,     // original — nunca o texto já editado
+      expenseType,
+      purchaseDate: originalPurchaseDate,   // original
+      invoiceId,
+      isInstallmentRow: isInstallment,
+      parentExpenseId: parentId ?? undefined,
+      installmentNumber: installNum,
+    };
   }
 
   // ── Salvar ─────────────────────────────────────────────────────────────
@@ -235,10 +251,7 @@ function EditarDespesaPage() {
   async function doSaveSingle(patch: Record<string, unknown>) {
     setSaving(true);
     try {
-      const table = isInstallment ? "card_installments" : "card_expenses";
-      const { error } = await supabase.from(table).update(patch).eq("id", expenseId);
-      if (error) throw error;
-      await recalcTotal(invoiceId);
+      await updateExpenseWithScope(toRef(), patch, "single");
       toast.success("Despesa atualizada!");
       router.history.back();
     } catch { toast.error("Erro ao salvar."); }
@@ -248,24 +261,7 @@ function EditarDespesaPage() {
   async function doSaveFuture(patch: Record<string, unknown>) {
     setSaving(true);
     try {
-      if (expenseType === "installment" && parentId) {
-        await supabase.from("card_installments")
-          .update(patch)
-          .eq("parent_expense_id", parentId)
-          .gte("installment_number", installNum);
-      } else if (expenseType === "recurring") {
-        // FIX: seleciona ids afetados e atualiza por id (evita depender de
-        // dois `.gte("purchase_date", ...)` consistentes entre si).
-        const { data: rows } = await supabase.from("card_expenses").select("id")
-          .eq("description", description.trim()) // antes da mudança
-          .eq("expense_type", "recurring")
-          .gte("purchase_date", date);
-        const ids = (rows ?? []).map(r => r.id);
-        if (ids.length > 0) {
-          await supabase.from("card_expenses").update(patch).in("id", ids);
-        }
-      }
-      await recalcTotal(invoiceId);
+      await updateExpenseWithScope(toRef(), patch, "bulk");
       toast.success("Despesas atualizadas!");
       setOpenEdit(false);
       router.history.back();
@@ -282,9 +278,7 @@ function EditarDespesaPage() {
   async function doDeleteSingle() {
     setSaving(true);
     try {
-      const table = isInstallment ? "card_installments" : "card_expenses";
-      await supabase.from(table).delete().eq("id", expenseId);
-      await recalcTotal(invoiceId);
+      await deleteExpenseWithScope(toRef(), "single");
       toast.success("Despesa excluída.");
       router.history.back();
     } catch { toast.error("Erro ao excluir."); }
@@ -294,23 +288,7 @@ function EditarDespesaPage() {
   async function doDeleteFuture() {
     setSaving(true);
     try {
-      if (expenseType === "installment" && parentId) {
-        await supabase.from("card_installments")
-          .delete()
-          .eq("parent_expense_id", parentId)
-          .gte("installment_number", installNum);
-      } else if (expenseType === "recurring") {
-        // FIX: seleciona ids afetados e deleta por id.
-        const { data: rows } = await supabase.from("card_expenses").select("id")
-          .eq("description", description)
-          .eq("expense_type", "recurring")
-          .gte("purchase_date", date);
-        const ids = (rows ?? []).map(r => r.id);
-        if (ids.length > 0) {
-          await supabase.from("card_expenses").delete().in("id", ids);
-        }
-      }
-      await recalcTotal(invoiceId);
+      await deleteExpenseWithScope(toRef(), "bulk");
       toast.success("Despesas excluídas.");
       setOpenDelete(false);
       router.history.back();
