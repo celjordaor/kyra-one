@@ -60,6 +60,12 @@ export async function recalcTotal(invoiceId: string) {
 }
 
 // ── ExpenseDetailModal (componente principal exportado) ────────────────────
+// Escopo (editar/excluir "só esta" vs "série") é perguntado no momento de
+// cada ação, via ScopeBottomSheet — mesmo padrão usado em editar-despesa.tsx
+// (página cheia, acessada pela tela de fatura) e em _app.transacoes.tsx
+// (transações avulsas). Antes este modal perguntava o escopo uma vez, ANTES
+// do formulário, e reaproveitava essa escolha também pra excluir — o que
+// deixava a exclusão em lote sem nenhuma confirmação própria.
 export function ExpenseDetailModal({
   item, invoiceStatus, open, onClose, onSaved, onDeleted,
 }: {
@@ -72,9 +78,16 @@ export function ExpenseDetailModal({
   const [amountDisplay, setAmountDisplay] = useState("");
   const [date, setDate]                  = useState("");
   const [saving, setSaving]              = useState(false);
-  const [confirmSingle, setConfirmSingle]         = useState(false);
+  const [confirmSingle, setConfirmSingle] = useState(false);
+  const [openEditScope, setOpenEditScope] = useState(false);
+  const [openDeleteScope, setOpenDeleteScope] = useState(false);
+  const [openCat, setOpenCat]   = useState(false);
+  const [catSearch, setCatSearch] = useState("");
 
   const canEdit = invoiceStatus === "open";
+  const isSeries = item
+    ? item.expense_type === "recurring" || item.expense_type === "installment"
+    : false;
 
   useEffect(() => {
     if (!item) return;
@@ -98,17 +111,25 @@ export function ExpenseDetailModal({
     };
   }
 
-  async function handleSave() {
+  function buildPatch() {
+    return { description: description.trim(), category, amount: parseCurrencyInput(amountDisplay), purchase_date: date };
+  }
+
+  function handleSave() {
     if (!item || !canEdit) return;
     if (!description.trim()) { toast.error("Informe a descrição"); return; }
     if (!category) { toast.error("Selecione a categoria"); return; }
-    const amount = parseCurrencyInput(amountDisplay);
-    if (amount <= 0) { toast.error("Informe um valor válido"); return; }
+    if (parseCurrencyInput(amountDisplay) <= 0) { toast.error("Informe um valor válido"); return; }
+    if (isSeries) { setOpenEditScope(true); return; }
+    doSave("single");
+  }
+
+  async function doSave(scope: ScopeType) {
+    if (!item) return;
+    setOpenEditScope(false);
     setSaving(true);
     try {
-      const patch = { description: description.trim(), category, amount, purchase_date: date };
-      const scope = editScope === "bulk" && isSeries ? "bulk" : "single";
-      await updateExpenseWithScope(toRef(item), patch, scope);
+      await updateExpenseWithScope(toRef(item), buildPatch(), scope);
       toast.success("Lançamento atualizado!");
       onSaved();
     } catch { toast.error("Erro ao salvar."); }
@@ -117,25 +138,25 @@ export function ExpenseDetailModal({
 
   function handleDelete() {
     if (!item || !canEdit) return;
-    // Para recorrentes/parceladas: usa o escopo já selecionado no ScopeBottomSheet
-    if (isSeries && editScope === "bulk") {
-      deleteFuture();
-      return;
-    }
+    if (isSeries) { setOpenDeleteScope(true); return; }
     setConfirmSingle(true);
   }
 
   async function deleteSingle() {
     if (!item) return;
+    setSaving(true);
     try {
       await deleteExpenseWithScope(toRef(item), "single");
       toast.success("Lançamento excluído.");
       onDeleted();
     } catch { toast.error("Erro ao excluir."); }
+    finally { setSaving(false); }
   }
 
   async function deleteFuture() {
     if (!item) return;
+    setOpenDeleteScope(false);
+    setSaving(true);
     try {
       await deleteExpenseWithScope(toRef(item), "bulk");
       toast.success("Lançamentos excluídos.");
@@ -143,37 +164,10 @@ export function ExpenseDetailModal({
     } catch (e) {
       console.error("deleteFuture error:", e);
       toast.error("Erro ao excluir.");
-    }
+    } finally { setSaving(false); }
   }
-
-  const [openCat, setOpenCat]   = useState(false);
-  const [catSearch, setCatSearch] = useState("");
-  // Escopo de edição: mostrado PRIMEIRO para recorrentes/parceladas (antes do formulário)
-  const [editScope, setEditScope] = useState<ScopeType | null>(null);
-
-  const isSeries = item
-    ? item.expense_type === "recurring" || item.expense_type === "installment"
-    : false;
-
-  // Resetar escopo ao abrir/fechar
-  useEffect(() => {
-    if (!open) setEditScope(null);
-  }, [open]);
 
   if (!item) return null;
-
-  // Para recorrentes/parceladas editáveis: mostrar ScopeBottomSheet primeiro
-  if (open && isSeries && canEdit && !editScope) {
-    return (
-      <ScopeBottomSheet
-        open={true}
-        onClose={onClose}
-        onSelect={setEditScope}
-        expenseType={item.expense_type === "installment" ? "installment" : "recurring"}
-        title={item.description}
-      />
-    );
-  }
 
   const selectedCat = categories.find(c => c.name === category);
   const isEmoji = (icon?: string) => (icon?.codePointAt(0) ?? 0) > 0x2000;
@@ -185,57 +179,55 @@ export function ExpenseDetailModal({
 
       {open && (
         <div className="fixed inset-x-0 bottom-0 z-[101] flex flex-col md:inset-0 md:items-center md:justify-center">
-          <div className="relative flex flex-col overflow-hidden bg-background md:w-full md:max-w-lg md:rounded-2xl"
-            style={{ maxHeight: "92dvh" }}>
+          <div className="relative flex flex-col overflow-hidden bg-background md:w-full md:max-w-md md:rounded-2xl"
+            style={{ maxHeight: "90dvh" }}>
 
-            {/* ── Cabeçalho gradiente indigo ── */}
+            {/* ── Cabeçalho gradiente indigo — compacto, sem scroll ── */}
             <div className={cn(
-              "relative overflow-hidden px-5 pt-5 pb-5 text-white shrink-0",
+              "relative overflow-hidden px-4 pt-4 pb-4 text-white shrink-0",
               canEdit
                 ? "bg-gradient-to-br from-indigo-600 to-violet-700"
                 : "bg-gradient-to-br from-slate-500 to-slate-700"
             )}>
-              <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10"/>
-              <div className="absolute -left-6 -bottom-6 h-24 w-24 rounded-full bg-white/10"/>
+              <div className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-white/10"/>
+              <div className="absolute -left-6 -bottom-6 h-20 w-20 rounded-full bg-white/10"/>
               <div className="relative">
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-2.5">
                   <div>
-                    <p className="text-xs text-white/60 uppercase tracking-wide leading-none">
+                    <p className="text-[11px] text-white/60 uppercase tracking-wide leading-none">
                       {canEdit ? "Editar lançamento" : "Detalhes do lançamento"}
                     </p>
-                    <span className={cn(
-                      "mt-1.5 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold bg-white/20 text-white"
-                    )}>
+                    <span className="mt-1 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold bg-white/20 text-white">
                       {TYPE_ICON[item.expense_type]} {TYPE_LABEL[item.expense_type]}
                     </span>
                   </div>
                   <button onClick={onClose}
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 hover:bg-white/30">
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/20 hover:bg-white/30">
                     <X className="h-4 w-4"/>
                   </button>
                 </div>
 
                 {/* Valor em destaque */}
                 <div>
-                  <p className="text-xs text-white/60 mb-1">Valor</p>
+                  <p className="text-[11px] text-white/60 mb-0.5">Valor</p>
                   {canEdit ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl font-bold text-white/70">R$</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xl font-bold text-white/70">R$</span>
                       <input
                         type="text" inputMode="decimal"
                         value={amountDisplay}
                         onChange={e => setAmountDisplay(formatCurrencyInput(e.target.value))}
                         placeholder="0,00"
-                        className="bg-transparent text-4xl font-black text-white placeholder-white/40 outline-none w-full tracking-tight"
+                        className="bg-transparent text-3xl font-black text-white placeholder-white/40 outline-none w-full tracking-tight"
                       />
                     </div>
                   ) : (
-                    <p className="text-4xl font-black tracking-tight">-{fmt(item.amount)}</p>
+                    <p className="text-3xl font-black tracking-tight">-{fmt(item.amount)}</p>
                   )}
                 </div>
 
                 {!canEdit && (
-                  <p className="mt-2 text-xs text-white/60">
+                  <p className="mt-1.5 text-[11px] text-white/60">
                     {invoiceStatus === "paid" ? "🔒 Fatura paga — somente leitura" : "🔒 Fatura fechada — somente leitura"}
                   </p>
                 )}
@@ -244,99 +236,73 @@ export function ExpenseDetailModal({
 
             {/* ── Campos ── */}
             <div className="overflow-y-auto flex-1">
-              <div className="px-4 py-4 space-y-3">
+              <div className="px-4 py-3 space-y-2">
 
                 {/* Descrição */}
-                <div className="rounded-2xl border bg-card px-4 py-3 space-y-1">
-                  <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Descrição</p>
+                <div className="rounded-xl border bg-card px-3.5 py-2.5 space-y-0.5">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Descrição</p>
                   {canEdit ? (
                     <input
                       value={description}
                       onChange={e => setDescription(e.target.value)}
                       placeholder="Nome da despesa"
-                      className="w-full bg-transparent text-[16px] font-semibold text-foreground outline-none placeholder-muted-foreground/50"
+                      className="w-full bg-transparent text-[15px] font-semibold text-foreground outline-none placeholder-muted-foreground/50"
                     />
                   ) : (
-                    <p className="text-[16px] font-semibold text-foreground">{item.description}</p>
+                    <p className="text-[15px] font-semibold text-foreground">{item.description}</p>
                   )}
                 </div>
 
                 {/* Categoria — campo fechado que abre BottomSheet */}
                 {canEdit ? (
                   <button type="button" onClick={() => setOpenCat(true)}
-                    className="w-full rounded-2xl border bg-card px-4 py-3.5 text-left flex items-center gap-3 transition-colors hover:bg-muted/30">
+                    className="w-full rounded-xl border bg-card px-3.5 py-2.5 text-left flex items-center gap-2.5 transition-colors hover:bg-muted/30">
                     {selectedCat ? (
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl"
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-base"
                         style={{ background: (selectedCat.color || "#6b7280") + "22" }}>
                         {isEmoji(selectedCat.icon) ? selectedCat.icon : "📦"}
                       </div>
                     ) : (
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted">
-                        <span className="text-xs">📦</span>
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted">
+                        <span className="text-[11px]">📦</span>
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Categoria</p>
-                      <p className={cn("text-[16px] font-semibold mt-0.5", category ? "text-foreground" : "text-muted-foreground/50")}>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Categoria</p>
+                      <p className={cn("text-[15px] font-semibold", category ? "text-foreground" : "text-muted-foreground/50")}>
                         {category || "Selecione a categoria"}
                       </p>
                     </div>
                     <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0"/>
                   </button>
                 ) : (
-                  <div className="rounded-2xl border bg-card px-4 py-3 space-y-1">
-                    <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Categoria</p>
-                    <p className="text-[16px] font-semibold text-foreground">{item.category}</p>
+                  <div className="rounded-xl border bg-card px-3.5 py-2.5 space-y-0.5">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Categoria</p>
+                    <p className="text-[15px] font-semibold text-foreground">{item.category}</p>
                   </div>
                 )}
 
                 {/* Data */}
-                <div className="rounded-2xl border bg-card px-4 py-3 space-y-2">
-                  <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Data da compra</p>
+                <div className="rounded-xl border bg-card px-3.5 py-2.5 space-y-1.5">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Data da compra</p>
                   {canEdit ? (
                     <DatePicker value={date} onChange={setDate}/>
                   ) : (
-                    <p className="text-[16px] font-semibold text-foreground">
+                    <p className="text-[15px] font-semibold text-foreground">
                       {new Date(item.purchase_date + "T12:00:00").toLocaleDateString("pt-BR", { dateStyle: "long" })}
                     </p>
                   )}
                 </div>
-
-                {canEdit && <div className="h-20 md:hidden"/>}
               </div>
             </div>
 
-            {/* ── Botões mobile fixos ── */}
-            {canEdit && (
-              <div className="md:hidden fixed left-0 right-0 z-10 px-4 pt-3 pb-[env(safe-area-inset-bottom,12px)] bg-background/97 border-t border-border/40"
-                style={{ bottom: "0px", backdropFilter: "blur(8px)" }}>
-                <button onClick={handleSave} disabled={saving}
-                  className="w-full h-14 rounded-2xl bg-indigo-600 text-white font-bold text-base shadow-lg shadow-indigo-600/25 transition-all active:scale-95 disabled:opacity-70">
-                  {saving ? "Salvando..." : "Salvar alterações"}
-                </button>
-                <button onClick={handleDelete}
-                  className="w-full mt-2 h-11 rounded-xl text-red-500 font-semibold text-sm flex items-center justify-center gap-2">
-                  <Trash2 className="h-4 w-4"/> Excluir lançamento
-                </button>
-              </div>
-            )}
-            {!canEdit && (
-              <div className="md:hidden fixed left-0 right-0 z-10 px-4 pt-3 pb-[env(safe-area-inset-bottom,12px)] bg-background/97 border-t"
-                style={{ bottom: "0px" }}>
-                <button onClick={onClose}
-                  className="w-full h-12 rounded-xl bg-muted text-foreground font-semibold text-sm">
-                  Fechar
-                </button>
-              </div>
-            )}
-
-            {/* ── Botões desktop inline ── */}
-            <div className={cn("hidden md:flex items-center border-t px-5 py-3 shrink-0",
+            {/* ── Rodapé de ações — sempre visível, igual mobile/desktop ── */}
+            <div className={cn("flex items-center gap-3 border-t px-4 py-3 shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]",
               canEdit ? "justify-between" : "justify-end"
             )}>
               {canEdit && (
                 <button onClick={handleDelete}
-                  className="flex items-center gap-1.5 text-sm text-red-500 font-medium hover:text-red-600">
+                  className="flex items-center gap-1.5 text-sm text-red-500 font-medium hover:text-red-600 shrink-0">
                   <Trash2 className="h-4 w-4"/> Excluir
                 </button>
               )}
@@ -406,6 +372,29 @@ export function ExpenseDetailModal({
           </div>
         </>
       )}
+
+      {/* Escopo de edição — só perguntado para recorrentes/parceladas */}
+      <ScopeBottomSheet
+        open={openEditScope}
+        onClose={() => setOpenEditScope(false)}
+        expenseType={item.expense_type === "installment" ? "installment" : "recurring"}
+        title={item.description}
+        onSelect={doSave}
+      />
+
+      {/* Escopo de exclusão — independente do escopo escolhido na edição */}
+      <ScopeBottomSheet
+        open={openDeleteScope}
+        onClose={() => setOpenDeleteScope(false)}
+        action="delete"
+        expenseType={item.expense_type === "installment" ? "installment" : "recurring"}
+        title={item.description}
+        onSelect={(scope) => {
+          setOpenDeleteScope(false);
+          if (scope === "single") setConfirmSingle(true);
+          else deleteFuture();
+        }}
+      />
 
       <ConfirmDialog
         open={confirmSingle}

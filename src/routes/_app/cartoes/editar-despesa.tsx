@@ -13,6 +13,7 @@ import {
 } from "@/lib/card-store";
 import { DatePicker } from "@/components/cartoes/date-picker";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ScopeBottomSheet } from "@/components/scope-bottom-sheet";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -81,50 +82,6 @@ function BottomSheet({ open, onClose, title, maxHeight = "75vh", children }: {
         <div className="flex-1 overflow-y-auto overscroll-contain">{children}</div>
       </div>
     </>
-  );
-}
-
-// ── Modal escopo de edição/exclusão ────────────────────────────────────────
-function ScopeSheet({ open, onClose, expenseType, action, onSingle, onFuture, loading }: {
-  open: boolean; onClose: () => void;
-  expenseType: ExpenseType; action: "edit" | "delete";
-  onSingle: () => void; onFuture: () => void; loading: boolean;
-}) {
-  const isInstallment = expenseType === "installment";
-  const verb = action === "edit" ? "Editar" : "Excluir";
-  const singleLabel  = isInstallment ? "Apenas esta parcela"      : "Apenas esta ocorrência";
-  const futureLabel  = isInstallment ? "Esta e as próximas parcelas" : "Esta e todas as futuras";
-  const singleDesc   = isInstallment ? "Altera somente a parcela atual"    : "Altera somente este mês";
-  const futureDesc   = isInstallment ? "Altera da parcela atual em diante" : "Altera este e todos os meses seguintes";
-
-  return (
-    <BottomSheet open={open} onClose={onClose}
-      title={`${verb} — ${isInstallment ? "parcelada" : "recorrente"}`} maxHeight="50vh">
-      <div className="px-4 pt-2 pb-8 space-y-3">
-        {[
-          { label: singleLabel, desc: singleDesc, action: onSingle, danger: action === "delete" },
-          { label: futureLabel, desc: futureDesc,  action: onFuture, danger: true },
-        ].map(opt => (
-          <button key={opt.label} type="button" disabled={loading}
-            onClick={opt.action}
-            className={cn(
-              "flex w-full items-start gap-3 rounded-2xl border-2 p-4 text-left transition-all active:scale-95",
-              opt.danger
-                ? "border-red-200 bg-red-50 hover:bg-red-100"
-                : "border-indigo-200 bg-indigo-50 hover:bg-indigo-100"
-            )}>
-            <div className={cn("mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full",
-              opt.danger ? "bg-red-400" : "bg-indigo-400")} />
-            <div>
-              <p className={cn("font-semibold text-sm", opt.danger ? "text-red-700" : "text-indigo-700")}>
-                {opt.label}
-              </p>
-              <p className="text-xs text-slate-500 mt-0.5">{opt.desc}</p>
-            </div>
-          </button>
-        ))}
-      </div>
-    </BottomSheet>
   );
 }
 
@@ -575,22 +532,26 @@ function EditarDespesaPage() {
         </div>
       </BottomSheet>
 
-      {/* BOTTOM SHEET: ESCOPO EDIÇÃO */}
-      <ScopeSheet
+      {/* BOTTOM SHEET: ESCOPO EDIÇÃO — componente compartilhado com as demais telas */}
+      <ScopeBottomSheet
         open={openEdit} onClose={() => setOpenEdit(false)}
-        expenseType={expenseType} action="edit"
-        onSingle={() => { setOpenEdit(false); if (editPatch) doSaveSingle(editPatch); }}
-        onFuture={() => { if (editPatch) doSaveFuture(editPatch); }}
-        loading={saving}
+        expenseType={expenseType === "installment" ? "installment" : "recurring"}
+        onSelect={(scope) => {
+          setOpenEdit(false);
+          if (!editPatch) return;
+          if (scope === "single") doSaveSingle(editPatch); else doSaveFuture(editPatch);
+        }}
       />
 
       {/* BOTTOM SHEET: ESCOPO EXCLUSÃO */}
-      <ScopeSheet
+      <ScopeBottomSheet
         open={openDelete} onClose={() => setOpenDelete(false)}
-        expenseType={expenseType} action="delete"
-        onSingle={() => { setOpenDelete(false); doDeleteSingle(); }}
-        onFuture={doDeleteFuture}
-        loading={saving}
+        action="delete"
+        expenseType={expenseType === "installment" ? "installment" : "recurring"}
+        onSelect={(scope) => {
+          setOpenDelete(false);
+          if (scope === "single") doDeleteSingle(); else doDeleteFuture();
+        }}
       />
 
       {/* CONFIRM: EXCLUSÃO AVULSA */}
