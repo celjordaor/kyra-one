@@ -49,13 +49,22 @@ export async function verificarAlertaOrcamento(
         .gte("purchase_date", inicioMes),
     ]);
 
+    // `transactions.amount` pode vir negativo pra despesa (ver dashboard,
+    // que também usa Math.abs ao somar) — sem o abs aqui, uma despesa
+    // negativa diminuía o total em vez de aumentar, e o alerta nunca
+    // cruzava o limite. `card_expenses.amount` já é sempre positivo, mas o
+    // abs não faz diferença nesse caso (só reforça).
     const totalTransacoes = (transacoes ?? [])
       .filter((t) => dataBrEhDoMes(t.date as string, anoMes))
-      .reduce((soma, t) => soma + Number(t.amount), 0);
-    const totalCartao = (despesasCartao ?? []).reduce((soma, e) => soma + Number(e.amount), 0);
+      .reduce((soma, t) => soma + Math.abs(Number(t.amount)), 0);
+    const totalCartao = (despesasCartao ?? []).reduce(
+      (soma, e) => soma + Math.abs(Number(e.amount)),
+      0,
+    );
 
+    const valorAbs = Math.abs(valorLancamento);
     const totalComEsse = totalTransacoes + totalCartao;
-    const totalAntesDesse = totalComEsse - valorLancamento;
+    const totalAntesDesse = totalComEsse - valorAbs;
 
     if (totalAntesDesse < limite && totalComEsse >= limite) {
       await dispararAlerta("despesa", {
