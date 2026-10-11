@@ -4,8 +4,8 @@ import {
   Lock, Sprout, Bell, HelpCircle, UserX,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { useAssinatura, podeAcessar } from "@/lib/assinaturas";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Switch } from "@/components/ui/switch";
@@ -83,6 +83,7 @@ function Row({
 function MaisPage() {
   const router = useRouter();
   const { user, signOut } = useAuth();
+  const est = useAssinatura();
 
   // ── Estados dos dialogs ──────────────────────────────────────────────────
   const [openNotifs, setOpenNotifs] = useState(false);
@@ -94,6 +95,11 @@ function MaisPage() {
 
   // Notificações
   const [notifs, setNotifs] = useState<Notifs>(DEFAULT_NOTIFS);
+  const podeNotifPro = podeAcessar("pro", est);
+  function irParaAssinar() {
+    setOpenNotifs(false);
+    router.navigate({ to: "/assinar" });
+  }
 
   useEffect(() => {
     if (!user) return;
@@ -183,7 +189,7 @@ function MaisPage() {
             iconBg="bg-blue-50 dark:bg-blue-950/30" iconColor="text-blue-500"
             label="Ajuda e suporte"
             sublabel="Dúvidas e documentação"
-            onClick={() => toast.info("Em breve!")}
+            onClick={() => router.navigate({ to: "/ajuda" })}
             last
           />
         </Section>
@@ -197,22 +203,27 @@ function MaisPage() {
         </div>
 
         {/* ── Zona de risco ──────────────────────────────────────────── */}
-        <div className="mx-4 mt-6">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-muted-foreground mb-1.5 px-1">
-            Zona de risco
-          </p>
-          <button type="button" onClick={() => setOpenExcluirConta(true)}
-            className="flex w-full items-center gap-3.5 rounded-2xl bg-white dark:bg-card shadow-sm border border-slate-100 dark:border-border px-4 py-3.5 text-left transition-colors hover:bg-red-50/50 dark:hover:bg-red-950/10">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-50 dark:bg-red-950/30 text-red-500">
-              <UserX className="h-5 w-5"/>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[15px] font-medium text-red-500 leading-snug">Excluir conta</p>
-              <p className="text-[12px] text-slate-400 dark:text-muted-foreground mt-0.5">Apaga seus dados permanentemente</p>
-            </div>
-            <ChevronRight className="h-4 w-4 text-slate-400"/>
-          </button>
-        </div>
+        {/* Contas superadmin nunca mostram essa opção — exclusão apagaria a
+            conta que administra o sistema. Reforçado também no backend
+            (api/conta/excluir.ts), que recusa a chamada pra quem for admin. */}
+        {!est.ehSuperadmin && (
+          <div className="mx-4 mt-6">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-muted-foreground mb-1.5 px-1">
+              Zona de risco
+            </p>
+            <button type="button" onClick={() => setOpenExcluirConta(true)}
+              className="flex w-full items-center gap-3.5 rounded-2xl bg-white dark:bg-card shadow-sm border border-slate-100 dark:border-border px-4 py-3.5 text-left transition-colors hover:bg-red-50/50 dark:hover:bg-red-950/10">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-50 dark:bg-red-950/30 text-red-500">
+                <UserX className="h-5 w-5"/>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[15px] font-medium text-red-500 leading-snug">Excluir conta</p>
+                <p className="text-[12px] text-slate-400 dark:text-muted-foreground mt-0.5">Apaga seus dados permanentemente</p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-slate-400"/>
+            </button>
+          </div>
+        )}
 
         <p className="mt-6 text-center text-[11px] text-slate-300 dark:text-muted-foreground/40">
           KyraOne v1.0
@@ -230,15 +241,30 @@ function MaisPage() {
             <p className="text-sm text-white/80 mt-0.5">Escolha o que você quer receber.</p>
           </div>
           <div className="px-5 py-4 space-y-1">
+            {/* Alertas de despesas/Resumo mensal/Metas atingidas: nenhuma tem
+                disparo real hoje (push/e-mail) — ficam como recurso Pro,
+                reservadas pra quando a infraestrutura de notificação
+                existir. "Lembretes de contas" é a exceção: ela já controla
+                de verdade a seção de pendências no dashboard, então
+                continua liberada no Controle. */}
             <NotifRow label="Alertas de despesas" hint="Avisos ao ultrapassar limites por categoria"
-              checked={notifs.expenseAlerts} onChange={v => updateNotif("expenseAlerts", v)}/>
+              checked={notifs.expenseAlerts} onChange={v => updateNotif("expenseAlerts", v)}
+              locked={!podeNotifPro} onLockedClick={irParaAssinar}/>
             <NotifRow label="Resumo mensal" hint="Receba o fechamento do mês com receitas e despesas"
-              checked={notifs.monthlySummary} onChange={v => updateNotif("monthlySummary", v)}/>
+              checked={notifs.monthlySummary} onChange={v => updateNotif("monthlySummary", v)}
+              locked={!podeNotifPro} onLockedClick={irParaAssinar}/>
             <NotifRow label="Metas atingidas" hint="Comemore quando bater uma meta de economia"
-              checked={notifs.goalsReached} onChange={v => updateNotif("goalsReached", v)}/>
+              checked={notifs.goalsReached} onChange={v => updateNotif("goalsReached", v)}
+              locked={!podeNotifPro} onLockedClick={irParaAssinar}/>
             <NotifRow label="Lembretes de contas" hint="Avisos de contas a pagar próximas do vencimento"
               checked={notifs.billReminders} onChange={v => updateNotif("billReminders", v)}/>
           </div>
+          {!podeNotifPro && (
+            <p className="px-5 pb-3 -mt-1 text-[11px] text-muted-foreground">
+              <Lock className="inline h-3 w-3 mr-1 -mt-0.5"/>
+              Alertas de despesas, resumo mensal e metas atingidas são recursos do plano Pro.
+            </p>
+          )}
           <div className="border-t px-5 py-3.5">
             <Button className="w-full" onClick={() => setOpenNotifs(false)}>Concluir</Button>
           </div>
@@ -252,16 +278,27 @@ function MaisPage() {
 }
 
 // ── Componentes auxiliares ─────────────────────────────────────────────────
-function NotifRow({ label, hint, checked, onChange }: {
+function NotifRow({ label, hint, checked, onChange, locked = false, onLockedClick }: {
   label: string; hint: string; checked: boolean; onChange: (v: boolean) => void;
+  locked?: boolean; onLockedClick?: () => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg px-1 py-2.5">
+    <div className={cn("flex items-center justify-between gap-3 rounded-lg px-1 py-2.5", locked && "opacity-60")}>
       <div className="flex-1">
-        <p className="text-sm font-medium text-foreground">{label}</p>
+        <p className="text-sm font-medium text-foreground flex items-center gap-1.5">
+          {label}
+          {locked && <Lock className="h-3 w-3 text-muted-foreground"/>}
+        </p>
         <p className="text-xs text-muted-foreground">{hint}</p>
       </div>
-      <Switch checked={checked} onCheckedChange={onChange}/>
+      {locked ? (
+        <button type="button" onClick={onLockedClick}
+          className="text-[11px] font-semibold text-primary whitespace-nowrap">
+          Ver planos
+        </button>
+      ) : (
+        <Switch checked={checked} onCheckedChange={onChange}/>
+      )}
     </div>
   );
 }

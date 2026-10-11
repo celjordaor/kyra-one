@@ -12,3 +12,10 @@ export const EMPRESA_RAZAO_SOCIAL = "Universo Kyra Ltda";
 export const EMPRESA_CNPJ = "47.544.571/0001-50";
 export const EMPRESA_CIDADE_UF = "Alfenas, MG";
 export const EMPRESA_EMAIL_CONTATO = "contato@kyraone.com.br";
+
+// E-mail de suporte — usado em /ajuda (src/routes/_app.ajuda.tsx). Separado
+// do e-mail de contato institucional (acima) porque é o canal de atendimento
+// a dúvidas/problemas do produto, não de assuntos legais/comerciais.
+export const SUPORTE_EMAIL = "suporte@kyraone.com.br";
+export const SUPORTE_MAILTO =
+  `mailto:${SUPORTE_EMAIL}?subject=${encodeURIComponent("Suporte KyraOne")}`;

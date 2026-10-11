@@ -40,6 +40,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ erro: "Indisponível." });
   }
 
+  // 0) Superadmin nunca pode excluir a própria conta por aqui — apagaria a
+  // conta que administra o sistema. O frontend já esconde o botão (ver
+  // _app.mais.tsx), mas essa é a checagem que realmente importa, já que o
+  // endpoint não pode confiar em nada vindo do client além do token.
+  const { data: perfil } = await admin
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (perfil?.role === "admin") {
+    return res.status(403).json({ erro: "Contas de administrador não podem ser excluídas por aqui." });
+  }
+
   // 1) Cancela a assinatura no Asaas, se houver uma ativa. Se a chamada ao
   // Asaas falhar, aborta — melhor pedir pra tentar de novo do que apagar a
   // conta e deixar uma cobrança ativa "órfã" rodando no gateway.

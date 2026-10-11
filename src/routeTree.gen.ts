@@ -28,6 +28,7 @@ import { Route as AppFaturasCartaoRouteImport } from './routes/_app.faturas-cart
 import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
 import { Route as AppCategoriasRouteImport } from './routes/_app.categorias'
 import { Route as AppAssinarRouteImport } from './routes/_app.assinar'
+import { Route as AppAjudaRouteImport } from './routes/_app.ajuda'
 import { Route as AppAdminRouteImport } from './routes/_app.admin'
 import { Route as AppCartoesIndexRouteImport } from './routes/_app/cartoes/index'
 import { Route as AppCartoesNovoRouteImport } from './routes/_app/cartoes/novo'
@@ -130,6 +131,11 @@ const AppAssinarRoute = AppAssinarRouteImport.update({
   path: '/assinar',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAjudaRoute = AppAjudaRouteImport.update({
+  id: '/ajuda',
+  path: '/ajuda',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAdminRoute = AppAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -178,6 +184,7 @@ export interface FileRoutesByFullPath {
   '/share-intent': typeof ShareIntentRoute
   '/termos': typeof TermosRoute
   '/admin': typeof AppAdminRoute
+  '/ajuda': typeof AppAjudaRoute
   '/assinar': typeof AppAssinarRoute
   '/categorias': typeof AppCategoriasRoute
   '/dashboard': typeof AppDashboardRoute
@@ -205,6 +212,7 @@ export interface FileRoutesByTo {
   '/share-intent': typeof ShareIntentRoute
   '/termos': typeof TermosRoute
   '/admin': typeof AppAdminRoute
+  '/ajuda': typeof AppAjudaRoute
   '/assinar': typeof AppAssinarRoute
   '/categorias': typeof AppCategoriasRoute
   '/dashboard': typeof AppDashboardRoute
@@ -234,6 +242,7 @@ export interface FileRoutesById {
   '/share-intent': typeof ShareIntentRoute
   '/termos': typeof TermosRoute
   '/_app/admin': typeof AppAdminRoute
+  '/_app/ajuda': typeof AppAjudaRoute
   '/_app/assinar': typeof AppAssinarRoute
   '/_app/categorias': typeof AppCategoriasRoute
   '/_app/dashboard': typeof AppDashboardRoute
@@ -263,6 +272,7 @@ export interface FileRouteTypes {
     | '/share-intent'
     | '/termos'
     | '/admin'
+    | '/ajuda'
     | '/assinar'
     | '/categorias'
     | '/dashboard'
@@ -290,6 +300,7 @@ export interface FileRouteTypes {
     | '/share-intent'
     | '/termos'
     | '/admin'
+    | '/ajuda'
     | '/assinar'
     | '/categorias'
     | '/dashboard'
@@ -318,6 +329,7 @@ export interface FileRouteTypes {
     | '/share-intent'
     | '/termos'
     | '/_app/admin'
+    | '/_app/ajuda'
     | '/_app/assinar'
     | '/_app/categorias'
     | '/_app/dashboard'
@@ -483,6 +495,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAssinarRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/ajuda': {
+      id: '/_app/ajuda'
+      path: '/ajuda'
+      fullPath: '/ajuda'
+      preLoaderRoute: typeof AppAjudaRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/admin': {
       id: '/_app/admin'
       path: '/admin'
@@ -548,6 +567,7 @@ const AppCartoesCardIdRouteWithChildren =
 
 interface AppRouteChildren {
   AppAdminRoute: typeof AppAdminRoute
+  AppAjudaRoute: typeof AppAjudaRoute
   AppAssinarRoute: typeof AppAssinarRoute
   AppCategoriasRoute: typeof AppCategoriasRoute
   AppDashboardRoute: typeof AppDashboardRoute
@@ -566,6 +586,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppAdminRoute: AppAdminRoute,
+  AppAjudaRoute: AppAjudaRoute,
   AppAssinarRoute: AppAssinarRoute,
   AppCategoriasRoute: AppCategoriasRoute,
   AppDashboardRoute: AppDashboardRoute,

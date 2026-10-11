@@ -15,6 +15,7 @@ import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -167,32 +168,57 @@ function DashboardPage() {
   const [clipSaving,    setClipSaving]    = useState(false);
   const [clipOpenCat,   setClipOpenCat]   = useState(false);
   const [clipCatSearch, setClipCatSearch] = useState("");
+  // Fallback de colagem manual — usado quando navigator.clipboard.readText()
+  // falha (bastante comum em PWA instalado no iOS/Android: o navigator volta
+  // a dar foco pro app depois de trocar pro app de notificações/banco, mas o
+  // documento ainda não é considerado "focado" o suficiente pra API de
+  // clipboard, e ela rejeita com NotAllowedError mesmo com o texto certinho
+  // copiado). Nesse caso, em vez de só mostrar um erro sem saída, abre um
+  // campo de texto pro usuário colar manualmente (gesto nativo de colar
+  // funciona mesmo quando a API programática não funciona).
+  const [openClipManual, setOpenClipManual] = useState(false);
+  const [clipManualText, setClipManualText] = useState("");
+
+  function processClipText(text: string) {
+    if (!text.trim()) { toast.info("Nada pra processar — copie o texto da notificação primeiro."); return; }
+    const parsed = parseNotifText(text);
+    setClipText(text);
+    setClipParsed(parsed);
+    setClipMode(parsed.isCard ? "card" : "expense");
+    setClipAmtDisp(parsed.amount > 0 ? parsed.amount.toLocaleString("pt-BR",{minimumFractionDigits:2}) : "");
+    setClipAmtVal(parsed.amount);
+    setClipDesc(parsed.merchant);
+    setClipCategory("");
+    setClipDate(new Date().toISOString().split("T")[0]);
+    setClipSettled(false);
+    // Auto-seleciona cartão pelo hint
+    if (parsed.cardHint && cards.length > 0) {
+      const hint = parsed.cardHint.toLowerCase();
+      const match = cards.find(c => c.name.toLowerCase().includes(hint) || c.bank.toLowerCase().includes(hint));
+      if (match) { setClipCardId(match.id); fetchInvoices(match.id); }
+      else setClipCardId(null);
+    } else setClipCardId(null);
+    setOpenClip(true);
+  }
 
   async function handleClipboard() {
     try {
       const text = await navigator.clipboard.readText();
       if (!text.trim()) { toast.info("Clipboard vazio — copie o texto da notificação primeiro."); return; }
-      const parsed = parseNotifText(text);
-      setClipText(text);
-      setClipParsed(parsed);
-      setClipMode(parsed.isCard ? "card" : "expense");
-      setClipAmtDisp(parsed.amount > 0 ? parsed.amount.toLocaleString("pt-BR",{minimumFractionDigits:2}) : "");
-      setClipAmtVal(parsed.amount);
-      setClipDesc(parsed.merchant);
-      setClipCategory("");
-      setClipDate(new Date().toISOString().split("T")[0]);
-      setClipSettled(false);
-      // Auto-seleciona cartão pelo hint
-      if (parsed.cardHint && cards.length > 0) {
-        const hint = parsed.cardHint.toLowerCase();
-        const match = cards.find(c => c.name.toLowerCase().includes(hint) || c.bank.toLowerCase().includes(hint));
-        if (match) { setClipCardId(match.id); fetchInvoices(match.id); }
-        else setClipCardId(null);
-      } else setClipCardId(null);
-      setOpenClip(true);
+      processClipText(text);
     } catch {
-      toast.error("Permissão negada para ler o clipboard. Tente colar manualmente.");
+      // Falha comum em PWA/iOS (documento "não focado" o suficiente pra API
+      // programática) — abre o fallback de colagem manual em vez de só
+      // avisar que não deu.
+      setClipManualText("");
+      setOpenClipManual(true);
     }
+  }
+
+  function confirmarColagemManual() {
+    if (!clipManualText.trim()) { toast.error("Cola o texto da notificação primeiro."); return; }
+    setOpenClipManual(false);
+    processClipText(clipManualText);
   }
 
   function handleClipAmtChange(raw: string) {
@@ -557,10 +583,14 @@ function DashboardPage() {
         <button onClick={goNextMonth} className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-foreground hover:bg-muted/80"><ChevronRight className="h-5 w-5"/></button>
       </div>
 
-      {/* ── Botão de lançamento por clipboard ── */}
+      {/* ── Botão de lançamento por clipboard ──
+          Só faz sentido em celular: no desktop o usuário não tem uma
+          notificação de app bancário pra copiar, então o botão fica
+          escondido lá (md:hidden) e some do fluxo de quem usa o KyraOne
+          num monitor. */}
       <button
         onClick={handleClipboard}
-        className="flex w-full items-center gap-3 rounded-2xl border border-dashed border-primary/30 bg-primary/5 px-4 py-3 text-left transition-colors hover:bg-primary/10 active:scale-[0.98]"
+        className="flex w-full items-center gap-3 rounded-2xl border border-dashed border-primary/30 bg-primary/5 px-4 py-3 text-left transition-colors hover:bg-primary/10 active:scale-[0.98] md:hidden"
       >
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10">
           <ClipboardPaste className="h-5 w-5 text-primary"/>
@@ -1197,6 +1227,40 @@ function DashboardPage() {
           onClose={closeTxEdit}
         />
       )}
+
+      {/* ══ FALLBACK DE COLAGEM MANUAL ═══════════════════════════════
+          Abre quando navigator.clipboard.readText() falha — comum em PWA
+          instalado no iOS/Android, onde a API programática recusa ler o
+          clipboard mesmo com o texto certinho copiado. O gesto nativo de
+          colar (Ctrl/Cmd+V ou "Colar" do teclado) continua funcionando
+          dentro de uma textarea normal, então usamos isso como alternativa. */}
+      <Dialog open={openClipManual} onOpenChange={setOpenClipManual}>
+        <DialogContent className="max-w-sm" aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle>Cola a notificação aqui</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground -mt-1">
+            Não consegui ler o clipboard automaticamente. Copia o texto da
+            notificação do banco e cola no campo abaixo (toque e segure →
+            Colar).
+          </p>
+          <Textarea
+            value={clipManualText}
+            onChange={(e) => setClipManualText(e.target.value)}
+            placeholder="Ex: Compra aprovada no Nubank - R$ 45,90 em Mercado Bom Preço"
+            rows={4}
+            autoFocus
+          />
+          <DialogFooter className="flex-row justify-end gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={() => setOpenClipManual(false)}>
+              Cancelar
+            </Button>
+            <Button size="sm" onClick={confirmarColagemManual}>
+              Continuar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ══ MODAL DE CLIPBOARD ═══════════════════════════════════════ */}
       {openClip && (

@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Check, Smartphone, CreditCard } from "lucide-react";
+import { Check, Smartphone, CreditCard, ArrowUpCircle, ArrowDownCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
-import { listarPlanos, type PlanoId } from "@/lib/planos";
+import { listarPlanos, buscarPlano, type PlanoId } from "@/lib/planos";
 import { useAssinatura, useRecarregarAssinatura, nomeNivel, diasRestantesTrial } from "@/lib/assinaturas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 import { ExcluirContaDialog } from "@/components/conta/excluir-conta-dialog";
 
@@ -32,11 +33,24 @@ function AssinarPage() {
   const [cpf, setCpf] = useState("");
   const [carregando, setCarregando] = useState(false);
   const [openExcluirConta, setOpenExcluirConta] = useState(false);
+  const [openTrocarPlano, setOpenTrocarPlano] = useState(false);
 
   const jaAssinante = est.status === "ativa";
   const emTrial = est.status === "trial";
   const diasTrial = diasRestantesTrial(est);
   const trialExpirado = emTrial && (diasTrial === null || diasTrial <= 0);
+
+  // Plano "oposto" ao atual — é pra ele que o botão de trocar de plano leva.
+  // Não existe endpoint de upgrade/downgrade com proração no Asaas, então o
+  // fluxo é o "rápido" aprovado pelo usuário: cancela a assinatura atual e
+  // deixa o form de assinar reaparecer já com o outro plano pré-selecionado.
+  const outroPlano = est.plano
+    ? planos.find((p) => p.id !== est.plano) ?? null
+    : null;
+  const ehUpgrade =
+    outroPlano && est.plano
+      ? buscarPlano(outroPlano.id)!.nivel > buscarPlano(est.plano)!.nivel
+      : false;
 
   async function assinar() {
     const cpfLimpo = cpf.replace(/\D/g, "");
@@ -107,6 +121,45 @@ function AssinarPage() {
       }
       await recarregar();
       toast.success("Assinatura cancelada.");
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  // Fluxo rápido de troca de plano: não existe endpoint de upgrade/downgrade
+  // com proração no Asaas (api/asaas/assinar.ts recusa criar assinatura nova
+  // enquanto já existe uma "ativa"), então a troca é cancelar a atual e, na
+  // sequência, deixar o form de assinatura normal reaparecer com o outro
+  // plano pré-selecionado — o usuário confirma e paga de novo, como se fosse
+  // assinante novo. Usuário perde o período já pago, sem prorateio; por isso
+  // o aviso no ConfirmDialog antes de executar.
+  async function trocarPlano() {
+    if (!outroPlano) return;
+    setCarregando(true);
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const resp = await fetch("/api/asaas/cancelar", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+      const dados = await resp.json();
+      if (!resp.ok) {
+        toast.error(dados?.erro ?? "Não consegui trocar de plano agora.");
+        return;
+      }
+
+      await recarregar();
+      setPlanoSelecionado(outroPlano.id);
+      toast.success(
+        `Assinatura atual cancelada. Agora é só confirmar o ${outroPlano.nome} abaixo.`
+      );
     } finally {
       setCarregando(false);
     }
@@ -213,6 +266,33 @@ function AssinarPage() {
           </>
         )}
 
+        {jaAssinante && outroPlano && (
+          <button
+            type="button"
+            onClick={() => setOpenTrocarPlano(true)}
+            disabled={carregando}
+            className="w-full rounded-2xl border bg-white dark:bg-card p-4 text-left transition-colors hover:border-primary disabled:opacity-60"
+          >
+            <div className="flex items-center justify-between">
+              <p className="font-bold text-foreground">{outroPlano.nome}</p>
+              {ehUpgrade ? (
+                <ArrowUpCircle className="h-5 w-5 text-emerald-500" />
+              ) : (
+                <ArrowDownCircle className="h-5 w-5 text-amber-500" />
+              )}
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">{outroPlano.descricao}</p>
+            <p className="mt-2 flex items-center justify-between">
+              <span className="font-bold text-primary">
+                R$ {outroPlano.valor.toFixed(2).replace(".", ",")}/mês
+              </span>
+              <span className="text-xs font-semibold text-primary">
+                {ehUpgrade ? "Fazer upgrade" : "Fazer downgrade"} →
+              </span>
+            </p>
+          </button>
+        )}
+
         {jaAssinante && (
           <Button
             variant="outline"
@@ -226,6 +306,26 @@ function AssinarPage() {
       </div>
 
       <ExcluirContaDialog open={openExcluirConta} onOpenChange={setOpenExcluirConta} />
+
+      {outroPlano && (
+        <ConfirmDialog
+          open={openTrocarPlano}
+          onClose={() => setOpenTrocarPlano(false)}
+          variant="warning"
+          title={`Trocar para o ${outroPlano.nome}?`}
+          confirmLabel="Trocar de plano"
+          onConfirm={trocarPlano}
+          description={
+            <>
+              Isso vai cancelar sua assinatura atual agora — sem prorateio do
+              período já pago — e deixar o formulário de assinatura aberto
+              pra você confirmar o {outroPlano.nome} por R${" "}
+              {outroPlano.valor.toFixed(2).replace(".", ",")}/mês. Você vai
+              precisar informar CPF e forma de pagamento novamente.
+            </>
+          }
+        />
+      )}
     </div>
   );
 }

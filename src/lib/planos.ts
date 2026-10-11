@@ -23,15 +23,15 @@ export const PLANOS: Record<PlanoId, Plano> = {
   kyraone_controle: {
     id: "kyraone_controle",
     nome: "Kyra One Controle",
-    valor: 29.9,
-    valorDesconto: 19.9,
+    valor: 19.9,
+    valorDesconto: 9.9,
     descricao: "Transações, categorias e dashboard — o essencial pra organizar suas finanças.",
     nivel: 1,
   },
   kyraone_pro: {
     id: "kyraone_pro",
     nome: "Kyra One Pro",
-    valor: 49.9,
+    valor: 39.9,
     valorDesconto: 29.9,
     descricao: "Tudo do Controle + Cartões, Faturas e Metas & Orçamentos.",
     nivel: 2,

@@ -14,6 +14,9 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { KYRA_WHATSAPP_CTA_LINK, KYRA_WHATSAPP_NUMBER_DISPLAY } from "@/lib/constants";
+import { buscarPlano } from "@/lib/planos";
+
+const fmtPreco = (v: number) => v.toFixed(2).replace(".", ",");
 
 export const Route = createFileRoute("/")({
   component: LandingPage,
@@ -46,22 +49,23 @@ const STEPS = [
   { n: "3", title: "Acompanha e ajusta", text: "Vê pra onde o dinheiro vai e corrige a rota quando precisar." },
 ];
 
+// Preço vem de src/lib/planos.ts (fonte única de verdade, usada também pelas
+// funções serverless de cobrança) — aqui só ficam nome/descrição/itens, que
+// são conteúdo de marketing e não precisam estar sincronizados com o backend.
 const PLANOS = [
   {
-    nome: "Kyra One Controle",
-    preco: "29,90",
+    id: "kyraone_controle" as const,
     desc: "O essencial pra organizar a vida financeira.",
     destaque: false,
     itens: ["Transações de receitas e despesas", "Categorias personalizadas", "Dashboard com relatórios"],
   },
   {
-    nome: "Kyra One Pro",
-    preco: "49,90",
+    id: "kyraone_pro" as const,
     desc: "Tudo do Controle, liberado por completo.",
     destaque: true,
     itens: ["Tudo do Kyra One Controle", "Cartões e faturas", "Metas e orçamentos"],
   },
-];
+].map(p => ({ ...p, plano: buscarPlano(p.id)! }));
 
 function LandingPage() {
   return (
@@ -339,7 +343,7 @@ function LandingPage() {
             <div className="mx-auto mt-13 grid max-w-[880px] grid-cols-1 gap-6 sm:grid-cols-2">
               {PLANOS.map((p) => (
                 <div
-                  key={p.nome}
+                  key={p.plano.id}
                   className="relative flex flex-col gap-4.5 rounded-[22px] border p-7 transition-transform hover:-translate-y-1"
                   style={{
                     background: p.destaque ? NAVY : "#fff",
@@ -359,7 +363,7 @@ function LandingPage() {
                       style={{ fontFamily: "'Sora', sans-serif", color: p.destaque ? "#FBF7EC" : NAVY }}
                       className="mb-1.5 text-[19px] font-bold"
                     >
-                      {p.nome}
+                      {p.plano.nome}
                     </h3>
                     <p className="text-sm" style={{ color: p.destaque ? "rgba(251,247,236,0.65)" : "#55596A" }}>
                       {p.desc}
@@ -367,7 +371,7 @@ function LandingPage() {
                   </div>
                   <div className="flex items-baseline gap-1.5">
                     <span style={{ fontFamily: "'Sora', sans-serif", color: p.destaque ? "#FBF7EC" : NAVY }} className="text-[34px] font-extrabold">
-                      R$ {p.preco}
+                      R$ {fmtPreco(p.plano.valor)}
                     </span>
                     <span className="text-[13.5px]" style={{ color: p.destaque ? "rgba(251,247,236,0.55)" : "#55596A" }}>
                       /mês
