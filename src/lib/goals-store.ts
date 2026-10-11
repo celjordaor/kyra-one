@@ -1,5 +1,6 @@
 import { useSyncExternalStore, useEffect } from "react";
 import { supabase } from "./supabase";
+import { dispararAlerta } from "./notificacoes-store";
 
 export type Budget = {
   id: string;
@@ -239,6 +240,21 @@ export async function addContribution(c: Omit<GoalContribution, "id">) {
     note: c.note ?? null,
   }]);
   await supabase.from("goals").update({ current: newCurrent }).eq("id", c.goalId);
+
+  // Dispara só no momento em que o depósito faz o total cruzar a meta —
+  // nunca tinha computado "atingida" antes disso, então sem essa checagem o
+  // usuário levaria um push a cada novo depósito depois de já ter batido.
+  if (updatedGoal) {
+    const jaTinhaAtingido = (updatedGoal.current ?? 0) >= updatedGoal.target;
+    const atingiuAgora = newCurrent >= updatedGoal.target;
+    if (!jaTinhaAtingido && atingiuAgora) {
+      dispararAlerta("meta", {
+        titulo: "Meta atingida! 🎉",
+        corpo: `Você bateu a meta "${updatedGoal.name}"!`,
+        url: "/metas",
+      });
+    }
+  }
 }
 
 export async function deleteContribution(id: string) {

@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { supabase } from "./supabase";
 import { addMonths, setDate, isAfter, format, parseISO, startOfDay } from "date-fns";
 import { markOnboardingStep } from "./onboarding-store";
+import { verificarAlertaOrcamento } from "./alertas-orcamento";
 
 export type CardFlag = "Visa" | "Mastercard" | "Elo" | "Amex" | "Hipercard" | "Outro";
 export type InvoiceStatus = "open" | "closed" | "paid";
@@ -292,6 +293,7 @@ export const useCardStore = create<CardStore>((set, get) => ({
       if (data) set(s => ({ expenses: [...s.expenses, ...data] }));
       for (const inv of allInvoices.slice(0, 13)) await get().recalcInvoiceTotal(inv.id);
       markOnboardingStep("despesa");
+      verificarAlertaOrcamento(category, amount);
 
     } else if (installments > 1) {
       // ── Despesa parcelada ───────────────────────────────────────────────
@@ -357,6 +359,9 @@ export const useCardStore = create<CardStore>((set, get) => ({
         }
       }
       markOnboardingStep("despesa");
+      // Só a 1ª parcela (instAmt) afeta a fatura/mês atual — as demais caem
+      // em meses futuros, fora do que o alerta de orçamento olha.
+      verificarAlertaOrcamento(category, instAmt);
 
     } else {
       // ── Despesa avulsa ─────────────────────────────────────────────────
@@ -369,6 +374,7 @@ export const useCardStore = create<CardStore>((set, get) => ({
       if (data) set(s => ({ expenses: [...s.expenses, data] }));
       await get().recalcInvoiceTotal(invoiceId);
       markOnboardingStep("despesa");
+      verificarAlertaOrcamento(category, amount);
     }
   },
 

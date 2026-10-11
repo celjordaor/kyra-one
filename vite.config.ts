@@ -16,6 +16,17 @@ export default defineConfig({
     tsconfigPaths(),
     VitePWA({
       registerType: "autoUpdate",
+      // injectManifest em vez do generateSW padrão: precisamos de um service
+      // worker próprio (src/sw.ts) pra escutar `push`/`notificationclick`
+      // (notificações de alerta de despesa, meta atingida e resumo mensal —
+      // ver api/notificacoes/disparar.ts). O Workbox ainda cuida do
+      // precache/offline de sempre, só que a partir do nosso arquivo.
+      strategies: "injectManifest",
+      srcDir: "src",
+      filename: "sw.ts",
+      injectManifest: {
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+      },
       includeAssets: ["favicon.ico", "icons/*.png"],
       manifest: {
         name: "KyraOne",
@@ -44,20 +55,9 @@ export default defineConfig({
           params: { title: "title", text: "text", url: "url" },
         },
       },
-      workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
-            handler: "NetworkFirst",
-            options: {
-              cacheName: "supabase-api-cache",
-              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 },
-              networkTimeoutSeconds: 5,
-            },
-          },
-        ],
-      },
+      // `workbox.runtimeCaching` (NetworkFirst pra API do Supabase) só vale
+      // pra generateSW — com injectManifest essa rota agora é registrada à
+      // mão dentro de src/sw.ts, com a mesma config de antes.
     }),
   ],
 });

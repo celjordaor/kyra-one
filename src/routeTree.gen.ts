@@ -20,6 +20,7 @@ import { Route as BoasVindasRouteImport } from './routes/boas-vindas'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppTransacoesRouteImport } from './routes/_app.transacoes'
+import { Route as AppResumoMensalRouteImport } from './routes/_app.resumo-mensal'
 import { Route as AppPerfilRouteImport } from './routes/_app.perfil'
 import { Route as AppNovaTransacaoRouteImport } from './routes/_app/nova-transacao'
 import { Route as AppMetasRouteImport } from './routes/_app.metas'
@@ -89,6 +90,11 @@ const IndexRoute = IndexRouteImport.update({
 const AppTransacoesRoute = AppTransacoesRouteImport.update({
   id: '/transacoes',
   path: '/transacoes',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppResumoMensalRoute = AppResumoMensalRouteImport.update({
+  id: '/resumo-mensal',
+  path: '/resumo-mensal',
   getParentRoute: () => AppRoute,
 } as any)
 const AppPerfilRoute = AppPerfilRouteImport.update({
@@ -193,6 +199,7 @@ export interface FileRoutesByFullPath {
   '/metas': typeof AppMetasRoute
   '/nova-transacao': typeof AppNovaTransacaoRoute
   '/perfil': typeof AppPerfilRoute
+  '/resumo-mensal': typeof AppResumoMensalRoute
   '/transacoes': typeof AppTransacoesRoute
   '/cartoes/$cardId': typeof AppCartoesCardIdRouteWithChildren
   '/cartoes/editar-despesa': typeof AppCartoesEditarDespesaRoute
@@ -221,6 +228,7 @@ export interface FileRoutesByTo {
   '/metas': typeof AppMetasRoute
   '/nova-transacao': typeof AppNovaTransacaoRoute
   '/perfil': typeof AppPerfilRoute
+  '/resumo-mensal': typeof AppResumoMensalRoute
   '/transacoes': typeof AppTransacoesRoute
   '/cartoes/$cardId': typeof AppCartoesCardIdRouteWithChildren
   '/cartoes/editar-despesa': typeof AppCartoesEditarDespesaRoute
@@ -251,6 +259,7 @@ export interface FileRoutesById {
   '/_app/metas': typeof AppMetasRoute
   '/_app/nova-transacao': typeof AppNovaTransacaoRoute
   '/_app/perfil': typeof AppPerfilRoute
+  '/_app/resumo-mensal': typeof AppResumoMensalRoute
   '/_app/transacoes': typeof AppTransacoesRoute
   '/_app/cartoes/$cardId': typeof AppCartoesCardIdRouteWithChildren
   '/_app/cartoes/editar-despesa': typeof AppCartoesEditarDespesaRoute
@@ -281,6 +290,7 @@ export interface FileRouteTypes {
     | '/metas'
     | '/nova-transacao'
     | '/perfil'
+    | '/resumo-mensal'
     | '/transacoes'
     | '/cartoes/$cardId'
     | '/cartoes/editar-despesa'
@@ -309,6 +319,7 @@ export interface FileRouteTypes {
     | '/metas'
     | '/nova-transacao'
     | '/perfil'
+    | '/resumo-mensal'
     | '/transacoes'
     | '/cartoes/$cardId'
     | '/cartoes/editar-despesa'
@@ -338,6 +349,7 @@ export interface FileRouteTypes {
     | '/_app/metas'
     | '/_app/nova-transacao'
     | '/_app/perfil'
+    | '/_app/resumo-mensal'
     | '/_app/transacoes'
     | '/_app/cartoes/$cardId'
     | '/_app/cartoes/editar-despesa'
@@ -437,6 +449,13 @@ declare module '@tanstack/react-router' {
       path: '/transacoes'
       fullPath: '/transacoes'
       preLoaderRoute: typeof AppTransacoesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/resumo-mensal': {
+      id: '/_app/resumo-mensal'
+      path: '/resumo-mensal'
+      fullPath: '/resumo-mensal'
+      preLoaderRoute: typeof AppResumoMensalRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/perfil': {
@@ -576,6 +595,7 @@ interface AppRouteChildren {
   AppMetasRoute: typeof AppMetasRoute
   AppNovaTransacaoRoute: typeof AppNovaTransacaoRoute
   AppPerfilRoute: typeof AppPerfilRoute
+  AppResumoMensalRoute: typeof AppResumoMensalRoute
   AppTransacoesRoute: typeof AppTransacoesRoute
   AppCartoesCardIdRoute: typeof AppCartoesCardIdRouteWithChildren
   AppCartoesEditarDespesaRoute: typeof AppCartoesEditarDespesaRoute
@@ -595,6 +615,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppMetasRoute: AppMetasRoute,
   AppNovaTransacaoRoute: AppNovaTransacaoRoute,
   AppPerfilRoute: AppPerfilRoute,
+  AppResumoMensalRoute: AppResumoMensalRoute,
   AppTransacoesRoute: AppTransacoesRoute,
   AppCartoesCardIdRoute: AppCartoesCardIdRouteWithChildren,
   AppCartoesEditarDespesaRoute: AppCartoesEditarDespesaRoute,

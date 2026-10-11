@@ -1,6 +1,7 @@
 import { useSyncExternalStore, useEffect } from "react";
 import { supabase } from "./supabase";
 import { markOnboardingStep } from "./onboarding-store";
+import { verificarAlertaOrcamento } from "./alertas-orcamento";
 
 export type TransactionType = "income" | "expense";
 
@@ -201,6 +202,7 @@ export async function addTransaction(t: Omit<Transaction, "id">) {
     notify();
   } else {
     markOnboardingStep("despesa");
+    if (t.type === "expense") verificarAlertaOrcamento(t.category, t.amount);
   }
 }
 
@@ -237,6 +239,9 @@ export async function addTransactions(items: Omit<Transaction, "id">[]) {
     notify();
   } else {
     markOnboardingStep("despesa");
+    for (const t of items) {
+      if (t.type === "expense") verificarAlertaOrcamento(t.category, t.amount);
+    }
   }
 }
 
