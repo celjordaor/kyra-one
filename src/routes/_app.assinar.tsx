@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 import { ExcluirContaDialog } from "@/components/conta/excluir-conta-dialog";
+import { CancelarAssinaturaDialog } from "@/components/conta/cancelar-assinatura-dialog";
 
 export const Route = createFileRoute("/_app/assinar")({
   component: AssinarPage,
@@ -34,6 +35,7 @@ function AssinarPage() {
   const [carregando, setCarregando] = useState(false);
   const [openExcluirConta, setOpenExcluirConta] = useState(false);
   const [openTrocarPlano, setOpenTrocarPlano] = useState(false);
+  const [openCancelar, setOpenCancelar] = useState(false);
 
   const jaAssinante = est.status === "ativa";
   const emTrial = est.status === "trial";
@@ -298,7 +300,7 @@ function AssinarPage() {
             variant="outline"
             className="w-full text-red-500 border-red-200"
             disabled={carregando}
-            onClick={cancelar}
+            onClick={() => setOpenCancelar(true)}
           >
             Cancelar assinatura
           </Button>
@@ -306,6 +308,12 @@ function AssinarPage() {
       </div>
 
       <ExcluirContaDialog open={openExcluirConta} onOpenChange={setOpenExcluirConta} />
+
+      <CancelarAssinaturaDialog
+        open={openCancelar}
+        onOpenChange={setOpenCancelar}
+        onConfirmarCancelamento={cancelar}
+      />
 
       {outroPlano && (
         <ConfirmDialog
