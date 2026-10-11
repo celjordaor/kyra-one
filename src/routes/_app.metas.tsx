@@ -12,6 +12,8 @@ import {
   Receipt,
   CreditCard,
   Wallet,
+  Layers,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,7 +44,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCategories } from "@/lib/categories-store";
-import { useTransactions, parseBrDate } from "@/lib/transactions-store";
+import { useTransactions, parseBrDate, isInstallmentTransaction } from "@/lib/transactions-store";
 import { supabase } from "@/lib/supabase";
 import {
   useBudgets,
@@ -168,7 +170,10 @@ type BudgetDetailItem = {
   dateLabel: string;
   /** usado só pra ordenar por data (mais recente primeiro) */
   sortKey: string;
-  source: "manual" | "cartao";
+  origem: "manual" | "cartao";
+  tipo: "avulsa" | "parcelada" | "recorrente";
+  /** só preenchido pra lançamento avulso parcelado (card já embute "x/y" na própria description) */
+  parcela?: string;
 };
 
 function BudgetsSection() {
@@ -195,9 +200,20 @@ function BudgetsSection() {
   // pertence à fatura cuja `competence` é o mês/ano atual (mesmo conceito já
   // usado nas telas de fatura/cartão) — é essa fatura que realmente pesa no
   // orçamento deste mês, não a data em que a compra foi feita.
-  // `id`/`description` só são usados pelo detalhamento por item (BudgetDetailDialog).
+  // `id`/`description`/`expense_type` só são usados pelo detalhamento por item
+  // (BudgetDetailDialog) — os totais usam só category/amount. `card_installments`
+  // não tem coluna `expense_type` própria (só existe em card_expenses); toda
+  // linha dessa tabela é, por definição, parcela 2..N de uma compra parcelada,
+  // então marcamos "installment" nela mesma depois de buscar.
   const [cardExpenses, setCardExpenses] = useState<
-    { id: string; description: string; category: string; amount: number; purchase_date: string }[]
+    {
+      id: string;
+      description: string;
+      category: string;
+      amount: number;
+      purchase_date: string;
+      expense_type: "single" | "installment" | "recurring";
+    }[]
   >([]);
 
   useEffect(() => {
@@ -218,14 +234,17 @@ function BudgetsSection() {
       const [expRes, instRes] = await Promise.all([
         supabase
           .from("card_expenses")
-          .select("id, description, category, amount, purchase_date")
+          .select("id, description, category, amount, purchase_date, expense_type")
           .in("invoice_id", invoiceIds),
         supabase
           .from("card_installments")
           .select("id, description, category, amount, purchase_date")
           .in("invoice_id", invoiceIds),
       ]);
-      setCardExpenses([...(expRes.data ?? []), ...(instRes.data ?? [])]);
+      setCardExpenses([
+        ...(expRes.data ?? []),
+        ...(instRes.data ?? []).map((i) => ({ ...i, expense_type: "installment" as const })),
+      ]);
     }
     carregar().catch(() => {});
   }, []);
@@ -295,7 +314,12 @@ function BudgetsSection() {
         amount: Math.abs(t.amount),
         dateLabel: t.date,
         sortKey: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
-        source: "manual",
+        origem: "manual",
+        tipo: isInstallmentTransaction(t) ? "parcelada" : t.recurring ? "recorrente" : "avulsa",
+        parcela:
+          isInstallmentTransaction(t) && t.installment_number && t.installments_total
+            ? `${t.installment_number}/${t.installments_total}`
+            : undefined,
       });
     });
 
@@ -308,7 +332,14 @@ function BudgetsSection() {
         amount: Math.abs(e.amount),
         dateLabel: `${dd}/${mm}/${yyyy}`,
         sortKey: e.purchase_date,
-        source: "cartao",
+        origem: "cartao",
+        tipo:
+          e.expense_type === "installment"
+            ? "parcelada"
+            : e.expense_type === "recurring"
+              ? "recorrente"
+              : "avulsa",
+        // card já embute "x/y" na própria description (ver card-store.ts) — sem parcela aqui.
       });
     });
 
@@ -466,6 +497,37 @@ function BudgetsSection() {
 // dentro de um Dialog "plain", já comprovado responsivo em mobile/desktop
 // neste mesmo arquivo), só que com ícone por fonte (cartão vs. lançamento
 // avulso) em vez de um ícone fixo.
+// Ícone + rótulo por origem/tipo de item do detalhamento — pedido do
+// fundador após ver o modal em produção: "Lançamento" aparecia sempre igual
+// em toda linha (não dava pra saber se era cartão, recorrente ou avulso).
+// O ícone já comunica o tipo (recorrente/parcelada/cartão avulso/lançamento
+// avulso); o texto reforça com a origem por extenso.
+function origemBadge(item: BudgetDetailItem) {
+  if (item.tipo === "recorrente") {
+    return {
+      Icon: RotateCcw,
+      label: item.origem === "cartao" ? "Cartão · recorrente" : "Lançamento · recorrente",
+      bg: "bg-purple-500/10",
+      color: "text-purple-600",
+    };
+  }
+  if (item.tipo === "parcelada") {
+    return {
+      Icon: Layers,
+      label:
+        item.origem === "cartao"
+          ? "Cartão · parcelada"
+          : `Lançamento · parcela ${item.parcela ?? ""}`.trim(),
+      bg: "bg-blue-500/10",
+      color: "text-blue-600",
+    };
+  }
+  if (item.origem === "cartao") {
+    return { Icon: CreditCard, label: "Cartão", bg: "bg-indigo-500/10", color: "text-indigo-600" };
+  }
+  return { Icon: Wallet, label: "Lançamento", bg: "bg-secondary", color: "text-muted-foreground" };
+}
+
 function BudgetDetailDialog({
   open,
   onOpenChange,
@@ -497,35 +559,32 @@ function BudgetDetailDialog({
           </div>
         ) : (
           <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
-            {items.map((item) => (
-              <div
-                key={`${item.source}-${item.id}`}
-                className="flex items-center justify-between gap-2 rounded-lg border bg-card px-3 py-2"
-              >
-                <div className="flex min-w-0 items-center gap-2">
-                  <div
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-                      item.source === "cartao" ? "bg-indigo-500/10" : "bg-secondary"
-                    }`}
-                  >
-                    {item.source === "cartao" ? (
-                      <CreditCard className="h-4 w-4 text-indigo-600" />
-                    ) : (
-                      <Wallet className="h-4 w-4 text-muted-foreground" />
-                    )}
+            {items.map((item) => {
+              const badge = origemBadge(item);
+              return (
+                <div
+                  key={`${item.origem}-${item.id}`}
+                  className="flex items-center justify-between gap-2 rounded-lg border bg-card px-3 py-2"
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <div
+                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${badge.bg}`}
+                    >
+                      <badge.Icon className={`h-4 w-4 ${badge.color}`} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-medium text-foreground">{item.title}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {item.dateLabel} · {badge.label}
+                      </p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-xs font-medium text-foreground">{item.title}</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {item.dateLabel} · {item.source === "cartao" ? "Cartão" : "Lançamento"}
-                    </p>
-                  </div>
+                  <p className="shrink-0 text-sm font-semibold text-foreground">
+                    {formatBRL(item.amount)}
+                  </p>
                 </div>
-                <p className="shrink-0 text-sm font-semibold text-foreground">
-                  {formatBRL(item.amount)}
-                </p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
