@@ -198,7 +198,7 @@ function DashboardPage() {
   async function handleClipboard() {
     try {
       const text = await navigator.clipboard.readText();
-      if (!text.trim()) { toast.info("Clipboard vazio — copie o texto da notificação primeiro."); return; }
+      if (!text.trim()) { toast.info("Clipboard vazio — copie o texto da transação no app do banco primeiro."); return; }
       processClipText(text);
     } catch {
       // Falha comum em PWA/iOS (documento "não focado" o suficiente pra API
@@ -582,7 +582,15 @@ function DashboardPage() {
           Só faz sentido em celular: no desktop o usuário não tem uma
           notificação de app bancário pra copiar, então o botão fica
           escondido lá (md:hidden) e some do fluxo de quem usa o KyraOne
-          num monitor. */}
+          num monitor.
+          IMPORTANTE (21/out/2026, relatado pelo fundador): a maioria dos
+          Android/iOS NÃO deixa copiar texto direto da notificação na central
+          de notificações (ela normalmente não é selecionável) — então o
+          texto antigo ("copie a notificação do banco") instruía uma ação
+          que na prática não dá pra fazer na maioria dos aparelhos. O caminho
+          real é abrir o app do banco, copiar o texto da transação de lá
+          (a maioria permite copiar o extrato/comprovante), e então voltar
+          pro KyraOne. Texto ajustado pra refletir isso. */}
       <button
         onClick={handleClipboard}
         className="flex w-full items-center gap-3 rounded-2xl border border-dashed border-primary/30 bg-primary/5 px-4 py-3 text-left transition-colors hover:bg-primary/10 active:scale-[0.98] md:hidden"
@@ -592,7 +600,7 @@ function DashboardPage() {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-primary">Lançar do clipboard</p>
-          <p className="text-xs text-muted-foreground">Copie a notificação do banco e toque aqui</p>
+          <p className="text-xs text-muted-foreground">Copie o texto da transação no app do banco e toque aqui</p>
         </div>
         <span className="text-[10px] font-bold text-primary/60 uppercase tracking-wide">Novo</span>
       </button>
@@ -1235,9 +1243,11 @@ function DashboardPage() {
             <DialogTitle>Cola a notificação aqui</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground -mt-1">
-            Não consegui ler o clipboard automaticamente. Copia o texto da
-            notificação do banco e cola no campo abaixo (toque e segure →
-            Colar).
+            Não consegui ler o clipboard automaticamente. Abre o app do seu
+            banco, copia o texto da transação (extrato ou comprovante) e cola
+            no campo abaixo (toque e segure → Colar). A maioria dos celulares
+            não deixa copiar direto da notificação — por isso o caminho é
+            pelo app do banco mesmo.
           </p>
           <Textarea
             value={clipManualText}
