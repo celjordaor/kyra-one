@@ -10,6 +10,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ScopeBottomSheet } from "@/components/scope-bottom-sheet";
 import { TransactionEditDialog } from "@/components/transacoes/transaction-edit-dialog";
 import { OnboardingChecklist } from "@/components/onboarding/onboarding-checklist";
+import { useNotifPrefs } from "@/lib/notificacoes-store";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
@@ -105,13 +106,6 @@ function relativeLabel(date: Date): string {
   return d.toLocaleDateString("pt-BR");
 }
 
-type Notifs = { expenseAlerts:boolean; monthlySummary:boolean; goalsReached:boolean; billReminders:boolean };
-const DEFAULT_NOTIFS: Notifs = { expenseAlerts:true, monthlySummary:true, goalsReached:true, billReminders:false };
-function loadNotifs(): Notifs {
-  if (typeof window==="undefined") return DEFAULT_NOTIFS;
-  try { const raw=localStorage.getItem("fp:notifs"); return raw?{...DEFAULT_NOTIFS,...(JSON.parse(raw) as Notifs)}:DEFAULT_NOTIFS; }
-  catch { return DEFAULT_NOTIFS; }
-}
 function getGreeting() {
   const h=new Date().getHours();
   if(h<12)return "Bom dia"; if(h<18)return "Boa tarde"; return "Boa noite";
@@ -267,7 +261,15 @@ function DashboardPage() {
     finally { setClipSaving(false); }
   }
   const [showValues,setShowValues]=useState(true);
-  const [billReminders,setBillReminders]=useState(DEFAULT_NOTIFS.billReminders);
+  // Fonte real da preferência "Lembretes de contas" (controla só este KPI,
+  // sem disparo de push — ver notificacoes-store.ts). ANTES este estado lia
+  // de localStorage ("fp:notifs"), um mecanismo legado que foi migrado pro
+  // Supabase na v1.23 (toggle em /mais já grava em profiles.notif_bill_reminders
+  // há dias) — só esta tela tinha ficado presa no `fp:notifs` antigo, que
+  // nunca mais era escrito, então o card de pendências nunca refletia o
+  // toggle real. `useNotifPrefs()` é o mesmo hook Supabase-backed que /mais
+  // usa pra ler/gravar as 4 preferências.
+  const billReminders=useNotifPrefs().billReminders;
   const [showRecent,setShowRecent]=useState(false); // "Últimas movimentações" — colapsada por padrão
   const allCategories=useCategories();
   const categoryIconMap=useMemo(()=>Object.fromEntries(allCategories.map(c=>[c.name,c.icon??"📦"])),[allCategories]);
@@ -338,13 +340,6 @@ function DashboardPage() {
       setSavingBalance(false);
     }
   };
-
-  useEffect(()=>{
-    const notifs=loadNotifs();setBillReminders(notifs.billReminders);
-    const onStorage=(e:StorageEvent)=>{if(e.key==="fp:notifs")setBillReminders(loadNotifs().billReminders);};
-    window.addEventListener("storage",onStorage);
-    return ()=>window.removeEventListener("storage",onStorage);
-  },[]);
 
   const hidden=(v:number)=>showValues?fmtCurrency(v):"••••";
   const hiddenSign=(v:number,sign:string)=>showValues?`${sign}${fmtCurrency(v)}`:"••••";
